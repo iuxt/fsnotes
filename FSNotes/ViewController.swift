@@ -41,8 +41,6 @@ class ViewController: EditorViewController,
     public static var gitQueueBusy: Bool = false
     public static var gitQueueOperationDate: Date?
 
-    public var prevCommit: Commit?
-
     /* Git */
     private var updateViews = [Note]()
 

@@ -50,6 +50,7 @@ public class Tree {
         
         // Entry
         let treeEntry = UnsafeMutablePointer<OpaquePointer?>.allocate(capacity: 1)
+        treeEntry.initialize(to: nil)
         
         // Find tree entry
         let error = git_tree_entry_bypath(treeEntry, tree.pointee, byPath)
@@ -57,8 +58,12 @@ public class Tree {
         case 0:
             return TreeEntry(pointer: treeEntry)
         case GIT_ENOTFOUND.rawValue:
+            treeEntry.deinitialize(count: 1)
+            treeEntry.deallocate()
             return nil
         default:
+            treeEntry.deinitialize(count: 1)
+            treeEntry.deallocate()
             throw GitError.unknownError(msg: "", code: error, desc: git_error_message())
         }
         

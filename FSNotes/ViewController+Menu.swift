@@ -199,7 +199,7 @@ extension ViewController {
         case "\(menuId).history":
             menuItem.title = NSLocalizedString("History", comment: "File Menu")
             if let note = notes?.first {
-                return isOne && (isFirstResponder || isOpenedWindow || isFirstEditor) && note.project.hasCommitsDiffsCache()
+                return isOne && (isFirstResponder || isOpenedWindow || isFirstEditor) && note.hasGitRepository() && !note.isEncrypted()
             }
             
         case "\(menuId).print":
@@ -375,29 +375,11 @@ extension ViewController {
         let historyMenu = noteMenu.item(withTitle: title)
         historyMenu?.submenu?.removeAllItems()
         historyMenu?.isEnabled = false
-        historyMenu?.isHidden = !note.project.hasCommitsDiffsCache()
+        historyMenu?.isHidden = !note.hasGitRepository() || note.isEncrypted()
 
-        guard notes.count == 0x01 else { return }
-
-        DispatchQueue.global().async {
-            let commits = note.getCommits()
-
-            DispatchQueue.main.async {
-                guard commits.count > 0 else {
-                    historyMenu?.isEnabled = false
-                    return
-                }
-                
-                for commit in commits {
-                    let menuItem = NSMenuItem()
-                    menuItem.title = commit.getDate()
-                    menuItem.representedObject = commit
-                    menuItem.action = #selector(vc.checkoutRevision(_:))
-                    historyMenu?.submenu?.addItem(menuItem)
-                }
-                
-                historyMenu?.isEnabled = true
-            }
-        }
+        guard notes.count == 1, note.hasGitRepository(), !note.isEncrypted(),
+              let submenu = historyMenu?.submenu else { return }
+        vc.loadGitHistoryMenu(for: note, into: submenu)
+        historyMenu?.isEnabled = true
     }
 }

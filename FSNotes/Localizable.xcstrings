@@ -1,6 +1,96 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Restore from Commit…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从指定 Commit 恢复…"
+          }
+        }
+      }
+    },
+    "Full or abbreviated commit ID" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完整或缩写的 Commit ID"
+          }
+        }
+      }
+    },
+    "Continue" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续"
+          }
+        }
+      }
+    },
+    "Restore “%@”?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复“%@”？"
+          }
+        }
+      }
+    },
+    "This replaces the current file contents. Other files and staged changes are preserved." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这将覆盖当前文件内容。其他文件和已暂存的更改会保留。"
+          }
+        }
+      }
+    },
+    "Restore" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复"
+          }
+        }
+      }
+    },
+    "Loading history…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在加载历史记录…"
+          }
+        }
+      }
+    },
+    "No saved revisions" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无已保存的版本"
+          }
+        }
+      }
+    },
+    "Unable to load history" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法加载历史记录"
+          }
+        }
+      }
+    },
     "Add" : {
       "localizations" : {
         "ar-IQ" : {

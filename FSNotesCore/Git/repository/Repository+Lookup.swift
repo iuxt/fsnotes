@@ -47,6 +47,69 @@ internal func gitReferenceLookup(repository: UnsafeMutablePointer<OpaquePointer?
 // MARK: - Repository extension for lookup
 extension Repository {
 
+    /// Resolve a full or abbreviated commit ID. References and tree IDs are rejected.
+    public func commitLookup(sha: String) throws -> Commit {
+        let sha = sha.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (4...40).contains(sha.count),
+              sha.unicodeScalars.allSatisfy({ CharacterSet(charactersIn: "0123456789abcdefABCDEF").contains($0) }) else {
+            throw GitError.invalidSHA(sha: sha)
+        }
+
+        var object: OpaquePointer?
+        let result = git_revparse_single(&object, pointer.pointee, sha)
+        guard result == 0, let object = object else {
+            throw gitUnknownError("Unable to resolve commit \(sha)", code: result)
+        }
+        defer { git_object_free(object) }
+        guard git_object_type(object) == GIT_OBJECT_COMMIT,
+              let oid = git_object_id(object) else {
+            throw GitError.invalidSHA(sha: sha)
+        }
+        return try commitLookup(oid: OID(withGitOid: oid.pointee))
+    }
+
+    /// Read history directly from Git, without relying on the on-disk diff cache.
+    public func fileHistory(path: String) throws -> [Commit] {
+        let unborn = git_repository_head_unborn(pointer.pointee)
+        if unborn == 1 { return [] }
+        guard unborn == 0 else { throw gitUnknownError("Unable to read HEAD", code: unborn) }
+        var walker: OpaquePointer?
+        var result = git_revwalk_new(&walker, pointer.pointee)
+        guard result == 0 else { throw gitUnknownError("Unable to read history", code: result) }
+        defer { git_revwalk_free(walker) }
+        git_revwalk_sorting(walker, GIT_SORT_TOPOLOGICAL.rawValue | GIT_SORT_TIME.rawValue)
+        result = git_revwalk_push_head(walker)
+        if result == GIT_EUNBORNBRANCH.rawValue || result == GIT_ENOTFOUND.rawValue { return [] }
+        guard result == 0 else { throw gitUnknownError("Unable to read HEAD", code: result) }
+
+        var commits = [Commit]()
+        var oid = git_oid()
+        while true {
+            result = git_revwalk_next(&oid, walker)
+            if result == GIT_ITEROVER.rawValue { break }
+            guard result == 0 else { throw gitUnknownError("Unable to read history", code: result) }
+            let commit = try commitLookup(oid: OID(withGitOid: oid))
+            let tree = try commit.tree()
+            // Deleted files have no content to restore at this commit.
+            guard let entry = try tree.entry(byPath: path) else { continue }
+            if git_commit_parentcount(commit.pointer.pointee) == 0 {
+                commits.append(commit)
+                continue
+            }
+            guard let parentID = git_commit_parent_id(commit.pointer.pointee, 0) else { continue }
+            let parent = try commitLookup(oid: OID(withGitOid: parentID.pointee))
+            let parentTree = try parent.tree()
+            let parentEntry = try parentTree.entry(byPath: path)
+            if let parentEntry = parentEntry,
+               git_oid_equal(git_tree_entry_id(entry.pointer.pointee), git_tree_entry_id(parentEntry.pointer.pointee)) == 1,
+               git_tree_entry_filemode(entry.pointer.pointee) == git_tree_entry_filemode(parentEntry.pointer.pointee) {
+                continue
+            }
+            commits.append(commit)
+        }
+        return commits
+    }
+
     /// Lookup reference
     ///
     /// - parameter name: Refrence name

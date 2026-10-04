@@ -135,19 +135,33 @@ public class Repository {
     }
     
     public func checkout(commit: Commit, path: String) throws {
-        var dirPointer = UnsafeMutablePointer<Int8>(mutating: (path as NSString).utf8String)
-        let paths = withUnsafeMutablePointer(to: &dirPointer) {
-            git_strarray(strings: $0, count: 1)
+        guard !path.isEmpty, !path.hasPrefix("/"), !path.split(separator: "/").contains("..") else {
+            throw GitError.invalidSpec(spec: path)
         }
-        
-        var opts = git_checkout_options()
-        opts.version = 1
-        opts.paths = paths
-        opts.checkout_strategy = GIT_CHECKOUT_FORCE.rawValue
-        
-        // Checkout new tree
-        let error = git_checkout_tree(self.pointer.pointee, commit.pointer.pointee, &opts);
-        if (error != 0) {
+        let tree = try commit.tree()
+        guard let entry = try tree.entry(byPath: path) else {
+            throw GitError.notFound(ref: path)
+        }
+        guard git_tree_entry_type(entry.pointer.pointee) == GIT_OBJECT_BLOB,
+              git_tree_entry_filemode(entry.pointer.pointee) != GIT_FILEMODE_LINK else {
+            throw GitError.invalidSpec(spec: path)
+        }
+
+        // Keep the C strings and array alive throughout checkout. Treat the path
+        // literally (including brackets and '*') and leave HEAD and the index intact.
+        let error = path.withCString { pathPointer -> Int32 in
+            var mutablePath: UnsafeMutablePointer<CChar>? = UnsafeMutablePointer(mutating: pathPointer)
+            return withUnsafeMutablePointer(to: &mutablePath) { strings in
+                var opts = git_checkout_options()
+                opts.version = 1
+                opts.paths = git_strarray(strings: strings, count: 1)
+                opts.checkout_strategy = GIT_CHECKOUT_FORCE.rawValue
+                    | GIT_CHECKOUT_DISABLE_PATHSPEC_MATCH.rawValue
+                    | GIT_CHECKOUT_DONT_UPDATE_INDEX.rawValue
+                return git_checkout_tree(self.pointer.pointee, tree.tree.pointee, &opts)
+            }
+        }
+        if error != 0 {
             throw gitUnknownError("Unable to checkout commit path", code: error)
         }
     }

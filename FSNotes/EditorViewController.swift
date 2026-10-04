@@ -706,24 +706,11 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
     @IBAction func historyMenu(_ sender: Any) {
         guard let cvc = NSApplication.shared.keyWindow?.contentViewController,
               let vc = ViewController.shared(),
-              let note = getSelectedNotes()?.first else { return }
+              let note = getSelectedNotes()?.first, note.hasGitRepository(), !note.isEncrypted() else { return }
 
         let moveMenu = NSMenu()
         moveMenu.identifier = NSUserInterfaceItemIdentifier("fileMenu.history")
-        let commits = note.getCommits()
-
-        // Port
-        if commits.count == 0 {
-            return
-        }
-
-        for commit in commits {
-            let menuItem = NSMenuItem()
-            menuItem.title = commit.getDate()
-            menuItem.representedObject = commit
-            menuItem.action = #selector(vc.checkoutRevision(_:))
-            moveMenu.addItem(menuItem)
-        }
+        loadGitHistoryMenu(for: note, into: moveMenu)
 
         let general = moveMenu.item(at: 0)
 
@@ -1400,8 +1387,6 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
         guard let editor = vcEditor,
               let note = editor.note,
               let vc = ViewController.shared() else { return }
-
-        vc.prevCommit = nil
 
         if editor.isEditable {
             note.isBlocked = true

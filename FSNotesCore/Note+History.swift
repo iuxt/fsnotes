@@ -22,27 +22,16 @@ extension Note {
             path += "/" + contentURL.lastPathComponent
         }
 
-        return path.recode4byteString()
+        return path
     }
 
     public func getGitPathPrefix() -> String? {
         guard let project = getGitProject() else { return nil }
-
-        let relative = url.path.replacingOccurrences(of: project.url.path, with: "")
-
-        if !UserDefaultsManagement.iCloudDrive && relative.startsWith(string: "/private/") {
-            return relative.replacingOccurrences(of: "/private/", with: "")
-        }
-
-        if relative.first == "/" {
-            return String(relative.dropFirst())
-        }
-
-        if relative == "" {
-            return nil
-        }
-
-        return relative
+        let root = project.url.standardizedFileURL.resolvingSymlinksInPath().path
+        let file = url.standardizedFileURL.resolvingSymlinksInPath().path
+        let prefix = root.hasSuffix("/") ? root : root + "/"
+        guard file.hasPrefix(prefix) else { return nil }
+        return String(file.dropFirst(prefix.count))
     }
 
     public func hasGitRepository() -> Bool {
@@ -129,45 +118,31 @@ extension Note {
     }
 
     public func getCommits() -> [Commit] {
-        var commits = [Commit]()
-
         do {
-            guard let project = getGitProject(), project.hasCommitsDiffsCache() else { return commits }
-
-            let repository = try project.getRepository()
-            let path = getGitPath(history: true)
-
-            do {
-                let fileRevLog = try FileHistoryIterator(repository: repository, path: path, project: project)
-                let oids = fileRevLog.walk()
-
-                for oid in oids {
-                    if let commit = try? repository.commitLookup(oid: oid) {
-                        commits.append(commit)
-                    }
-                }
-
-                if fileRevLog.checkFirstCommit() {
-                    if let oid = fileRevLog.getLast(), let commit = try? repository.commitLookup(oid: oid) {
-                        commits.append(commit)
-                    }
-                }
-            } catch {/*_*/}
-
-            return commits
+            return try gitHistory()
         } catch {
             print(error)
         }
+        return []
+    }
 
-        return commits
+    public func gitHistory() throws -> [Commit] {
+        guard let project = getGitProject() else { return [] }
+        return try project.getRepository().fileHistory(path: getGitPath(history: true))
+    }
+
+    public func restoreGitCommit(_ commit: Commit) throws {
+        guard let project = getGitProject(), getGitPathPrefix() != nil else {
+            throw GitError.notFound(ref: name)
+        }
+        let repository = try project.getRepository()
+        let commit = try repository.commitLookup(oid: commit.oid)
+        try repository.checkout(commit: commit, path: getGitPath(history: true))
     }
 
     public func checkout(commit: Commit) {
         do {
-            guard let repository = try getGitProject()?.getRepository() else { return }
-            let commit = try repository.commitLookup(oid: commit.oid)
-            try repository.checkout(commit: commit, path: getGitPath())
-            print("Successful checkout")
+            try restoreGitCommit(commit)
         } catch {
             print(error)
         }
