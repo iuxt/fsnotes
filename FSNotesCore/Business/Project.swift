@@ -36,9 +36,6 @@ public class Project: NSObject {
 
     public var child = [Project]()
     public var isExpanded = false
-    
-    public var isEncrypted = false
-    public var password: String?
 
     public var settingsKey = String()
     public var commitsCache = [String: [String]]()
@@ -80,11 +77,11 @@ public class Project: NSObject {
         if let settings = getSettings() {
             self.settings = settings
         }
-                
+
         if isTrash {
             settings.showInCommon = false
         }
-        
+
         // Backward compatibility
         if settings.gitOrigin == nil, self.isDefault, let origin = UserDefaultsManagement.gitOrigin {
             settings.setOrigin(origin)
@@ -103,13 +100,13 @@ public class Project: NSObject {
     public func getLongSettingsKey() -> String {
         return "es.fsnot.project-settings\(settingsKey)"
     }
-    
+
     public func saveSettings() {
         do {
             NSKeyedArchiver.setClassName("ProjectSettings", for: ProjectSettings.self)
             let data = try NSKeyedArchiver.archivedData(withRootObject: settings, requiringSecureCoding: true)
             let key = getLongSettingsKey()
-            
+
             #if CLOUD_RELATED_BLOCK
             let keyStore = NSUbiquitousKeyValueStore.default
                 keyStore.set(data, forKey: key)
@@ -124,11 +121,11 @@ public class Project: NSObject {
             print("Settings arc error: \(error.localizedDescription)")
         }
     }
-        
+
     public func getSettings() -> ProjectSettings? {
         let key = getLongSettingsKey()
         var data: Data?
-                
+
         #if CLOUD_RELATED_BLOCK
         let keyStore = NSUbiquitousKeyValueStore.default
             data = keyStore.data(forKey: key)
@@ -138,15 +135,15 @@ public class Project: NSObject {
                 data = try? Data(contentsOf: url)
             }
         #endif
-        
+
         NSKeyedUnarchiver.setClass(ProjectSettings.self, forClassName: "ProjectSettings")
         if let data = data, let settings = try? NSKeyedUnarchiver.unarchivedObject(ofClass: ProjectSettings.self, from: data) {
             return settings
         }
-        
+
         return nil
     }
-    
+
     public func reloadSettings() {
         if let settings = getSettings() {
             self.settings = settings
@@ -157,20 +154,20 @@ public class Project: NSObject {
 
     public func getSettingsKey() -> String {
         var prefix = String()
-        
+
         // iCloud Documents
         if let path = getCloudDriveRelativePath() {
             prefix = "i\(path)"
-            
+
         // Local documents
         } else if let path = getLocalDocumentsRelativePath() {
             prefix = "l\(path)"
-            
+
         // External
         } else {
             prefix = "e\(url.path)"
         }
-                
+
         return prefix.md5
     }
 
@@ -190,9 +187,7 @@ public class Project: NSObject {
         if let name = localizedName as? String, name.count > 0 {
             self.label = name
         }
-        
-        isEncrypted = getEncryptionStatus()
-        
+
         if settings.sortBy == .none, self.label == "Welcome" {
             settings.sortBy = .title
             settings.sortDirection = .asc
@@ -214,17 +209,11 @@ public class Project: NSObject {
 
         var notes = storage.noteList.filter({ $0.project == self })
 
-        for note in notes {
-            if note.isEncrypted() {
-                _ = note.lock()
-            }
-        }
-        
         // Deduplicate
         let deduplicatedNotes = notes.reduce(into: [String: Note]()) { result, object in
             result[object.url.path] = object
         }.values
-        
+
         notes = Array(deduplicatedNotes)
 
         let meta = notes.filter({ $0.isValidForCaching() }).map({ $0.getMeta() })
@@ -273,7 +262,7 @@ public class Project: NSObject {
     public func fetchNotes() -> [Note] {
         var notes = [Note]()
         if metadataStore != nil { return metadataNotes() }
-        if isTrash { notes.append(contentsOf: metadataNotes()) }
+        if isTrash { return metadataNotes() }
         let documents = fetchAllDocuments(at: url)
 
         for document in documents {
@@ -286,10 +275,6 @@ public class Project: NSObject {
             }
 
             let note = Note(url: url, with: self, modified: modified, created: created)
-
-            if note.isTextBundle() && !note.isFullLoadedTextBundle() {
-                continue
-            }
 
             notes.append(note)
         }
@@ -317,14 +302,14 @@ public class Project: NSObject {
             }
 
             print("From cache: \(notes.count)")
-            
+
             isNeededCacheValidation = true
         } else if !cacheOnly {
             notes = fetchNotes()
-            
+
             print("From disk: \(notes.count), lbl: \(label)")
         }
-        
+
         storage.loadPins(notes: notes)
 
         for note in notes {
@@ -359,17 +344,7 @@ public class Project: NSObject {
             )
         }
 
-        return results.map {
-            if $0.0.pathExtension == "textbundle" {
-                return (
-                    URL(fileURLWithPath: $0.0.path, isDirectory: false),
-                    $0.1,
-                    $0.2
-                )
-            }
-
-            return $0
-        }
+        return results
     }
 
     func fileExist(fileName: String, ext: String) -> Bool {        
@@ -400,71 +375,71 @@ public class Project: NSObject {
                 .appendingPathComponent("Documents", isDirectory: true)
                 .standardized
         {
-            
+
             if FileManager.default.fileExists(atPath: iCloudDocumentsURL.path, isDirectory: nil), url.path.contains(iCloudDocumentsURL.path) {
                 return true
             }
         }
-        
+
         return false
     }
-   
+
     private func getCloudDriveRelativePath() -> String? {
         if let iCloudDir =
             FileManager.default.url(forUbiquityContainerIdentifier: nil)?
                 .appendingPathComponent("Documents", isDirectory: true)
                 .standardized,
-           
+
             url.path.contains(iCloudDir.path) {
-            
+
             return url.path.replacingOccurrences(of: iCloudDir.path, with: "")
         }
-        
+
         return nil
     }
-    
+
     private func getLocalDocumentsRelativePath() -> String? {
         if let documentDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first,
             url.path.contains(documentDir.path) {
-            
+
             return url.path.replacingOccurrences(of: documentDir.path, with: "")
         }
-        
+
         return nil
     }
-    
+
     public func getParent() -> Project {
         if isDefault || isBookmark {
             return self
         }
-        
+
         if let parent = self.parent {
             return parent.getParent()
         }
-        
+
         return self
     }
-    
+
     public func isVisibleInCommon() -> Bool {
         if !settings.showInCommon {
             return false
         }
-        
+
         var parent = self.parent
-                
+
         while parent != nil {
             if let unwrapped = parent?.parent {
                 if !unwrapped.settings.showInCommon {
                     return false
                 }
-                
+
                 parent = unwrapped
                 continue
             }
-            
+
             return parent?.settings.showInCommon == true
         }
-        
+
         return settings.showInCommon
     }
 
@@ -472,18 +447,14 @@ public class Project: NSObject {
         var project: Project? = self
         var result = String()
 
-        while project != nil {
-            if let unwrappedProject = project {
-                if result.count > 0 {
-                    result = unwrappedProject.label + " › " + result
-                } else {
-                    result = unwrappedProject.label
-                }
-                
-                project = unwrappedProject.parent
-            } else {
-                project = nil
+        while let current = project {
+            // The workspace is represented by Inbox, not a folder in the sidebar.
+            if current.isDefault && current !== self {
+                break
             }
+
+            result = result.isEmpty ? current.label : current.label + " › " + result
+            project = current.parent
         }
 
         return result
@@ -494,14 +465,14 @@ public class Project: NSObject {
             if isBookmark {
                 return "External › " + label
             }
-            
+
             return label
         }
 
         if isTrash {
             return "Trash"
         }
-        
+
         return "FSNotes › \(label)"
     }
 
@@ -514,15 +485,15 @@ public class Project: NSObject {
 
         return nil
     }
-    
+
     public func getPathChecksum() -> String {
         if !UserDefaultsManagement.iCloudDrive, let documentDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
             var path = url.path.replacingOccurrences(of: documentDir.path, with: "")
-            
+
             if path == "" {
                 path = "Local"
             }
-            
+
             return path.md5
         } else {
             return url.path.md5
@@ -633,7 +604,7 @@ public class Project: NSObject {
 
         return projects
     }
-    
+
     public func getChildProjects() -> [Project]? {
         var projects = [Project]()
 
@@ -649,7 +620,7 @@ public class Project: NSObject {
 
         return projects
     }
-    
+
     public func getChildProjectsByURL() -> [Project] {
         if metadataStore != nil { return getChildProjects() ?? [] }
         return storage
@@ -665,11 +636,11 @@ public class Project: NSObject {
 
         return url.appendingPathComponent(getMd5CheckSum())
     }
-    
+
     public func getNotes() -> [Note] {
         return storage.noteList.filter({ $0.project.url.path == self.url.path })
     }
-    
+
     public func countNotes(contains image: URL) -> Int {
         let notes = getNotes()
         var qty = 0
@@ -682,107 +653,7 @@ public class Project: NSObject {
         }
         return qty
     }
-    
-    public func getEncryptionStatusFilePath() -> URL {
-        return url.appendingPathComponent(".encrypt", isDirectory: false)
-    }
-    
-    public func getEncryptionStatus() -> Bool {
-        let encFolder = getEncryptionStatusFilePath()
-        if FileManager.default.fileExists(atPath: encFolder.path) {
-            return true
-        }
-        return false
-    }
-    
-    public func isLocked() -> Bool {
-        return password == nil && isEncrypted
-    }
-    
-    public func encrypt(password: String) -> [Note] {
-        if isEncrypted {
-            return [Note]()
-        }
-        
-        let encFolder = getEncryptionStatusFilePath()
-        FileManager.default.createFile(atPath: encFolder.path, contents: nil)
-        
-        isEncrypted = true
 
-        let notes = storage.getNotesBy(project: self)
-        var encrypted = [Note]()
-        
-        for note in notes {
-            if note.encrypt(password: password) {
-                encrypted.append(note)
-            }
-        }
-
-        self.password = nil
-
-        return encrypted
-    }
-    
-    public func decrypt(password: String) -> [Note] {
-        if !isEncrypted {
-            return [Note]()
-        }
-                
-        let notes = storage.getNotesBy(project: self)
-        var decrypted = [Note]()
-        
-        var qty = 0
-        for note in notes {
-            if note.unEncrypt(password: password) {
-                qty += 1
-                decrypted.append(note)
-            }
-        }
-        
-        guard qty > 0 || notes.count == 0 else { return [Note]() }
-        
-        let encFolder = getEncryptionStatusFilePath()
-        try? FileManager.default.removeItem(at: encFolder)
-        
-        isEncrypted = false
-        
-        return decrypted
-    }
-
-    public func unlock(password: String) -> ([Note], [Note]) {
-        let notes = self.storage.getNotesBy(project: self)
-        var unlocked = [Note]()
-
-        if notes.count == 0 {
-            self.password = password
-            return (notes, unlocked)
-        }
-
-        for note in notes {
-            if note.unLock(password: password) {
-                self.password = password
-                unlocked.append(note)
-            }
-        }
-
-        return (notes, unlocked)
-    }
-
-    public func lock() -> [Note] {
-        var locked = [Note]()
-        let notes = self.storage.getNotesBy(project: self)
-
-        for note in notes {
-            if note.lock() {
-                locked.append(note)
-            }
-        }
-
-        password = nil
-
-        return locked
-    }
-    
     public func checkNotesCacheDiff(isGit: Bool = false) -> ([Note], [Note], [Note]) {
         // if not cached – load all results for cache
         // (not loaded instantly because is resource consumption operation, loaded later in background)
@@ -799,10 +670,10 @@ public class Project: NSObject {
         let results = checkFSAndMemoryDiff()
 
         print("Cache diff found: removed - \(results.0.count), added - \(results.1.count), modified - \(results.2.count), lbl: \(label)")
-        
+
         return results
     }
-    
+
     public func getProjectsFSAndMemoryDiff() -> ([Project], [Project]) {
         if metadataStore != nil { return metadataProjectDiff() }
         var foundRemoved = [Project]()
@@ -810,11 +681,11 @@ public class Project: NSObject {
 
         var memoryProjects = [Project]()
         var fileSystemURLs = [URL]()
-        
+
         if let child = getChildProjects() {
             memoryProjects = child
         }
-        
+
         if let fsURLs = fetchAllDirectories() {
             fileSystemURLs = fsURLs
         }
@@ -835,18 +706,18 @@ public class Project: NSObject {
             let project = Project(storage: storage, url: addURL)
             foundAdded.append(project)
         }
-        
+
         foundAdded = foundAdded.sorted(by: {
             $0.url.path.components(separatedBy: "/").count < $1.url.path.components(separatedBy: "/").count
         })
-                
+
         foundRemoved = foundRemoved.sorted(by: {
             $0.url.path.components(separatedBy: "/").count > $1.url.path.components(separatedBy: "/").count
         })
-                        
+
         return (foundRemoved, foundAdded)
     }
-    
+
     private func fetchAllDirectories() -> [URL]? {
         let maxDirs = UserDefaultsManagement.maxChildDirs
 
@@ -857,7 +728,7 @@ public class Project: NSObject {
             )
         else { return nil }
 
-        let extensions = ["md", "markdown", "txt", "fountain", "textbundle", "etp", "jpg", "png", "gif", "jpeg", "json", "JPG", "PNG", ".icloud", ".cache", ".Trash", "i"]
+        let extensions = ["md", "markdown", "txt", "fountain", "jpg", "png", "gif", "jpeg", "json", "JPG", "PNG", ".icloud", ".cache", ".Trash", "i"]
 
         let urls = fileEnumerator.allObjects.compactMap({ $0 as? URL })
             .filter({
@@ -868,7 +739,6 @@ public class Project: NSObject {
                 && !$0.path.contains("/files")
                 && !$0.path.contains("/.Trash")
                 && !$0.path.contains("/Trash")
-                && !$0.path.contains(".textbundle")
                 && !$0.path.contains(".revisions")
                 && !$0.path.contains("/.")
                 && $0 != UserDefaultsManagement.trashURL
@@ -888,7 +758,7 @@ public class Project: NSObject {
                 if isDirectoryResourceValue as? Bool == true,
                     isPackageResourceValue as? Bool == false,
                     url.isHidden() == false {
-                    
+
                     i = i + 1
                     fin.append(url)
                 }
@@ -904,7 +774,7 @@ public class Project: NSObject {
 
         return fin
     }
-    
+
     public func loadNotesContent() {
         let notes = getNotes()
         for note in notes {

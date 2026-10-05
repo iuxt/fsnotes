@@ -77,9 +77,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         let temp = NSTemporaryDirectory()
 
-        let encryption = URL(fileURLWithPath: temp).appendingPathComponent("Encryption")
-        try? FileManager.default.removeItem(at: encryption)
-
         let webkitPreview = URL(fileURLWithPath: temp).appendingPathComponent("wkPreview")
         try? FileManager.default.removeItem(at: webkitPreview)
 

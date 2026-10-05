@@ -1,0 +1,4 @@
+module FSNotesGitFilters [system] {
+    header "Filters.h"
+    export *
+}

@@ -44,7 +44,7 @@ class EditorViewController: UIViewController,
 
     private var isLandscape: Bool?
     private var lastStyle: UIUserInterfaceStyle?
-    
+
     // Search toolbar
     var keyboardAnchor: UITextField?
     var counterLabel: UILabel?
@@ -78,7 +78,7 @@ class EditorViewController: UIViewController,
         editArea.imagesLoaderQueue.qualityOfService = .userInteractive
 
         super.viewDidLoad()
-        
+
         var items = [UIBarButtonItem]()
         items.append(UIBarButtonItem(systemImageName: "magnifyingglass", target: self, selector: #selector(editorSearch)))
         items.append(UIBarButtonItem.flexibleSpace())
@@ -95,7 +95,7 @@ class EditorViewController: UIViewController,
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillChangeFrame), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
 
         editArea.keyboardDismissMode = .interactive
-        
+
         registerForKeyboardNotifications()
         registerForAppStateNotifications()
     }
@@ -129,11 +129,11 @@ class EditorViewController: UIViewController,
 
     override func viewWillAppear(_ animated: Bool) {
         updateTitle()
-        
+
         super.viewWillAppear(animated)
 
         configureNavMenu()
-        
+
         navigationItem.largeTitleDisplayMode = .never
 
         navigationController?.setToolbarHidden(false, animated: true)
@@ -171,13 +171,13 @@ class EditorViewController: UIViewController,
                 }
             }
         }
-        
+
         return super.textInputMode
     }
-    
+
     public func updateTitle() {
         navigationItem.title = note?.project.label
-        
+
         if #available(iOS 26.0, *) {
             navigationItem.subtitle = note?.url.lastPathComponent
         }
@@ -236,7 +236,7 @@ class EditorViewController: UIViewController,
         if !note.isLoaded {
             note.load()
         }
-        
+
         editArea.note = note
 
         if note.previewState {
@@ -262,25 +262,25 @@ class EditorViewController: UIViewController,
         if let content = note.content.mutableCopy() as? NSMutableAttributedString {
             editArea.attributedText = content
         }
-        
+
         if let scroll = editArea.inputAccessoryView as? UIScrollView {
             scroll.contentOffset = .zero
         }
-        
+
         editArea.delegate = self
 
         let storage = editArea.textStorage
         storage.updateCheckboxList()
         editArea.typingAttributes[.font] = UserDefaultsManagement.noteFont
-        
+
         editArea.layoutManager.ensureLayout(for: editArea.textContainer)
         editArea.layoutIfNeeded()
-        
+
         self.loadSelectedRange()
-        
+
         if let query = self.getSearchText(), query.count > 0 {
             UIApplication.getVC().enableSearchFocus(string: query)
-            
+
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 self.openSearchWithText(query)
             }
@@ -293,15 +293,15 @@ class EditorViewController: UIViewController,
 
         vc.notesTable.actionsSheet(notes: [note], showAll: true, presentController: self)
     }
-    
+
     @objc func refill() {
         guard let editArea = editArea else { return }
 
         initLinksColor()
-        
+
         if let note = self.note {
             let keyboardIsOpen = editArea.isFirstResponder
-            
+
             if keyboardIsOpen {
                 editArea.endEditing(true)
             }
@@ -313,9 +313,9 @@ class EditorViewController: UIViewController,
             }
         }
     }
-    
+
     private var keyboardFrameChangeCount = 0
-    
+
     @objc func keyboardWillChangeFrame(_ notification: Notification) {
         keyboardFrameChangeCount += 1
     }
@@ -589,7 +589,7 @@ class EditorViewController: UIViewController,
 
         if let title = note.getAutoRenameTitle() {
             UIApplication.getVC().notesTable.rename(note: note, to: title)
-            
+
             UIApplication.getEVC().updateTitle()
         }
     }
@@ -614,9 +614,9 @@ class EditorViewController: UIViewController,
         if !self.isUndo, let char = text.cString(using: String.Encoding.utf8), strcmp(char, "\\b") == -92 {
             return true
         }
-        
+
         self.isUndo = false
-        
+
         return false
     }
 
@@ -624,20 +624,20 @@ class EditorViewController: UIViewController,
         if textView.isFirstResponder {
             // Handoff needs update in cursor position cahnged
             userActivity?.needsSave = true
-            
+
             saveSelectedRange()
         }
     }
-    
+
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         saveSelectedRange()
     }
 
     func textViewDidChange(_ textView: UITextView) {
         let vc = UIApplication.getVC()
-        
+
         //vc.cloudDriveManager?.metadataQuery.disableUpdates()
-        
+
         guard let note = self.note else { return }
 
         // Prevent textStorage refresh in CloudDriveManager
@@ -651,14 +651,6 @@ class EditorViewController: UIViewController,
             guard let self = self, let text = text else {return}
 
             note.save(content: text)
-
-            if note.isEncrypted() && !note.isUnlocked() {
-                DispatchQueue.main.async {
-                    self.cancel()
-                }
-
-                return
-            }
 
             note.invalidateCache()
             note.loadPreviewInfo()
@@ -680,7 +672,7 @@ class EditorViewController: UIViewController,
         editArea.typingAttributes.removeValue(forKey: .backgroundColor)
         editArea.typingAttributes[.font] = UserDefaultsManagement.noteFont
         editArea.initUndoRedoButons()
-        
+
         //vc.cloudDriveManager?.metadataQuery.enableUpdates()
     }
 
@@ -691,7 +683,7 @@ class EditorViewController: UIViewController,
         vc.notesTable.moveRowUp(note: note)
         vc.notesTable.reloadRows(notes: [note])
     }
-    
+
     func getSearchText() -> String? {
         if let search = UIApplication.getVC().navigationItem.searchController?.searchBar.text {
             return search
@@ -702,11 +694,11 @@ class EditorViewController: UIViewController,
 
     @objc func keyboardWillShow(notification: NSNotification) {
         keyboardFrameChangeCount = 0
-        
+
         guard let userInfo = notification.userInfo else { return }
         guard var keyboardFrame: CGRect = (userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue else { return }
         keyboardFrame = view.convert(keyboardFrame, from: nil)
-        
+
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.alignment = .left
         paragraphStyle.lineSpacing = CGFloat(UserDefaultsManagement.editorLineSpacing)
@@ -718,23 +710,23 @@ class EditorViewController: UIViewController,
         self.editArea.contentInset = contentInsets
         self.editArea.scrollIndicatorInsets = contentInsets
     }
-    
+
     @objc func keyboardWillHide(notification: NSNotification) {
         let contentInsets = UIEdgeInsets.zero
         editArea.contentInset = contentInsets
         editArea.scrollIndicatorInsets = contentInsets
-        
+
         if isKeyboardClosedManually() {
-            
+
             // NO selection more
             saveSelectedRangeZero()
         }
-        
+
         if searchBar != nil {
             hideSearch()
         }
     }
-    
+
     func isKeyboardClosedManually() -> Bool {
         return keyboardFrameChangeCount > 2
     }
@@ -755,7 +747,7 @@ class EditorViewController: UIViewController,
             return getLegacyToolbar()
         }
     }
-    
+
     public func getModernToolbar() -> UIToolbar {
         var items = [UIBarButtonItem]()
 
@@ -831,7 +823,7 @@ class EditorViewController: UIViewController,
 
         return toolBar
     }
-    
+
     private func getLegacyToolbar() -> UIToolbar {
         var items = [UIBarButtonItem]()
 
@@ -919,7 +911,6 @@ class EditorViewController: UIViewController,
         return toolBar
     }
 
-
     @objc func boldPressed(){
         if let note = note {
             let formatter = TextFormatter(textView: editArea, note: note)
@@ -933,20 +924,20 @@ class EditorViewController: UIViewController,
         let location = editArea.selectedRange.location
 
         let vc = UIApplication.getVC()
-        
+
         var projects = [Project]()
         if let project = Storage.shared().searchQuery.projects.first {
             projects.append(project)
         } else {
             projects = Storage.shared().getProjects()
         }
-        
+
         let tags = vc.sidebarTableView.getAllTags(projects: projects)
         self.dropDown.dataSource = tags
 
         self.complete(offset: location)
     }
-    
+
     @objc func italicPressed(){
         if let note = note {
             let formatter = TextFormatter(textView: editArea, note: note)
@@ -974,14 +965,14 @@ class EditorViewController: UIViewController,
             formatter.tab()
         }
     }
-    
+
     @objc func unIndentPressed(){
         if let note = note {
             let formatter = TextFormatter(textView: editArea, note: note)
             formatter.unTab()
         }
     }
-    
+
     @objc func headerPressed() {
         if let note = note {
             let formatter = TextFormatter(textView: editArea, note: note)
@@ -1016,12 +1007,12 @@ class EditorViewController: UIViewController,
             AudioServicesPlaySystemSound(1519)
         }
     }
-    
+
     @objc func todoPressed() {
         if let note = note {
             let formatter = TextFormatter(textView: editArea, note: note)
             formatter.todo()
-            
+
             AudioServicesPlaySystemSound(1519)
         }
     }
@@ -1093,7 +1084,7 @@ class EditorViewController: UIViewController,
             }
         }
     }
-    
+
     @objc func themeObserver() {
         guard
             UIApplication.shared.applicationState == .active,
@@ -1117,13 +1108,13 @@ class EditorViewController: UIViewController,
             self.fill(note: n)
         }
     }
-    
+
     @objc func undoPressed() {
         guard let ea = UIApplication.getEVC().editArea, let um = ea.undoManager else { return }
         um.undo()
         ea.initUndoRedoButons()
     }
-    
+
     @objc func redoPressed() {
         guard let ea = UIApplication.getEVC().editArea, let um = ea.undoManager else { return }
         um.redo()
@@ -1137,7 +1128,7 @@ class EditorViewController: UIViewController,
 
         linkAttributes[.underlineColor] = UIColor.lightGray
         linkAttributes[.underlineStyle] = 0
-        
+
         if editArea != nil {
             editArea.linkTextAttributes = linkAttributes
         }
@@ -1155,7 +1146,7 @@ class EditorViewController: UIViewController,
             textFormatter.toggleTodo(characterIndex)
 
             self.editArea.selectedTextRange = sender.selectedRange
-            
+
             Timer.scheduledTimer(withTimeInterval: 0.05, repeats: false) { _ in
                 self.editArea.isAllowedScrollRect = true
             }
@@ -1175,7 +1166,7 @@ class EditorViewController: UIViewController,
                 imagePreviewViewController.image = someImage
                 imagePreviewViewController.url = meta.url
                 imagePreviewViewController.note = note
-                
+
                 navigationController?.pushViewController(imagePreviewViewController, animated: true)
             } else if (FileManager.default.fileExists(atPath: meta.url.path)) {
                 quickLook(url: meta.url)
@@ -1266,22 +1257,22 @@ class EditorViewController: UIViewController,
         if storage.attribute(.todo, at: location, effectiveRange: nil) != nil {
             return true
         }
-        
+
         let range = (storage.string as NSString).paragraphRange(for: NSRange(location: location, length: 0))
         let string = storage.attributedSubstring(from: range).string as NSString
-        
+
         var length = string.range(of: "- [ ]").length
         if length == 0 {
             length = string.range(of: "- [x]").length
         }
-        
+
         if length > 0 {
             let upper = range.location + length
             if location >= range.location && location <= upper {
                 return true
             }
         }
-        
+
         return false
     }
 
@@ -1320,9 +1311,9 @@ class EditorViewController: UIViewController,
 
     @objc public func togglePreview() {
         guard let unwrappedNote = self.note, let note = Storage.shared().getBy(url: unwrappedNote.url) else { return }
-        
+
         note.loadPreviewState()
-        
+
         if note.previewState {
             note.previewState = false
             getPreviewView()?.removeFromSuperview()
@@ -1455,16 +1446,16 @@ class EditorViewController: UIViewController,
     override func restoreUserActivityState(_ activity: NSUserActivity) {
         if let id = activity.userInfo?["kCSSearchableItemActivityIdentifier"] as? String {
             let url = URL(fileURLWithPath: id)
-            
+
             var note = Storage.shared().getBy(url: url)
             if nil === note {
                 note = Storage.shared().addNote(url: url)
             }
-            
+
             if let note = note {
                 load(note: note)
             }
-            
+
             return
         }
 
@@ -1529,7 +1520,7 @@ class EditorViewController: UIViewController,
 
     // Swipe controller from UITextView center
     // https://stackoverflow.com/questions/22244688/navigation-pop-view-when-swipe-right-like-instagram-iphone-app-how-i-achieve-thi/22244990#22244990
-    
+
     public func initSwipes() {
         guard let popGestureRecognizer = self.navigationController?.interactivePopGestureRecognizer else { return }
         if let targets = popGestureRecognizer.value(forKey: "targets") as? NSMutableArray {
@@ -1544,7 +1535,7 @@ class EditorViewController: UIViewController,
             self.view.addGestureRecognizer(tapGR)
         }
     }
-    
+
     func saveSelectedRangeZero() {
         guard let note = editArea.note, !editArea.isNoteLoading else { return }
         note.setSelectedRange(range: nil)
@@ -1554,48 +1545,48 @@ class EditorViewController: UIViewController,
     func saveScrollPosition() {
         guard !editArea.isUpdating else { return }
         guard let note = editArea.note, !editArea.isNoteLoading else { return }
-        
+
         let layoutManager = editArea.layoutManager
         let textStorage = editArea.textStorage
         let visibleY = editArea.contentOffset.y
-        
+
         guard textStorage.length > 0 else {
             note.scrollPosition = 0
             note.scrollOffset = 0
             return
         }
-        
+
         let glyphRange = layoutManager.glyphRange(
             forBoundingRect: CGRect(x: 0, y: visibleY, width: editArea.bounds.width, height: 1),
             in: editArea.textContainer
         )
-        
+
         guard glyphRange.location != NSNotFound else {
             note.scrollPosition = 0
             note.scrollOffset = 0
             return
         }
-        
+
         let numberOfGlyphs = layoutManager.numberOfGlyphs
         guard glyphRange.location < numberOfGlyphs else {
             note.scrollPosition = 0
             note.scrollOffset = 0
             return
         }
-        
+
         let charIndex = layoutManager.characterIndexForGlyph(at: glyphRange.location)
-        
+
         guard charIndex < textStorage.length else {
             note.scrollPosition = 0
             note.scrollOffset = 0
             return
         }
-        
+
         let glyphRect = layoutManager.boundingRect(
             forGlyphRange: NSRange(location: glyphRange.location, length: 1),
             in: editArea.textContainer
         )
-        
+
         note.scrollPosition = charIndex
         note.scrollOffset = visibleY - glyphRect.minY
     }
@@ -1608,15 +1599,15 @@ class EditorViewController: UIViewController,
 
     func loadSelectedRange() {
         guard let note = editArea.note else { return }
-        
+
         if let range = note.getSelectedRange(), range.upperBound <= editArea.textStorage.length {
             editArea.selectedRange = range
             _ = editArea.becomeFirstResponder()
         }
-        
+
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            
+
             if let index = note.scrollPosition, index < self.editArea.textStorage.length {
                 let layoutManager = self.editArea.layoutManager
                 let glyphIndex = layoutManager.glyphIndexForCharacter(at: index)
@@ -1624,20 +1615,20 @@ class EditorViewController: UIViewController,
                     forGlyphRange: NSRange(location: glyphIndex, length: 1),
                     in: self.editArea.textContainer
                 )
-                
+
                 let targetY = glyphRect.minY + (note.scrollOffset ?? 0)
                 let maxY = max(0, self.editArea.contentSize.height - self.editArea.bounds.height)
                 let finalY = min(max(0, targetY), maxY)
-                
+
                 self.editArea.contentOffset = CGPoint(x: 0, y: finalY)
             } else {
                 self.editArea.contentOffset = .zero
             }
-            
+
             self.editArea.isNoteLoading = false
         }
     }
-        
+
     deinit {
         NotificationCenter.default.removeObserver(self)
     }

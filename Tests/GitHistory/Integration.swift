@@ -68,8 +68,8 @@ private final class Fixture {
         try expect(try repository.fileHistory(path: "missing.md").isEmpty, "Empty repository should have no history")
         let target = "nested/[a].md"
         let unicode = "nested/中文 空格 📝.md"
-        let bundle = "note.textbundle/text.md"
-        for path in [target, unicode, bundle, "nested/a.md", "other.md", "note.textbundle/assets/image.txt"] {
+        let nested = "nested/document.md"
+        for path in [target, unicode, nested, "nested/a.md", "other.md", "images/image.txt"] {
             try fixture.write(path, "initial \(path)")
         }
         try fixture.write("empty.md", "")
@@ -118,14 +118,14 @@ private final class Fixture {
                    "Cloned history preserves unrelated workspace notes")
         try expect(initialCommit.summary == "Initial", "Subject-only commit summary")
         try expect(initialCommit.body.isEmpty, "Subject-only commits must have an empty body without crashing")
-        for path in [target, unicode, bundle] { try fixture.write(path, "second \(path)") }
+        for path in [target, unicode, nested] { try fixture.write(path, "second \(path)") }
         let second = try fixture.commit("Change notes\n\n正文 📝\nSecond paragraph.")
         let detailedCommit = try repository.commitLookup(sha: second)
         try expect(detailedCommit.summary == "Change notes", "Commit summary must exclude the body")
         try expect(detailedCommit.body == "正文 📝\nSecond paragraph.", "Commit body must preserve Unicode and line breaks")
         try fixture.write("other.md", "unrelated commit")
         try fixture.commit("Unrelated")
-        for path in [target, unicode, bundle] {
+        for path in [target, unicode, nested] {
             let history = try repository.fileHistory(path: path)
             try expect(history.compactMap { $0.oid.sha() } == [second, first], "History must include only file changes and one initial commit")
         }
@@ -145,12 +145,12 @@ private final class Fixture {
         try fixture.write(target, "unsaved target")
         try fixture.write("other.md", "unsaved other")
         try fixture.write("nested/a.md", "glob neighbor")
-        try fixture.write("note.textbundle/assets/image.txt", "new asset")
+        try fixture.write("images/image.txt", "new asset")
         let indexURL = fixture.url.appendingPathComponent(".git/index")
         let indexBefore = try Data(contentsOf: indexURL)
         let headBefore = try fixture.git(["rev-parse", "HEAD"])
         // Browsing saved versions must never check them out or flush current edits.
-        for path in [target, unicode, bundle] {
+        for path in [target, unicode, nested] {
             let data = try repository.fileContent(commit: commit, path: path)
             try expect(String(data: data, encoding: .utf8) == "initial \(path)", "Preview must read the saved blob")
         }
@@ -161,13 +161,13 @@ private final class Fixture {
         for path in ["missing.md", "nested", "../other.md", "/other.md", ""] {
             try expectFailure("Unsafe or missing preview path must fail") { _ = try repository.fileContent(commit: commit, path: path) }
         }
-        for path in [target, unicode, bundle] { try repository.checkout(commit: commit, path: path) }
+        for path in [target, unicode, nested] { try repository.checkout(commit: commit, path: path) }
         try expect(try fixture.read(target) == "initial \(target)", "Target restored")
         try expect(try fixture.read(unicode) == "initial \(unicode)", "Unicode path restored")
-        try expect(try fixture.read(bundle) == "initial \(bundle)", "Bundle text restored")
+        try expect(try fixture.read(nested) == "initial \(nested)", "Nested note restored")
         try expect(try fixture.read("nested/a.md") == "glob neighbor", "Literal path must not match a glob neighbor")
         try expect(try fixture.read("other.md") == "unsaved other", "Other working files preserved")
-        try expect(try fixture.read("note.textbundle/assets/image.txt") == "new asset", "Bundle assets preserved")
+        try expect(try fixture.read("images/image.txt") == "new asset", "Image assets preserved")
         try expect(try Data(contentsOf: indexURL) == indexBefore, "Index must remain byte-for-byte unchanged")
         try expect(try fixture.git(["rev-parse", "HEAD"]) == headBefore, "HEAD unchanged")
         for path in ["missing.md", "nested", "../other.md", "/other.md", ""] {

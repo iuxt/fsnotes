@@ -24,13 +24,13 @@ class SidebarTableView: UITableView,
     func numberOfSections(in tableView: UITableView) -> Int {
         return sidebar.items.count
     }
-    
+
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return sidebar.items[section].count
     }
-    
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        
+
         let cell = tableView.dequeueReusableCell(withIdentifier: "sidebarCell", for: indexPath) as! SidebarTableCellView
 
         guard sidebar.items.indices.contains(indexPath.section), sidebar.items[indexPath.section].indices.contains(indexPath.row) else { return cell }
@@ -198,7 +198,7 @@ class SidebarTableView: UITableView,
 
         return nil
     }
-    
+
     func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
         if section == 0 {
             return 5
@@ -241,10 +241,7 @@ class SidebarTableView: UITableView,
             return
         }
 
-        if let project = sidebarItem.project, project.isLocked() {
-            vc.enableLockedProject()
-        } else {
-            vc.disableLockedProject()
+ else {
         }
 
         guard sidebar.items.indices.contains(indexPath.section) && sidebar.items[indexPath.section].indices.contains(indexPath.row) else {
@@ -270,7 +267,7 @@ class SidebarTableView: UITableView,
         vc.navigationItem.searchController?.searchBar.text = ""
 
         // Save last state
-        
+
         if sidebarItem.isSystem() {
             UserDefaultsManagement.lastSidebarItem = indexPath.row
             UserDefaultsManagement.lastProjectURL = nil
@@ -357,7 +354,7 @@ class SidebarTableView: UITableView,
         }
 
     }
-    
+
     func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
         cell.backgroundColor = UIColor.clear
     }
@@ -433,10 +430,6 @@ class SidebarTableView: UITableView,
 
         if note.project != project {
             note.moveImages(to: project)
-
-            if note.isEncrypted() {
-                _ = note.lock()
-            }
 
             guard note.move(to: dstURL, project: project) else {
                 let alert = UIAlertController(title: "Oops 👮‍♂️", message: "File with this name already exist", preferredStyle: UIAlertController.Style.alert)
@@ -774,7 +767,6 @@ class SidebarTableView: UITableView,
         }
     }
 
-    
     public func removeRows(projects: [Project]) {
         guard let vc = viewController else { return }
 
@@ -852,12 +844,12 @@ class SidebarTableView: UITableView,
         }
 
         tableView(self, didSelectRowAt: indexPath)
-        
+
         viewController?.resizeSidebar(withAnimation: true)
     }
 
     public func reload(indexPath: IndexPath) {
-        
+
         // Important as cell resets after reloadRows
         let currentPath = indexPathForSelectedRow
 

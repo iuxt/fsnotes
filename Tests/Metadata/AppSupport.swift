@@ -1,13 +1,13 @@
 import Foundation
 
 // Minimal UI/model scaffolding for the production MetadataLibrary adapter.
-// SQLite, snapshots, migration, import, rename, move and deletion are not mocked.
+// Memory indexes, snapshots, migration, import, rename, move and deletion are not mocked.
 final class Storage {
     var metadataStores = [String: MetadataStore]()
     var metadataErrors = [String]()
     var projects = [Project]()
     var noteList = [Note]()
-    let allowedExtensions = ["md", "markdown", "txt", "fountain", "textbundle", "etp"]
+    let allowedExtensions = ["md", "markdown", "txt", "fountain"]
     func insertProject(project: Project) { if getProjectBy(url: project.url) == nil { projects.append(project) } }
     func getProjectBy(url: URL) -> Project? { projects.first { $0.url.standardizedFileURL.resolvingSymlinksInPath() == url.standardizedFileURL.resolvingSymlinksInPath() } }
     func getDefaultTrash() -> Project? { projects.first { $0.isTrash } }
@@ -68,13 +68,5 @@ final class Note {
     var modifiedLocalAt = Date()
     init(url: URL, with project: Project, modified: Date? = nil, created: Date? = nil) {
         self.url = url; self.project = project; self.modifiedLocalAt = modified ?? Date(); applyMetadata()
-    }
-}
-extension String {
-    var md5: String {
-        // Only a deterministic cache key is needed by the adapter's unused app bootstrap.
-        var hash: UInt64 = 14695981039346656037
-        for byte in utf8 { hash = (hash ^ UInt64(byte)) &* 1099511628211 }
-        return String(hash, radix: 16)
     }
 }

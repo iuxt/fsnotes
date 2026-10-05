@@ -175,14 +175,6 @@
                                     <constraint firstAttribute="width" id="stD-N5-7Jq"/>
                                 </constraints>
                             </view>
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="lock.fill" catalog="system" translatesAutoresizingMaskIntoConstraints="NO" id="NZ1-ez-Ynx">
-                                <rect key="frame" x="183" y="460" width="64" height="62"/>
-                                <color key="tintColor" name="fsColor"/>
-                                <constraints>
-                                    <constraint firstAttribute="width" constant="64" id="JvC-sr-vAR"/>
-                                    <constraint firstAttribute="height" constant="64" id="wu2-fA-rg1"/>
-                                </constraints>
-                            </imageView>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="hRO-uY-yS2"/>
                         <color key="backgroundColor" systemColor="systemBackgroundColor"/>
@@ -193,7 +185,6 @@
                             <constraint firstItem="sUC-hL-bgg" firstAttribute="leading" secondItem="8bC-Xf-vdC" secondAttribute="leading" id="JPP-fj-2Qz"/>
                             <constraint firstItem="IQe-XD-PyC" firstAttribute="top" secondItem="hRO-uY-yS2" secondAttribute="top" id="KGz-xF-ebl"/>
                             <constraint firstAttribute="trailing" secondItem="vdo-f5-klY" secondAttribute="trailing" id="KfK-kU-4g2"/>
-                            <constraint firstItem="NZ1-ez-Ynx" firstAttribute="centerX" secondItem="sUC-hL-bgg" secondAttribute="centerX" id="V0g-Nk-aes"/>
                             <constraint firstItem="Mge-lh-GR9" firstAttribute="leading" secondItem="IQe-XD-PyC" secondAttribute="trailing" id="VoW-NF-0ro"/>
                             <constraint firstAttribute="bottom" secondItem="vdo-f5-klY" secondAttribute="bottom" id="WO7-Mx-Epc"/>
                             <constraint firstItem="hRO-uY-yS2" firstAttribute="leading" secondItem="IQe-XD-PyC" secondAttribute="trailing" id="e90-Je-x7F"/>
@@ -202,12 +193,10 @@
                             <constraint firstItem="vdo-f5-klY" firstAttribute="leading" secondItem="sUC-hL-bgg" secondAttribute="trailing" id="kKi-Xc-Gjo"/>
                             <constraint firstItem="Mge-lh-GR9" firstAttribute="top" secondItem="hRO-uY-yS2" secondAttribute="top" id="qOe-Ck-iuT"/>
                             <constraint firstItem="IQe-XD-PyC" firstAttribute="leading" secondItem="8bC-Xf-vdC" secondAttribute="leading" id="rAg-B0-rIW"/>
-                            <constraint firstItem="NZ1-ez-Ynx" firstAttribute="centerY" secondItem="sUC-hL-bgg" secondAttribute="centerY" id="umn-PV-FUi"/>
                         </constraints>
                     </view>
                     <connections>
                         <outlet property="leftPreSafeArea" destination="IQe-XD-PyC" id="phr-P3-VB3"/>
-                        <outlet property="lockedProject" destination="NZ1-ez-Ynx" id="zeN-F2-Wgk"/>
                         <outlet property="notesTable" destination="sUC-hL-bgg" id="Iqp-8V-0Ly"/>
                         <outlet property="notesTableBottomContraint" destination="gA3-do-ZSA" id="hNr-WS-Zei"/>
                         <outlet property="notesTableLeadingConstraint" destination="JPP-fj-2Qz" id="Ars-QP-VeS"/>

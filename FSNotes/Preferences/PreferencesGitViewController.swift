@@ -36,6 +36,7 @@ class PreferencesGitViewController: SettingsViewController {
 
     override func viewWillAppear() {
         super.viewWillAppear()
+        preferredContentSize = NSSize(width: 550, height: 525)
 
         if let project = Storage.shared().getDefault() { loadGit(project: project) }
         repositoryInfoLabel.stringValue = NSLocalizedString("Git history: .git/", comment: "")

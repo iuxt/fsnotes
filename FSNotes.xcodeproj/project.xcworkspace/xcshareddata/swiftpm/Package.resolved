@@ -1,111 +1,102 @@
 {
-  "originHash" : "a794e65706e224ceca8e2c0f73fa7cc9071e8237ffa77aab0ec280c9e4bf6a72",
-  "pins" : [
+  "originHash": "a794e65706e224ceca8e2c0f73fa7cc9071e8237ffa77aab0ec280c9e4bf6a72",
+  "pins": [
     {
-      "identity" : "bluesocket",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/IBM-Swift/BlueSocket",
-      "state" : {
-        "revision" : "7b23a867008e0027bfd6f4d398d44720707bc8ca",
-        "version" : "2.0.4"
+      "identity": "bluesocket",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/IBM-Swift/BlueSocket",
+      "state": {
+        "revision": "7b23a867008e0027bfd6f4d398d44720707bc8ca",
+        "version": "2.0.4"
       }
     },
     {
-      "identity" : "dropdown",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/AssistoLab/DropDown.git",
-      "state" : {
-        "revision" : "2ab6f6ce19f0117d1a76ea043ef8f57722c65d16"
+      "identity": "dropdown",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/AssistoLab/DropDown.git",
+      "state": {
+        "revision": "2ab6f6ce19f0117d1a76ea043ef8f57722c65d16"
       }
     },
     {
-      "identity" : "libcmark_gfm",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/glushchenko/libcmark_gfm",
-      "state" : {
-        "branch" : "master",
-        "revision" : "ff574996495573b179a7e27dd5b9a4605f0e9841"
+      "identity": "libcmark_gfm",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/glushchenko/libcmark_gfm",
+      "state": {
+        "branch": "master",
+        "revision": "ff574996495573b179a7e27dd5b9a4605f0e9841"
       }
     },
     {
-      "identity" : "libssh2prebuild",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/glushchenko/Libssh2Prebuild.git",
-      "state" : {
-        "revision" : "024c2cf73e0b47deeea92a1176998f48f98ff4df",
-        "version" : "1.11.0-OpenSSL-1-1-1u"
+      "identity": "libssh2prebuild",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/glushchenko/Libssh2Prebuild.git",
+      "state": {
+        "revision": "024c2cf73e0b47deeea92a1176998f48f98ff4df",
+        "version": "1.11.0-OpenSSL-1-1-1u"
       }
     },
     {
-      "identity" : "rncryptor",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/RNCryptor/RNCryptor.git",
-      "state" : {
-        "revision" : "5e3bbf44f08bf90049537cb8902d8f4fa911a79a",
-        "version" : "5.1.0"
+      "identity": "shout",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/glushchenko/Shout",
+      "state": {
+        "branch": "master",
+        "revision": "d733c3e6d3c3d7d44e08489e2dc21eff50a61a0e"
       }
     },
     {
-      "identity" : "shout",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/glushchenko/Shout",
-      "state" : {
-        "branch" : "master",
-        "revision" : "d733c3e6d3c3d7d44e08489e2dc21eff50a61a0e"
+      "identity": "swift-cgit2",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/glushchenko/swift-cgit2",
+      "state": {
+        "revision": "ab1a18d82002b185c1c73b0daaa4174bb6b4f29c",
+        "version": "1.2.2"
       }
     },
     {
-      "identity" : "swift-cgit2",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/glushchenko/swift-cgit2",
-      "state" : {
-        "revision" : "ab1a18d82002b185c1c73b0daaa4174bb6b4f29c",
-        "version" : "1.2.2"
+      "identity": "swift-git",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/glushchenko/swift-git",
+      "state": {
+        "revision": "7b2f3af96c6947308b4f0b4ae02302fd47a5eff2"
       }
     },
     {
-      "identity" : "swift-git",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/glushchenko/swift-git",
-      "state" : {
-        "revision" : "7b2f3af96c6947308b4f0b4ae02302fd47a5eff2"
+      "identity": "swift-system",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/apple/swift-system",
+      "state": {
+        "revision": "39774ef16a6d91dee6f666b940e00ea202710cf7",
+        "version": "0.0.3"
       }
     },
     {
-      "identity" : "swift-system",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/apple/swift-system",
-      "state" : {
-        "revision" : "39774ef16a6d91dee6f666b940e00ea202710cf7",
-        "version" : "0.0.3"
+      "identity": "swipecellkit",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/glushchenko/SwipeCellKit.git",
+      "state": {
+        "revision": "b1e40f5f49503b64872b9d374e811598ecb2c51a"
       }
     },
     {
-      "identity" : "swipecellkit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/glushchenko/SwipeCellKit.git",
-      "state" : {
-        "revision" : "b1e40f5f49503b64872b9d374e811598ecb2c51a"
+      "identity": "tocropviewcontroller",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/TimOliver/TOCropViewController.git",
+      "state": {
+        "revision": "a634cb7cdfd580006e79a6e74e64417fe9e9783b",
+        "version": "2.7.4"
       }
     },
     {
-      "identity" : "tocropviewcontroller",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/TimOliver/TOCropViewController.git",
-      "state" : {
-        "revision" : "a634cb7cdfd580006e79a6e74e64417fe9e9783b",
-        "version" : "2.7.4"
-      }
-    },
-    {
-      "identity" : "ziparchive",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/ZipArchive/ZipArchive.git",
-      "state" : {
-        "revision" : "df35718ea19a94e015b91dc4881dee028ce4cdba",
-        "version" : "2.6.0"
+      "identity": "ziparchive",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/ZipArchive/ZipArchive.git",
+      "state": {
+        "revision": "df35718ea19a94e015b91dc4881dee028ce4cdba",
+        "version": "2.6.0"
       }
     }
   ],
-  "version" : 3
+  "version": 3
 }

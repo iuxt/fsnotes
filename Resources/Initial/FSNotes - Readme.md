@@ -29,7 +29,6 @@ Memorizing [keyboard shortcuts](https://github.com/glushchenko/fsnotes/wiki/Keyb
 - Pin important notes.
 - Quickly copy notes to the clipboard.
 - Dark mode.
-- Lock sensitive notes with AES-256 encryption.
 - Mermaid and MathJax support.
 - Optional Git versioning and backups.
 - iOS app with sync via iCloud Drive.

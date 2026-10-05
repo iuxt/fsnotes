@@ -50,7 +50,6 @@
 "Code Theme" = "Тема кода";
 
 /* No comment provided by engineer. */
-"Compatible with DayOne JSON (zip), Bear and Ulysses (textbundle), markdown, txt, rtf." = "Совместимо с DayOne JSON (zip), Bear and Ulysses (textbundle), markdown, txt, rtf.";
 
 /* Settings */
 "Container" = "Контейнер";
@@ -71,7 +70,6 @@
 "Creation Date" = "Creation Date";
 
 /* Main view popover table */
-"Decrypt" = "Decrypt";
 
 /* Settings */
 "Default Keyboard" = "Default Keyboard";
@@ -101,13 +99,11 @@
 "Empty Bin" = "Очистить корзину";
 
 /* Main view popover table */
-"Encrypt" = "Encrypt";
 
 /* No comment provided by engineer. */
 "Enter folder name" = "Введите название папки";
 
 /* No comment provided by engineer. */
-"Enter Master Password" = "Введите пароль";
 
 /* No comment provided by engineer. */
 "Enter new tag name" = "Введите название тега";
@@ -209,7 +205,6 @@
 "Master" = "Master";
 
 /* No comment provided by engineer. */
-"Master password:" = "Мастер пароль:";
 
 /* Settings */
 "MathJax" = "MathJax";
@@ -263,7 +258,6 @@
 "Pin" = "Прикрепить";
 
 /* No comment provided by engineer. */
-"Please enter valid password" = "Введите действующий пароль";
 
 /* No comment provided by engineer. */
 "Please try again" = "Please try again";
@@ -281,7 +275,6 @@
 "Pull (every 30 sec)" = "Pull (every 30 sec)";
 
 /* No comment provided by engineer. */
-"Remove Encryption" = "Remove Encryption";
 
 /* Main view popover table */
 "Remove Folder" = "Remove Folder";
@@ -362,7 +355,6 @@
 "Theme" = "Тема";
 
 /* No comment provided by engineer. */
-"Tip: To use old notes, you must decrypt them separately with the old key and encrypt them again." = "Tip: To use old notes, you must decrypt them separately with the old key and encrypt them again.";
 
 /* No comment provided by engineer. */
 "Title" = "Заголовку";

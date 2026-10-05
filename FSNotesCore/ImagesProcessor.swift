@@ -10,8 +10,6 @@ import Foundation
 
 public class ImagesProcessor {
 
-
-
     public static func getFileName(from: URL? = nil, to: URL, ext: String? = nil) -> String? {
         let path = from?.absoluteString ?? to.absoluteString
         var name: String?
@@ -19,7 +17,7 @@ public class ImagesProcessor {
         if path.starts(with: "http://") || path.starts(with: "https://"), let webName = path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
             name = webName
         }
-        
+
         if path.starts(with: "file://") {
             var ext = ext ?? "jpg"
             var pathComponent = NSUUID().uuidString.lowercased() + "." + ext
@@ -32,47 +30,24 @@ public class ImagesProcessor {
             while name == nil {
                 let destination = to.appendingPathComponent(pathComponent)
                 let icloud = destination.appendingPathExtension("icloud")
-                
+
                 if FileManager.default.fileExists(atPath: destination.path) || FileManager.default.fileExists(atPath: icloud.path) {
                     pathComponent = NSUUID().uuidString.lowercased() + ".\(ext)"
                     continue
                 }
-                
+
                 name = pathComponent
             }
         }
 
         return name
     }
-    
+
     public static func writeFile(data: Data, url: URL? = nil, note: Note, ext: String? = nil) -> String? {
-        if note.isTextBundle() {
-            var ext = ext
-            
-            if ext == nil {
-                ext = ImageFormat.get(from: data).rawValue
-            }
-
-            let assetsUrl = note.getURL().appendingPathComponent("assets")
-            
-            if !FileManager.default.fileExists(atPath: assetsUrl.path, isDirectory: nil) {
-                try? FileManager.default.createDirectory(at: assetsUrl, withIntermediateDirectories: true, attributes: nil)
-            }
-
-            let destination = URL(fileURLWithPath: assetsUrl.path)
-            guard var fileName = ImagesProcessor.getFileName(from: url, to: destination, ext: ext) else { return nil }
-            
-            let to = destination.appendingPathComponent(fileName)
-            do {
-                try data.write(to: to, options: .atomic)
-            } catch {
-                print(error)
-            }
-
-            fileName = fileName
-                .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? fileName
-
-            return "assets/\(fileName)"
+        if note.metadataStore != nil {
+            let preferredName = url?.lastPathComponent ?? UUID().uuidString.lowercased() + "." + (ext ?? ImageFormat.get(from: data).rawValue)
+            guard let saved = note.save(data: data, preferredName: preferredName) else { return nil }
+            return saved.0.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? saved.0
         }
 
         var prefix = "i/"

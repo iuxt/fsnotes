@@ -13,7 +13,7 @@ FSNotes is a fast, native notes app for macOS and iOS. It gives you a focused wr
 - **No lock-in.** Open and edit your notes with any compatible app, now or years from now.
 - **Fast at any scale.** Search and navigate smoothly across collections of 10,000+ notes.
 - **Built around your workflow.** Use multiple folders, external editors, iCloud Drive, Dropbox, and optional Git backups.
-- **More than basic Markdown.** Connect ideas with tags and `[[links]]`, protect private notes with AES-256 encryption, and render code, Mermaid diagrams, and MathJax.
+- **More than basic Markdown.** Connect ideas with tags and `[[links]]`, render code, Mermaid diagrams, and MathJax.
 
 **Buy FSNotes and get regular updates through the App Store.**
 

@@ -17,21 +17,14 @@ public enum NoteType: String {
             default: return NoteType.Markdown
         }
     }
-    
+
     static func withTag(rawValue: Int) -> NoteType {
         switch rawValue {
         case 1: return .Markdown
         default: return .Markdown
         }
     }
-    
-    static func withUTI(rawValue: String) -> NoteType {
-        switch rawValue {
-        case "net.daringfireball.markdown": return .Markdown
-        default: return .Markdown
-        }
-    }
-        
+
     public var tag: Int {
         get {
             switch self {
@@ -39,7 +32,7 @@ public enum NoteType: String {
             }
         }
     }
-    
+
     public var uti: String {
         get {
             switch self {
@@ -47,8 +40,8 @@ public enum NoteType: String {
             }
         }
     }
-    
-    public func getExtension(for container: NoteContainer) -> String {
+
+    public func getExtension() -> String {
         return UserDefaultsManagement.noteExtension
     }
 }

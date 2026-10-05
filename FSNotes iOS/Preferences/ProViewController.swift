@@ -22,7 +22,6 @@ class ProViewController: UITableViewController {
         [
             NSLocalizedString("Default Keyboard", comment: ""),
             NSLocalizedString("Use Inline Tags", comment: ""),
-            NSLocalizedString("Use TextBundle info.json to store c/mtime", comment: ""),
             NSLocalizedString("Use First Line as Title", comment: "")
         ], [
             NSLocalizedString("Sort By", comment: ""),
@@ -70,10 +69,6 @@ class ProViewController: UITableViewController {
                 break
             case 2:
                 cell.accessoryView = uiSwitch
-                uiSwitch.isOn = UserDefaultsManagement.useTextBundleMetaToStoreDates
-                break
-            case 3:
-                cell.accessoryView = uiSwitch
                 uiSwitch.isOn = UserDefaultsManagement.firstLineAsTitle
                 break
             default:
@@ -84,7 +79,7 @@ class ProViewController: UITableViewController {
         if indexPath.section == 1 {
             cell.accessoryType = .disclosureIndicator
         }
-        
+
         return cell
     }
 
@@ -107,7 +102,6 @@ class ProViewController: UITableViewController {
             let tableView = cell.superview as? UITableView,
             let indexPath = tableView.indexPath(for: cell) else { return }
 
-
         switch indexPath.row {
         case 1:
             guard let uiSwitch = cell.accessoryView as? UISwitch else { return }
@@ -122,9 +116,6 @@ class ProViewController: UITableViewController {
 
             vc.resizeSidebar(withAnimation: true)
         case 2:
-            guard let uiSwitch = cell.accessoryView as? UISwitch else { return }
-            UserDefaultsManagement.useTextBundleMetaToStoreDates = uiSwitch.isOn
-        case 3:
             guard let uiSwitch = cell.accessoryView as? UISwitch else { return }
             UserDefaultsManagement.firstLineAsTitle = uiSwitch.isOn
             UIApplication.getVC().notesTable.reloadData()

@@ -10,36 +10,32 @@ import Cocoa
 import Carbon.HIToolbox
 
 class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelegate {
-    
+
     public var editorViewController: EditorViewController?
     public var textStorageProcessor: TextStorageProcessor?
     public var note: Note?
     public var viewDelegate: ViewController?
-    
+
     let storage = Storage.shared()
     let caretWidth: CGFloat = 2
     var downView: MPreviewView?
-    
+
     public var timer: Timer?
     public var tagsTimer: Timer?
     public var markdownView: MPreviewContainerView?
     public var isLastEdited: Bool = false
-    
+
     @IBOutlet weak var previewMathJax: NSMenuItem!
 
     public var imagesLoaderQueue = OperationQueue.init()
     public var attributesCachingQueue = OperationQueue.init()
-    
-    private var preview = false
-    
-    public var isScrollPositionSaverLocked = false
-    
-    override func becomeFirstResponder() -> Bool {
-        if let note = self.note {
-            if note.container == .encryptedTextPack {
-                return false
-            }
 
+    private var preview = false
+
+    public var isScrollPositionSaverLocked = false
+
+    override func becomeFirstResponder() -> Bool {
+        if self.note != nil {
             textStorage?.removeHighlight()
         }
 
@@ -77,7 +73,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             attributedString().enumerateAttributes(in: fullRange, options: .reverse) { attributes, range, _ in
                 guard range.location >= 0,
                       range.location + range.length <= textStorage.length else { return }
-                
+
                 guard attributes.index(forKey: .tag) != nil,
                       let font = attributes[.font] as? NSFont
                 else { return }
@@ -86,7 +82,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
                 let tagAttributes = attributedString().attributes(at: range.location, effectiveRange: nil)
 
                 let glyphRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
-                
+
                 let ascent = font.ascender
                 let descent = abs(font.descender)
                 let fontHeight = ascent + descent
@@ -95,9 +91,9 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
                     let intersectionRange = NSIntersectionRange(glyphRange, lineGlyphRange)
                     guard intersectionRange.length > 0 else { return }
-                    
+
                     var fragmentRect = layoutManager.boundingRect(forGlyphRange: intersectionRange, in: textContainer)
-                    
+
                     fragmentRect.origin.x += self.textContainerOrigin.x
                     fragmentRect.origin.y += self.textContainerOrigin.y
                     fragmentRect = self.convertToLayer(fragmentRect)
@@ -145,43 +141,43 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     public func initTextStorage() {
         let processor = TextStorageProcessor()
         processor.editor = self
-        
+
         textStorageProcessor = processor
         textStorage?.delegate = processor
 
         guard let textStorage = self.textStorage,
               let oldLayoutManager = self.layoutManager,
               let textContainer = self.textContainer else { return }
-        
+
         textStorage.removeLayoutManager(oldLayoutManager)
 
         let customLayoutManager = LayoutManager()
         customLayoutManager.addTextContainer(textContainer)
         customLayoutManager.delegate = customLayoutManager
-        
+
         customLayoutManager.processor = processor
-        
+
         textStorage.addLayoutManager(customLayoutManager)
     }
-    
+
     public func configure() {
         DispatchQueue.main.async {
             self.updateTextContainerInset()
         }
-            
+
         attributesCachingQueue.qualityOfService = .background
         textContainerInset.height = 10
         isEditable = false
 
         let isOpenedWindow = window?.contentViewController as? NoteViewController != nil
-        
+
         layoutManager?.allowsNonContiguousLayout =
             isOpenedWindow
                 ? false
                 : UserDefaultsManagement.nonContiguousLayout
 
         layoutManager?.defaultAttachmentScaling = .scaleProportionallyDown
-        
+
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.lineSpacing = CGFloat(UserDefaultsManagement.editorLineSpacing)
         defaultParagraphStyle = paragraphStyle
@@ -198,23 +194,23 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     func sharingServicePicker(_ sharingServicePicker: NSSharingServicePicker, sharingServicesForItems items: [Any], proposedSharingServices proposedServices: [NSSharingService]) -> [NSSharingService] {
         return []
     }
-    
+
     // MARK: Overrides
 
     override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
         var newRect = rect
         newRect.size.width = caretWidth
-        
+
         // Fixes last line height
-        
+
         if let textStorage = self.textStorage,
            let layoutManager = self.layoutManager as? LayoutManager {
             let insertionPoint = self.selectedRange().location
-            
+
             if insertionPoint == textStorage.length, insertionPoint > 0 {
                 let lastIndex = insertionPoint - 1
                 let attributes = textStorage.attributes(at: lastIndex, effectiveRange: nil)
-                
+
                 let isNewline: Bool = {
                     let ns = textStorage.string as NSString
                     return ns.character(at: lastIndex) == 0x0A // '\n'
@@ -226,11 +222,11 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
                 } else {
                     fontToUse = UserDefaultsManagement.noteFont
                 }
-                
+
                 newRect.size.height = layoutManager.lineHeight(for: fontToUse)
             }
         }
-        
+
         let clr = NSColor(red: 0.47, green: 0.53, blue: 0.69, alpha: 1.0)
         super.drawInsertionPoint(in: newRect, color: clr, turnedOn: flag)
     }
@@ -238,69 +234,69 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     override func updateInsertionPointStateAndRestartTimer(_ restartFlag: Bool) {
         super.updateInsertionPointStateAndRestartTimer(true)
     }
-    
+
     override func setNeedsDisplay(_ invalidRect: NSRect) {
         var newInvalidRect = NSRect(origin: invalidRect.origin, size: invalidRect.size)
         newInvalidRect.size.width += self.caretWidth - 1
         super.setNeedsDisplay(newInvalidRect)
     }
-    
+
     override func toggleContinuousSpellChecking(_ sender: Any?) {
         if let menu = sender as? NSMenuItem {
             UserDefaultsManagement.continuousSpellChecking = (menu.state == .off)
         }
         super.toggleContinuousSpellChecking(sender)
     }
-    
+
     override func toggleGrammarChecking(_ sender: Any?) {
         if let menu = sender as? NSMenuItem {
             UserDefaultsManagement.grammarChecking = (menu.state == .off)
         }
         super.toggleGrammarChecking(sender)
     }
-    
+
     override func toggleAutomaticSpellingCorrection(_ sender: Any?) {
         if let menu = sender as? NSMenuItem {
             UserDefaultsManagement.automaticSpellingCorrection = (menu.state == .off)
         }
         super.toggleAutomaticSpellingCorrection(sender)
     }
-    
+
     override func toggleSmartInsertDelete(_ sender: Any?) {
         if let menu = sender as? NSMenuItem {
             UserDefaultsManagement.smartInsertDelete = (menu.state == .off)
         }
         super.toggleSmartInsertDelete(sender)
     }
-    
+
     override func toggleAutomaticQuoteSubstitution(_ sender: Any?) {
         if let menu = sender as? NSMenuItem {
             UserDefaultsManagement.automaticQuoteSubstitution = (menu.state == .off)
         }
         super.toggleAutomaticQuoteSubstitution(sender)
     }
-    
+
     override func toggleAutomaticDataDetection(_ sender: Any?) {
         if let menu = sender as? NSMenuItem {
             UserDefaultsManagement.automaticDataDetection = (menu.state == .off)
         }
         super.toggleAutomaticDataDetection(sender)
     }
-    
+
     override func toggleAutomaticLinkDetection(_ sender: Any?) {
         if let menu = sender as? NSMenuItem {
             UserDefaultsManagement.automaticLinkDetection = (menu.state == .off)
         }
         super.toggleAutomaticLinkDetection(sender)
     }
-    
+
     override func toggleAutomaticTextReplacement(_ sender: Any?) {
         if let menu = sender as? NSMenuItem {
             UserDefaultsManagement.automaticTextReplacement = (menu.state == .off)
         }
         super.toggleAutomaticTextReplacement(sender)
     }
-    
+
     override func toggleAutomaticDashSubstitution(_ sender: Any?) {
         if let menu = sender as? NSMenuItem {
             UserDefaultsManagement.automaticDashSubstitution = (menu.state == .off)
@@ -311,12 +307,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     private var dragDetected = false
 
     override func mouseDown(with event: NSEvent) {
-        guard let note = self.note else { return }
-        guard note.container != .encryptedTextPack else {
-            editorViewController?.unLock(notes: [note])
-            editorViewController?.vcNonSelectedLabel?.isHidden = false
-            return
-        }
+        guard self.note != nil else { return }
 
         if editorViewController?.vcEditor?.isPreviewEnabled() == false {
             self.isEditable = true
@@ -329,7 +320,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             self.window?.makeFirstResponder(nil)
             return
         }
-        
+
         dragDetected = false
         super.mouseDown(with: event)
         saveSelectedRange()
@@ -339,7 +330,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             self.dragDetected = false
         }
     }
-    
+
     private func handleTodo(_ event: NSEvent) -> Bool {
         guard let container = self.textContainer,
               let manager = self.layoutManager
@@ -353,7 +344,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         let glyphRect = manager.boundingRect(forGlyphRange: NSRange(location: index, length: 1), in: container)
 
         guard glyphRect.contains(properPoint) else { return false }
-        
+
         if isTodo(index) {
             guard let f = self.getTextFormatter() else { return false }
             f.toggleTodo(index)
@@ -364,7 +355,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
             return true
         }
-        
+
         return false
     }
 
@@ -500,7 +491,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         guard let storage = textStorage,
                   at >= 0,
                   at < storage.length else { return false }
-        
+
         guard textStorage?.attribute(.attachment, at: at, effectiveRange: nil) as? NSTextAttachment != nil else {
             return false
         }
@@ -519,7 +510,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
     public func isTodo(_ location: Int) -> Bool {
         guard let storage = self.textStorage else { return false }
-        
+
         let range = (storage.string as NSString).paragraphRange(for: NSRange(location: location, length: 0))
         let string = storage.attributedSubstring(from: range).string as NSString
 
@@ -531,7 +522,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         if length == 0 {
             length = string.range(of: "- [x] ").length
         }
-        
+
         if length > 0 {
             let upper = range.location + length
             if location >= range.location && location <= upper {
@@ -561,7 +552,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         guard let storage = textStorage else { return false }
 
         dragDetected = true
-        
+
         let range = selectedRange()
         let attributedString = NSMutableAttributedString(attributedString: storage.attributedSubstring(from: range))
 
@@ -621,16 +612,16 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             pasteboard.setString(paragraph.string.trim().removeLastNewLine(), forType: NSPasteboard.PasteboardType.string)
             return
         }
-        
+
         if let menuItem = sender as? NSMenuItem,
            menuItem.identifier?.rawValue == "copy:",
            self.selectedRange.length > 0 {
-            
+
             let attrString = attributedSubstring(forProposedRange: self.selectedRange, actualRange: nil)
-            
+
             if let attrString = attrString,
                let link = attrString.attribute(.link, at: 0, effectiveRange: nil) as? String {
-                
+
                 let pasteboard = NSPasteboard.general
                 pasteboard.declareTypes([.string], owner: nil)
                 pasteboard.setString(link, forType: .string)
@@ -654,7 +645,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             breakUndoCoalescing()
             insertText(mutable, replacementRange: selectedRange())
             breakUndoCoalescing()
-            
+
             return
         }
 
@@ -686,14 +677,14 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
                 breakUndoCoalescing()
                 insertText(attributed, replacementRange: selectedRange())
                 breakUndoCoalescing()
-                
+
                 return
             }
         }
 
         super.paste(sender)
     }
-    
+
     override func pasteAsPlainText(_ sender: Any?) {
         let currentRange = selectedRange()
         var plainText: String?
@@ -741,23 +732,22 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     func getSelectedNote() -> Note? {
         return ViewController.shared()?.notesTableView?.getSelectedNote()
     }
-    
+
     public func isEditable(note: Note) -> Bool {
-        if note.container == .encryptedTextPack { return false }
 
         guard let editor = editorViewController?.vcEditor else { return false }
 
         if editor.isPreviewEnabled() {
             return false
         }
-        
+
         return true
     }
 
     public func getVC() -> EditorViewController {
         return self.window?.contentViewController as! EditorViewController
     }
-    
+
     public func getEVC() -> EditorViewController? {
         return self.window?.contentViewController as? EditorViewController
     }
@@ -770,15 +760,15 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
     func fill(note: Note, highlight: Bool = false, force: Bool = false) {
         isScrollPositionSaverLocked = true
-        
+
         if !note.isLoaded {
             note.load()
         }
-        
+
         viewDelegate?.updateCounters(note: note)
 
         textStorage?.setAttributedString(NSAttributedString(string: ""))
-        
+
         // Hack for invalidate prev layout data (order is important, only before fill)
         if let length = textStorage?.length {
             textStorage?.layoutManagers.first?.invalidateDisplay(forGlyphRange: NSRange(location: 0, length: length))
@@ -803,22 +793,18 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         if let label = editorViewController?.vcNonSelectedLabel {
             label.isHidden = true
 
-            if note.container == .encryptedTextPack {
-                label.stringValue = NSLocalizedString("Locked", comment: "")
-                label.isHidden = false
-            } else {
                 label.stringValue = NSLocalizedString("None Selected", comment: "")
                 label.isHidden = true
-            }
+
         }
-    
+
         self.note = note
         UserDefaultsManagement.lastSelectedURL = note.url
 
         editorViewController?.updateTitle(note: note)
 
         isEditable = isEditable(note: note)
-        
+
         editorViewController?.editorUndoManager = note.undoManager
 
         typingAttributes.removeAll()
@@ -841,7 +827,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         } else {
             storage.setAttributedString(note.content)
         }
-        
+
         if highlight {
             textStorage?.highlightKeyword(search: getSearchText())
         }
@@ -855,17 +841,17 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         self.note = note
 
         guard let scrollView = editorViewController?.vcEditorScrollView else { return }
-        
+
         if markdownView == nil {
             let frame = scrollView.bounds
-            
+
             let containerView = MPreviewContainerView(frame: frame, note: note, closure: { [weak self] in
                 if let point = self?.note?.contentOffsetWeb {
                     self?.markdownView?.restoreScrollPosition(point)
                 }
             })
             markdownView = containerView
-            
+
             containerView.webView.setEditorVC(evc: editorViewController)
             if self.note == note {
                 scrollView.addSubview(containerView)
@@ -880,36 +866,23 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         }
     }
 
-    public func lockEncryptedView() {
-        textStorage?.setAttributedString(NSAttributedString())
-        markdownView?.removeFromSuperview()
-        markdownView = nil
-
-        isEditable = false
-        
-        if let label = editorViewController?.vcNonSelectedLabel {
-            label.stringValue = NSLocalizedString("Locked", comment: "")
-            label.isHidden = false
-        }
-    }
-    
     public func clear() {
         textStorage?.setAttributedString(NSAttributedString())
         markdownView?.removeFromSuperview()
         markdownView = nil
 
         isEditable = false
-        
+
         window?.title = AppDelegate.appTitle
-        
+
         if let label = editorViewController?.vcNonSelectedLabel {
             label.stringValue = NSLocalizedString("None Selected", comment: "")
             label.isHidden = false
             editorViewController?.dropTitle()
         }
-        
+
         self.note = nil
-        
+
         if let vc = viewDelegate {
             vc.updateCounters()
         }
@@ -969,26 +942,26 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         let formatter = TextFormatter(textView: self, note: note)
         formatter.header(string)
     }
-    
+
     @IBAction func moveSelectedLinesDown(_ sender: NSMenuItem) {
         self.moveSelectedLinesDown()
     }
-    
+
     @IBAction func moveSelectedLinesUp(_ sender: NSMenuItem) {
         self.moveSelectedLinesUp()
     }
-    
+
     @IBAction func clearCompletedTodos(_ sender: NSMenuItem) {
         self.clearCompletedTodos()
     }
 
     func getParagraphRange() -> NSRange? {
         guard let storage = textStorage else { return nil }
-        
+
         let range = selectedRange()
         return storage.mutableString.paragraphRange(for: range)
     }
-    
+
     // Clickable links flag changed with cmd / shift
     override func flagsChanged(with event: NSEvent) {
         super.flagsChanged(with: event)
@@ -1004,7 +977,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
               let textStorage = self.textStorage else { return }
 
         let pointInView = self.convert(event.locationInWindow, from: nil)
-        
+
         let pointInContainer = NSPoint(
             x: pointInView.x - textContainerInset.width,
             y: (self.bounds.size.height - pointInView.y) - textContainerInset.height
@@ -1037,15 +1010,15 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             NSCursor.iBeam.set()
         }
     }
-    
+
     override func keyDown(with event: NSEvent) {
         defer {
             saveSelectedRange()
         }
-        
+
         // Insert the third Markdown fence backtick literally, but leave other backtick
         // input to AppKit so French accent grave composition continues to work.
-        
+
         let currentRange = selectedRange()
         if event.charactersIgnoringModifiers == "`",
            currentRange.length == 0,
@@ -1068,9 +1041,9 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             super.keyDown(with: event)
             return
         }
-        
+
         guard let note = self.note else { return }
-        
+
         // Handle autoclose brackets
         if UserDefaultsManagement.autocloseBrackets,
            handleAutocloseBrackets(for: event) {
@@ -1080,7 +1053,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         // hasMarkedText added for Japanese hack https://yllan.org/blog/archives/231
         if event.keyCode == kVK_Tab && !hasMarkedText(){
             breakUndoCoalescing()
-            
+
             let formatter = TextFormatter(textView: self, note: note)
             if formatter.isListParagraph() {
                 if NSEvent.modifierFlags.contains(.shift) {
@@ -1088,18 +1061,18 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
                 } else {
                     formatter.tab()
                 }
-                
+
                 breakUndoCoalescing()
                 return
             }
-            
+
             if UserDefaultsManagement.indentUsing == 0x01 {
                 let tab = TextFormatter.getAttributedCode(string: "  ")
                 insertText(tab, replacementRange: selectedRange())
                 breakUndoCoalescing()
                 return
             }
-            
+
             if UserDefaultsManagement.indentUsing == 0x02 {
                 let tab = TextFormatter.getAttributedCode(string: "    ")
                 insertText(tab, replacementRange: selectedRange())
@@ -1135,7 +1108,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             }
             return
         }
-        
+
         super.keyDown(with: event)
     }
 
@@ -1148,11 +1121,11 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             "{" : "}",
             "\"" : "\""
         ]
-        
+
         guard let character = event.characters else {
             return false
         }
-        
+
         // Check if user is typing a closing bracket
         let closingBrackets = Array(brackets.values)
         if closingBrackets.contains(character) {
@@ -1163,7 +1136,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
                currentRange.location < storage.length {
                 let nextCharRange = NSRange(location: currentRange.location, length: 1)
                 let nextCharString = storage.attributedSubstring(from: nextCharRange).string
-                
+
                 if nextCharString == character {
                     // Skip the closing bracket and move cursor forward
                     setSelectedRange(NSMakeRange(currentRange.location + 1, 0))
@@ -1171,12 +1144,12 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
                 }
             }
         }
-        
+
         // Handle opening brackets
         guard let closingBracket = brackets[character] else {
             return false
         }
-        
+
         if selectedRange().length > 0 {
             // Wrap selection with brackets
             let before = NSMakeRange(selectedRange().lowerBound, 0)
@@ -1189,46 +1162,46 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             self.insertText(closingBracket, replacementRange: selectedRange())
             self.moveBackward(self)
         }
-        
+
         return true
     }
-    
+
     override func shouldChangeText(in range: NSRange, replacementString: String?) -> Bool {
         guard let note = self.note else {
             return super.shouldChangeText(in: range, replacementString: replacementString)
         }
 
         note.resetAttributesCache()
-                
+
         scheduleTagScan(for: note)
         deleteUnusedImages(checkRange: range)
         resetTypingAttributes()
 
         return super.shouldChangeText(in: range, replacementString: replacementString)
     }
-    
+
     // MARK: Autocomplete overrides
-    
+
     var suppressCompletion = false
-    
+
     public var forceSystemAutocomplete = false
     private var isSystemCompletionSession = false
-    
+
     override func didChangeText() {
         super.didChangeText()
-        
+
         if suppressCompletion {
             suppressCompletion = false
             return
         }
-        
+
         if detectCompletionContext() != .none {
             DispatchQueue.main.async {
                 self.complete(nil)
             }
         }
     }
-    
+
     override func completions(forPartialWordRange charRange: NSRange,
                               indexOfSelectedItem index: UnsafeMutablePointer<Int>) -> [String]? {
 
@@ -1265,7 +1238,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
         return calculateCompletionRange()
     }
-    
+
     @objc public func scanTagsAndAutoRename() {
         guard let vc = ViewController.shared() else { return }
         let notes = vc.tagsScannerQueue
@@ -1275,7 +1248,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
                 note.cache()
             }
         }
-        
+
         for note in notes {
             let result = note.scanContentTags()
             guard let outline = ViewController.shared()?.sidebarOutlineView else { return }
@@ -1308,7 +1281,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         guard let note = self.note else { return }
         note.setSelectedRange(range: selectedRange)
     }
-    
+
     func loadSelectedRange() {
         guard let storage = textStorage else { return }
 
@@ -1323,10 +1296,10 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             textColor = color
         }
     }
-    
+
     override func awakeFromNib() {
         super.awakeFromNib()
-        
+
         imagesLoaderQueue.maxConcurrentOperationCount = 3
         imagesLoaderQueue.qualityOfService = .userInteractive
     }
@@ -1338,7 +1311,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         guard let note = self.note, let storage = textStorage else { return false }
-        
+
         let pasteboard = sender.draggingPasteboard
         let dropPoint = convert(sender.draggingLocation, from: nil)
         let caretLocation = characterIndexForInsertion(at: dropPoint)
@@ -1366,12 +1339,11 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         task.resume()
     }
 
-    
     func getHTMLTitle(from data: Data) -> String? {
         guard let htmlString = String(data: data, encoding: .utf8) else {
             return nil
         }
-        
+
         return extractTitle(from: htmlString)
     }
 
@@ -1381,7 +1353,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         if let editor = search.currentEditor(), editor.selectedRange.length > 0 {
             return (search.stringValue as NSString).substring(with: NSRange(0..<editor.selectedRange.location))
         }
-        
+
         return search.stringValue
     }
 
@@ -1394,12 +1366,12 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             self.scrollRangeToVisible(cursorRange)
         }
     }
-    
+
     public func hasFocus() -> Bool {
         if let fr = self.window?.firstResponder, fr.isKind(of: EditTextView.self) {
             return true
         }
-        
+
         return false
     }
 
@@ -1408,7 +1380,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         let f = TextFormatter(textView: self, note: note)
         f.unTab()
     }
-    
+
     @IBAction func shiftRight(_ sender: Any) {
         guard let note = self.note, isEditable else { return }
         let f = TextFormatter(textView: self, note: note)
@@ -1417,7 +1389,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
     @IBAction func todo(_ sender: Any) {
         guard let f = self.getTextFormatter(), isEditable else { return }
-        
+
         f.todo()
     }
 
@@ -1441,7 +1413,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         let formatter = TextFormatter(textView: self, note: note)
         formatter.italic()
     }
-    
+
     @IBAction func insertFileOrImage(_ sender: Any) {
         guard let note = self.note, isEditable else { return }
 
@@ -1488,10 +1460,10 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
             insertText(mutable, replacementRange: currentRange)
             setSelectedRange(NSRange(location: currentRange.location + 3, length: 0))
-            
+
             return
         }
-        
+
         insertText("```\n\n```\n", replacementRange: currentRange)
         setSelectedRange(NSRange(location: currentRange.location + 3, length: 0))
     }
@@ -1544,13 +1516,13 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         let formatter = TextFormatter(textView: self, note: note)
         formatter.link()
     }
-    
+
     private func getTextFormatter() -> TextFormatter? {
         guard let note = self.note, isEditable else { return nil }
-        
+
         return TextFormatter(textView: self, note: note)
     }
-    
+
     override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
         return true
     }
@@ -1565,10 +1537,10 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
         return super.draggingUpdated(sender)
     }
-    
+
     override func clicked(onLink link: Any, at charIndex: Int) {
         if handleEmailLink(link) { return }
-        
+
         if handleAnchorLink(link) { return }
 
         if !isAttachmentAtPosition(charIndex) {
@@ -1824,27 +1796,27 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             self.userActivity?.becomeCurrent()
         }
     }
-    
+
     public func changePreviewState(_ state: Bool) {
         preview = state
     }
-    
+
     public func togglePreviewState() {
         self.preview = !self.preview
-        
+
         note?.previewState = self.preview
     }
-    
+
     public func isPreviewEnabled() -> Bool {
         return preview
     }
-    
+
     public func disablePreviewEditorAndNote() {
         preview = false
-        
+
         note?.previewState = false
     }
-    
+
     public func scheduleTagScan(for note: Note) {
         if let vc = ViewController.shared(),
            !vc.tagsScannerQueue.contains(note) {
@@ -1872,7 +1844,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         if let style = typingAttributes[.paragraphStyle] as? NSMutableParagraphStyle {
             style.alignment = .left
         }
-        
+
         typingAttributes[.font] = UserDefaultsManagement.noteFont
     }
 }

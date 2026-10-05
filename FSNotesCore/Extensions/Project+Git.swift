@@ -147,7 +147,7 @@ extension Project {
             progress.log(message: "git add .")
         }
 
-        let success = head.add(path: ".")
+        let success = try head.add(path: ".")
 
         // No commits yet or added files was found
         if success || lastCommit == nil {
@@ -170,6 +170,7 @@ extension Project {
                 cacheHistory(progress: progress)
             } catch {
                 progress?.log(message: "commit error: \(error)")
+                throw error
             }
         } else {
             progress?.log(message: "git add: no new data")
@@ -198,10 +199,11 @@ extension Project {
         guard let origin = getGitOrigin() else { return }
 
         let repository = try getRepository()
-        repository.addRemoteOrigin(path: origin)
+        try repository.addRemoteOrigin(path: origin)
 
         let handler = getAuthHandler()
         let localBranch = try repository.currentBranch()
+        try GitLFS.transfer(["push", "origin", localBranch.shortName], in: url, sshKey: getSSHKeyUrl())
         try repository.remotes.get(remoteName: "origin").push(local: localBranch, authentication: handler)
 
         if let progress = progress {
@@ -213,7 +215,7 @@ extension Project {
         guard let origin = getGitOrigin() else { return }
 
         let repository = try getRepository()
-        repository.addRemoteOrigin(path: origin)
+        try repository.addRemoteOrigin(path: origin)
 
         let authHandler = getAuthHandler()
         let sign = getSign()
@@ -221,15 +223,10 @@ extension Project {
         let remote = repository.remotes
         let remoteBranch = try remote.get(remoteName: "origin")
 
-        do {
-            try remoteBranch.pull(signature: sign, authentication: authHandler, project: self)
-        } catch GitError.uncommittedConflict {
-            try commit()
-            try remoteBranch.pull(signature: sign, authentication: authHandler, project: self)
-            try push()
-        }
+        try remoteBranch.pull(signature: sign, authentication: authHandler, project: self)
 
         try metadataStore?.refresh()
+        try GitLFS.transfer(["pull", "origin"], in: url, sshKey: getSSHKeyUrl())
         DispatchQueue.main.async { self.storage.refreshMetadataLibraries() }
 
         if let progress = progress {
@@ -243,6 +240,22 @@ extension Project {
         }
 
         return false
+    }
+
+    /// Explicit sync keeps the user-visible order: pull, commit, then push.
+    public func synchronize(progress: GitProgress? = nil) throws {
+        guard hasRepository(), getGitOrigin() != nil else {
+            throw GitError.invalidSpec(spec: "Git sync requires a repository and remote")
+        }
+        do { try pull(progress: progress) }
+        catch GitError.notFound(let ref) {
+            let branch = try getRepository().currentBranch()
+            guard ref == "origin/\(branch.shortName)" else { throw GitError.notFound(ref: ref) }
+            // A new remote has no branch to pull until its first push.
+        }
+        do { try commit(progress: progress) }
+        catch GitError.noAddedFiles { }
+        try push(progress: progress)
     }
 
     public func removeRepository(progress: GitProgress? = nil) {
@@ -345,14 +358,7 @@ extension Project {
             case .commit:
                 try commit(message: nil, progress: progress)
             case .pullPush:
-                do {
-                    try pull(progress: progress)
-                    try push(progress: progress)
-                } catch GitError.notFound(let ref) {
-                    progress?.log(message: "\(ref) not found, push trying ...")
-
-                    try push(progress: progress)
-                }
+                try synchronize(progress: progress)
             }
         } catch {
             if let error = error as? GitError {
@@ -371,6 +377,7 @@ extension Project {
         do {
             if let repo = try cloneRepository(), let local = getLocalBranch(repository: repo) {
                 try repo.head().checkout(branch: local, type: .force)
+                try GitLFS.transfer(["pull", "origin"], in: url, sshKey: getSSHKeyUrl())
                 try metadataStore?.refresh()
                 DispatchQueue.main.async { self.storage.refreshMetadataLibraries() }
                 cacheHistory(progress: progress)

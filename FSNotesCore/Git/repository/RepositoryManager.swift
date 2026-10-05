@@ -44,6 +44,7 @@ public class RepositoryManager {
             
             // Init git
             git_libgit2_init()
+            GitLFS.registerFilter()
         }
         
         RepositoryManager.count += 1

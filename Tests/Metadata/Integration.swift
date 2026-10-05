@@ -1,5 +1,4 @@
 import Foundation
-import SQLite3
 
 @main struct MetadataTests {
     static var checks = 0
@@ -21,6 +20,77 @@ import SQLite3
         guard process.terminationStatus == 0 else { throw MetadataStore.Failure.invalid(String(decoding: data, as: UTF8.self)) }
         return String(decoding: data, as: UTF8.self)
     }
+    static func checkMemoryIndexes(in temporary: URL) throws {
+        let root = temporary.appendingPathComponent("memory-indexes")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let folders = (0..<20).map { i in
+            MetadataStore.Folder(id: String(format: "11111111-0000-4000-8000-%012d", i), name: "目录 \(i)")
+        }
+        let entries = (0..<2000).map { i in
+            MetadataStore.Entry(id: String(format: "00000000-0000-4000-8000-%012d", i), name: "文章 \(i)",
+                                folderID: i % 21 == 20 ? nil : folders[i % 21].id,
+                                fileExtension: "md", trashed: i % 13 == 0)
+        }
+        let initial = MetadataStore.Snapshot(folders: Array(folders.reversed()), notes: Array(entries.reversed()))
+        let manifest = root.appendingPathComponent("metadata.json")
+        let originalData = try JSONEncoder().encode(initial)
+        try originalData.write(to: manifest, options: .atomic)
+        let store = try MetadataStore(root: root)
+        try expect(try store.allEntries() == entries, "2000 entries sorted by ID regardless of JSON order")
+        try expect(try store.allFolders() == folders, "folders sorted by ID regardless of JSON order")
+        for entry in entries {
+            try expect(store.entry(id: entry.id) == entry, "UUID index retrieves the exact record")
+        }
+        for folderID in folders.map({ Optional($0.id) }) + [nil] {
+            try expect(try store.entries(inFolder: folderID) == entries.filter { $0.folderID == folderID }, "folder index includes root and trashed records in ID order")
+        }
+        try expect(store.entry(id: "unknown") == nil, "unknown UUID has no record")
+        try expect(try store.entries(inFolder: "unknown").isEmpty, "unknown folder has no records")
+        try expect(try !store.refresh(force: false), "unchanged JSON keeps current indexes")
+        try expect(try Data(contentsOf: manifest) == originalData, "queries do not rewrite JSON")
+
+        let target = entries[1]
+        let destination = folders[2].id
+        try store.moveNote(id: target.id, folderID: destination)
+        try expect(try !store.entries(inFolder: target.folderID).contains { $0.id == target.id }, "move removes old folder membership")
+        try expect(try store.entries(inFolder: destination).contains { $0.id == target.id }, "move updates destination membership")
+        try store.changeExtension(id: target.id, to: "txt")
+        try store.renameNote(id: target.id, name: "更新后的标题")
+        try expect(store.entry(id: target.id)?.fileExtension == "txt" && store.entry(id: target.id)?.name == "更新后的标题", "UUID index updates extension and title")
+        try expect(try store.entries(inFolder: destination).first { $0.id == target.id } == store.entry(id: target.id), "folder and UUID indexes agree after edits")
+        let unchangedData = try Data(contentsOf: manifest)
+        try store.renameNote(id: target.id, name: "更新后的标题")
+        try expect(try Data(contentsOf: manifest) == unchangedData, "unchanged mutation does not publish JSON")
+        try store.delete(id: target.id)
+        try expect(store.entry(id: target.id) == nil, "deletion removes UUID lookup")
+        try expect(try !store.entries(inFolder: destination).contains { $0.id == target.id }, "deletion removes folder lookup")
+
+        try originalData.write(to: manifest, options: .atomic)
+        try expect(store.entry(id: target.id) == target, "external replacement refreshes UUID index without explicit refresh")
+        try expect(try store.entries(inFolder: target.folderID).contains(target), "external replacement restores folder membership")
+        let second = try MetadataStore(root: root)
+        try second.renameNote(id: target.id, name: "另一个实例")
+        try expect(store.entry(id: target.id)?.name == "另一个实例", "independent store refreshes its memory index")
+        let lastValidEntries = try store.allEntries()
+        let lastValidFolders = try store.allFolders()
+        let validData = try Data(contentsOf: manifest)
+
+        var invalid = initial
+        invalid.notes.append(entries[0])
+        let invalidData = try JSONEncoder().encode(invalid)
+        try invalidData.write(to: manifest, options: .atomic)
+        do { try store.refresh(); throw MetadataStore.Failure.invalid("duplicate ID accepted") }
+        catch MetadataStore.Failure.invalid(let reason) { try expect(reason == "duplicate IDs", "duplicate IDs rejected before building dictionaries") }
+        try expect(try store.allEntries() == lastValidEntries && store.allFolders() == lastValidFolders, "rejected snapshot preserves both last valid indexes")
+        do { try store.renameNote(id: target.id, name: "must fail"); throw MetadataStore.Failure.invalid("invalid snapshot overwritten") }
+        catch MetadataStore.Failure.invalid(let reason) { try expect(reason == "duplicate IDs", "invalid snapshot blocks writes") }
+        try expect(try Data(contentsOf: manifest) == invalidData, "invalid JSON is not overwritten by cached records")
+        try validData.write(to: manifest, options: .atomic)
+        try expect(store.entry(id: target.id)?.name == "另一个实例", "valid snapshot recovers after rejection")
+        let reopened = try MetadataStore(root: root)
+        try expect(try reopened.allEntries() == lastValidEntries, "reopening reconstructs 2000 memory records from JSON")
+        try expect(try reopened.entries(inFolder: nil) == lastValidEntries.filter { $0.folderID == nil }, "reopening reconstructs root membership")
+    }
     static func main() throws {
         let manager = FileManager.default
         let temporary = manager.temporaryDirectory.appendingPathComponent("fsnotes-metadata-tests-" + UUID().uuidString)
@@ -28,27 +98,28 @@ import SQLite3
         let root = temporary.appendingPathComponent("library")
         try manager.createDirectory(at: root.appendingPathComponent("技术/Git/assets"), withIntermediateDirectories: true)
         try manager.createDirectory(at: root.appendingPathComponent("Empty"), withIntermediateDirectories: true)
+        try manager.createDirectory(at: root.appendingPathComponent("Trash"), withIntermediateDirectories: true)
+        try manager.createDirectory(at: root.appendingPathComponent("images/nested"), withIntermediateDirectories: true)
+        try "image attachment".write(to: root.appendingPathComponent("images/nested/resource.txt"), atomically: true, encoding: .utf8)
+        try "*.md text\n".write(to: root.appendingPathComponent(".gitattributes"), atomically: true, encoding: .utf8)
         try Data([0,1,2,3]).write(to: root.appendingPathComponent("技术/Git/assets/p.png"))
         try "old\n".write(to: root.appendingPathComponent("Other.md"), atomically: true, encoding: .utf8)
         let original = "# Title\n![photo](assets/p.png)\n[other](../../Other.md#section)\n[site](https://example.com/)\n`[code](assets/p.png)`\n```md\n[code](assets/p.png)\n```\n"
         try original.write(to: root.appendingPathComponent("技术/Git/笔记.md"), atomically: true, encoding: .utf8)
-        let bundle = root.appendingPathComponent("技术/Git/Bundle.textbundle")
-        try manager.createDirectory(at: bundle.appendingPathComponent("assets"), withIntermediateDirectories: true)
-        try Data([4,5,6]).write(to: bundle.appendingPathComponent("assets/b.png"))
-        try "![b](assets/b.png)\n[other](../../../Other.md)".write(to: bundle.appendingPathComponent("text.markdown"), atomically: true, encoding: .utf8)
-        try "{\"version\":2,\"type\":\"net.daringfireball.markdown\"}".write(to: bundle.appendingPathComponent("info.json"), atomically: true, encoding: .utf8)
         try command(["init", "-q"], in: root)
         try command(["config", "user.name", "Tests"], in: root)
         try command(["config", "user.email", "test@example.com"], in: root)
         try command(["add", "."], in: root)
         try command(["commit", "-qm", "legacy"], in: root)
-        let database = temporary.appendingPathComponent("local/index.sqlite")
-        var store: MetadataStore? = try MetadataStore(root: root, databaseURL: database)
+        var store: MetadataStore? = try MetadataStore(root: root)
         let initial = try store!.allEntries()
+        try expect(manager.fileExists(atPath: store!.imagesURL.path), "root image directory created")
+        try expect(!manager.fileExists(atPath: root.appendingPathComponent("Trash").path), "empty obsolete trash directory removed")
+        let attributes = try String(contentsOf: root.appendingPathComponent(".gitattributes"), encoding: .utf8)
+        try expect(attributes == "*.md text\nimages/** filter=lfs diff=lfs merge=lfs -text\n", "LFS rule added without losing user attributes")
         let note = initial.first { $0.name == "笔记" }!
         let other = initial.first { $0.name == "Other" }!
-        let package = initial.first { $0.name == "Bundle" }!
-        try expect(initial.count == 3, "all note formats migrate")
+        try expect(initial.count == 2, "ordinary notes migrate")
         try expect(note.aliases?.contains("Title") == true, "old heading remains a link alias")
         try expect(try store!.allFolders().count == 3, "nested and empty folders preserved")
         try expect(!manager.fileExists(atPath: root.appendingPathComponent("技术/Git/笔记.md").path), "legacy file removed after publishing metadata")
@@ -59,10 +130,6 @@ import SQLite3
         try expect(content.contains("`[code](assets/p.png)`"), "inline code untouched")
         try expect(content.contains("```md\n[code](assets/p.png)\n```"), "fenced code untouched")
         try expect(content.contains("https://example.com/"), "remote URLs untouched")
-        let packageText = try String(contentsOf: store!.fileURL(package).appendingPathComponent("text.markdown"), encoding: .utf8)
-        try expect(packageText.contains("assets/b.png"), "TextBundle internal assets stay relative")
-        try expect(packageText.contains("../" + other.id + ".md"), "TextBundle external note links relocate")
-        try expect(try Data(contentsOf: store!.fileURL(package).appendingPathComponent("assets/b.png")) == Data([4,5,6]), "TextBundle assets preserved")
         try command(["add", "."], in: root)
         try command(["commit", "-qm", "migrate"], in: root)
         let snapshot = try Data(contentsOf: store!.manifestURL)
@@ -95,12 +162,11 @@ import SQLite3
         try expect(try String(contentsOf: store!.manifestURL, encoding: .utf8).hasPrefix("<<<<<<<"), "conflict is never overwritten")
         try valid.write(to: store!.manifestURL, options: .atomic)
         store = nil
-        try manager.removeItem(at: database)
-        store = try MetadataStore(root: root, databaseURL: database)
-        try expect(store!.entry(id: note.id)!.name.contains("新名称"), "SQLite rebuilds from portable snapshot")
+        store = try MetadataStore(root: root)
+        try expect(store!.entry(id: note.id)!.name.contains("新名称"), "memory index rebuilds from portable snapshot")
         try expect(try command(["ls-files"], in: root).contains("metadata.json"), "metadata tracked by Git")
-        try expect(!command(["ls-files"], in: root).contains("sqlite"), "local database excluded from Git")
-        let second = try MetadataStore(root: root, databaseURL: temporary.appendingPathComponent("another.sqlite"))
+        let second = try MetadataStore(root: root)
+        try expect(try String(contentsOf: root.appendingPathComponent(".gitattributes"), encoding: .utf8) == attributes, "reopening does not duplicate LFS attributes")
         let nested = try second.createFolder(name: "Child", parentID: folder.id)
         try store!.renameNote(id: other.id, name: "from first instance")
         try expect(try store!.allFolders().contains { $0.id == nested.id }, "independent instances preserve updates")
@@ -113,7 +179,7 @@ import SQLite3
         try snapshot.write(to: journal)
         try "old\n".write(to: root.appendingPathComponent("Other.md"), atomically: true, encoding: .utf8)
         store = nil
-        _ = try MetadataStore(root: root, databaseURL: database)
+        _ = try MetadataStore(root: root)
         try expect(!manager.fileExists(atPath: journal.path), "post-publication migration cleanup resumes")
         try expect(!manager.fileExists(atPath: root.appendingPathComponent("Other.md").path), "resumed cleanup removes remaining original")
         // Interrupted before publication: the journal reuses IDs and replaces partial staging.
@@ -124,14 +190,14 @@ import SQLite3
         let interruptedPlan = MetadataStore.Snapshot(notes: [interruptedEntry])
         try JSONEncoder().encode(interruptedPlan).write(to: interrupted.appendingPathComponent(".fsnotes-migration.json"))
         try "partial".write(to: interrupted.appendingPathComponent("notes/.migration-" + interruptedEntry.id + ".md"), atomically: true, encoding: .utf8)
-        let resumed = try MetadataStore(root: interrupted, databaseURL: temporary.appendingPathComponent("resumed.sqlite"))
+        let resumed = try MetadataStore(root: interrupted)
         try expect(resumed.entry(id: interruptedEntry.id)?.name == "Old", "interrupted migration reuses ID")
         try expect(try String(contentsOf: resumed.fileURL(interruptedEntry), encoding: .utf8) == "original", "partial staging replaced")
         // A changed original must survive post-publication cleanup.
         try "external change".write(to: interrupted.appendingPathComponent("Old.md"), atomically: true, encoding: .utf8)
         try JSONEncoder().encode(interruptedPlan).write(to: interrupted.appendingPathComponent(".fsnotes-migration.json"))
         do {
-            _ = try MetadataStore(root: interrupted, databaseURL: temporary.appendingPathComponent("changed.sqlite"))
+            _ = try MetadataStore(root: interrupted)
             throw MetadataStore.Failure.invalid("changed original deleted")
         } catch MetadataStore.Failure.invalid(let message) {
             try expect(message.contains("original changed"), "external edit blocks cleanup")
@@ -140,7 +206,7 @@ import SQLite3
         try manager.removeItem(at: interrupted.appendingPathComponent(".fsnotes-migration.json"))
         try manager.removeItem(at: resumed.manifestURL)
         do {
-            _ = try MetadataStore(root: interrupted, databaseURL: temporary.appendingPathComponent("missing.sqlite"))
+            _ = try MetadataStore(root: interrupted)
             throw MetadataStore.Failure.invalid("missing manifest accepted")
         } catch MetadataStore.Failure.invalid(let message) {
             try expect(message.contains("metadata.json is missing"), "missing manifest never resets IDs")
@@ -149,14 +215,9 @@ import SQLite3
         let namedNotes = temporary.appendingPathComponent("named-notes")
         try manager.createDirectory(at: namedNotes.appendingPathComponent("notes"), withIntermediateDirectories: true)
         try "body".write(to: namedNotes.appendingPathComponent("notes/Human.md"), atomically: true, encoding: .utf8)
-        let namedStore = try MetadataStore(root: namedNotes, databaseURL: temporary.appendingPathComponent("named.sqlite"))
+        let namedStore = try MetadataStore(root: namedNotes)
         try expect(try namedStore.allFolders().first?.name == "notes", "existing notes folder preserved")
         try expect(try namedStore.allEntries().first?.name == "Human", "existing notes folder content migrated")
-        // Corrupt SQLite is quarantined and rebuilt from JSON.
-        let corruptDB = temporary.appendingPathComponent("corrupt.sqlite")
-        try Data("not a database".utf8).write(to: corruptDB)
-        let repaired = try MetadataStore(root: namedNotes, databaseURL: corruptDB)
-        try expect(try repaired.allEntries().first?.name == "Human", "corrupt index rebuilds")
         let special = "![space](<assets/my photo.png>)\n[paren](assets/a(b).png)\n[ref]: <assets/my photo.png>\n    [code](assets/a.png)"
         let relocated = MetadataStore.relocateLinks(special, source: namedNotes.appendingPathComponent("Old.md"), destination: namedNotes.appendingPathComponent("notes/New.md"), notes: [:])
         try expect(relocated.contains("<../assets/my%20photo.png>"), "angle-bracket paths with spaces preserved")
@@ -166,10 +227,11 @@ import SQLite3
         try manager.createDirectory(at: cloud, withIntermediateDirectories: true)
         try Data("remote snapshot".utf8).write(to: cloud.appendingPathComponent(".metadata.json.icloud"))
         do {
-            _ = try MetadataStore(root: cloud, databaseURL: temporary.appendingPathComponent("cloud.sqlite"))
+            _ = try MetadataStore(root: cloud)
             throw MetadataStore.Failure.invalid("cloud placeholder overwritten")
         } catch MetadataStore.Failure.invalid(let reason) { try expect(reason.contains("finish downloading"), "cloud placeholder blocks migration") }
         try expect(!manager.fileExists(atPath: cloud.appendingPathComponent("metadata.json").path), "cloud snapshot not replaced by empty metadata")
+        try checkMemoryIndexes(in: temporary)
         print("Metadata integration: \(checks) checks passed")
     }
 }

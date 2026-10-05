@@ -10,7 +10,7 @@ import Foundation
 import UIKit
 
 extension ViewController: UIDocumentPickerDelegate {
-    
+
     func makeSidebarSettingsMenu(for sidebarItem: SidebarItem) -> UIMenu? {
         let project = sidebarItem.project
         let handler: (_ action: UIAction) -> () = { action in
@@ -36,14 +36,6 @@ extension ViewController: UIDocumentPickerDelegate {
                 self.renameTag(sidebarItem: sidebarItem)
             case "openInFiles":
                 self.openInFiles(selectedProject: project)
-            case "lockFolder":
-                self.lockProject(selectedProject: project)
-            case "unlockFolder":
-                self.unlockProject(selectedProject: project)
-            case "decryptFolder":
-                self.decryptProject(selectedProject: project)
-            case "encryptFolder":
-                self.encryptProject(selectedProject: project)
             case "gitAddCommitPush":
                 self.addCommitPush(selectedProject: project)
             default:
@@ -62,15 +54,11 @@ extension ViewController: UIDocumentPickerDelegate {
         case .Trash:
             popoverActions = [.settingsFolder, .multipleSelection, .openInFiles]
         case .Project:
-            popoverActions = [.importNote, .settingsFolder, .createFolder, .removeFolder, .renameFolder, .multipleSelection, .openInFiles, .settingsRepository, .encryptFolder]
+            popoverActions = [.importNote, .settingsFolder, .createFolder, .removeFolder, .renameFolder, .multipleSelection, .openInFiles, .settingsRepository]
         case .Tag:
             popoverActions = [.removeTag, .renameTag, .multipleSelection]
         case .Untagged:
             popoverActions = [.createFolder, .multipleSelection]
-        case .ProjectEncryptedLocked:
-            popoverActions = [.unLockFolder, .decryptFolder, .settingsFolder, .removeFolder, .renameFolder, .multipleSelection, .openInFiles, .settingsRepository]
-        case .ProjectEncryptedUnlocked:
-            popoverActions = [.lockFolder, .decryptFolder, .importNote, .settingsFolder, .createFolder, .removeFolder, .renameFolder, .multipleSelection, .openInFiles, .settingsRepository]
         default: break
         }
 
@@ -132,26 +120,6 @@ extension ViewController: UIDocumentPickerDelegate {
             actions.append(UIAction(title: title, image: UIImage(systemName: "folder"), identifier: UIAction.Identifier("openInFiles"), handler: handler))
         }
 
-        if popoverActions.contains(.lockFolder) {
-            let title = FolderPopoverActions.lockFolder.getDescription()
-            actions.append(UIAction(title: title, image: UIImage(systemName: "lock"), identifier: UIAction.Identifier("lockFolder"), handler: handler))
-        }
-
-        if popoverActions.contains(.unLockFolder) {
-            let title = FolderPopoverActions.unLockFolder.getDescription()
-            actions.append(UIAction(title: title, image: UIImage(systemName: "lock.open"), identifier: UIAction.Identifier("unlockFolder"), handler: handler))
-        }
-
-        if popoverActions.contains(.decryptFolder) {
-            let title = FolderPopoverActions.decryptFolder.getDescription()
-            actions.append(UIAction(title: title, image: UIImage(systemName: "lock.slash"), identifier: UIAction.Identifier("decryptFolder"), handler: handler))
-        }
-
-        if popoverActions.contains(.encryptFolder) {
-            let title = FolderPopoverActions.encryptFolder.getDescription()
-            actions.append(UIAction(title: title, image: UIImage(systemName: "lock"), identifier: UIAction.Identifier("encryptFolder"), handler: handler))
-        }
-
         // Build title
 
         var mainTitle = String()
@@ -168,7 +136,6 @@ extension ViewController: UIDocumentPickerDelegate {
 
         return UIMenu(title: mainTitle,  children: actions)
     }
-
 
     @IBAction public func openSidebarSettings() {
         let mvc = UIApplication.getVC()
@@ -217,15 +184,11 @@ extension ViewController: UIDocumentPickerDelegate {
         case .Trash:
             actions = [.settingsFolder, .multipleSelection, .openInFiles]
         case .Project:
-            actions = [.importNote, .settingsFolder, .createFolder, .removeFolder, .renameFolder, .multipleSelection, .openInFiles, .settingsRepository, .encryptFolder]
+            actions = [.importNote, .settingsFolder, .createFolder, .removeFolder, .renameFolder, .multipleSelection, .openInFiles, .settingsRepository]
         case .Tag:
             actions = [.removeTag, .renameTag, .multipleSelection]
         case .Untagged:
             actions = [.multipleSelection]
-        case .ProjectEncryptedLocked:
-            actions = [.unLockFolder, .decryptFolder, .importNote, .settingsFolder, .createFolder, .removeFolder, .renameFolder, .multipleSelection, .openInFiles, .settingsRepository]
-        case .ProjectEncryptedUnlocked:
-            actions = [.lockFolder, .decryptFolder, .importNote, .settingsFolder, .createFolder, .removeFolder, .renameFolder, .multipleSelection, .openInFiles, .settingsRepository]
         default: break
         }
 
@@ -359,54 +322,6 @@ extension ViewController: UIDocumentPickerDelegate {
             actionSheet.addAction(alertAction)
         }
 
-        if actions.contains(.lockFolder) {
-            let title = FolderPopoverActions.lockFolder.getDescription()
-            let alertAction = UIAlertAction(title:title, style: .default, handler: { _ in
-                self.lockProject(selectedProject: sidebarItem?.project)
-            })
-            alertAction.setValue(CATextLayerAlignmentMode.left, forKey: "titleTextAlignment")
-            if let image = UIImage(systemName: "lock")?.resize(maxWidthHeight: 23) {
-                alertAction.setValue(image, forKey: "image")
-            }
-            actionSheet.addAction(alertAction)
-        }
-
-        if actions.contains(.unLockFolder) {
-            let title = FolderPopoverActions.unLockFolder.getDescription()
-            let alertAction = UIAlertAction(title:title, style: .default, handler: { _ in
-                self.unlockProject(selectedProject: sidebarItem?.project)
-            })
-            alertAction.setValue(CATextLayerAlignmentMode.left, forKey: "titleTextAlignment")
-            if let image = UIImage(systemName: "lock.open")?.resize(maxWidthHeight: 23) {
-                alertAction.setValue(image, forKey: "image")
-            }
-            actionSheet.addAction(alertAction)
-        }
-
-        if actions.contains(.decryptFolder) {
-            let title = FolderPopoverActions.decryptFolder.getDescription()
-            let alertAction = UIAlertAction(title:title, style: .default, handler: { _ in
-                self.decryptProject(selectedProject: sidebarItem?.project)
-            })
-            alertAction.setValue(CATextLayerAlignmentMode.left, forKey: "titleTextAlignment")
-            if let image = UIImage(systemName: "lock.slash")?.resize(maxWidthHeight: 23) {
-                alertAction.setValue(image, forKey: "image")
-            }
-            actionSheet.addAction(alertAction)
-        }
-
-        if actions.contains(.encryptFolder) {
-            let title = FolderPopoverActions.encryptFolder.getDescription()
-            let alertAction = UIAlertAction(title:title, style: .default, handler: { _ in
-                self.encryptProject(selectedProject: sidebarItem?.project)
-            })
-            alertAction.setValue(CATextLayerAlignmentMode.left, forKey: "titleTextAlignment")
-            if let image = UIImage(systemName: "lock")?.resize(maxWidthHeight: 23) {
-                alertAction.setValue(image, forKey: "image")
-            }
-            actionSheet.addAction(alertAction)
-        }
-
         let dismiss = UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel, handler: nil)
         actionSheet.addAction(dismiss)
 
@@ -420,6 +335,7 @@ extension ViewController: UIDocumentPickerDelegate {
         guard let projectURL = selectedProject?.url else { return }
 
         for url in urls {
+            guard storage.isValidNote(url: url) else { continue }
             if let project = selectedProject, project.metadataStore != nil {
                 do { _ = try storage.importMetadataFile(url, to: project) }
                 catch { NSLog("%@", error.localizedDescription) }
@@ -435,7 +351,7 @@ extension ViewController: UIDocumentPickerDelegate {
     private func importNote(selectedProject: Project?) {
         self.selectedProject = selectedProject
 
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.plainText], asCopy: true)
         picker.allowsMultipleSelection = true
         picker.delegate = self
         self.present(picker, animated: true, completion: nil)
@@ -475,7 +391,7 @@ extension ViewController: UIDocumentPickerDelegate {
             mvc.notesTable.setEditing(true, animated: true)
 
             // load navbar
-            
+
             let cancelTitle = NSLocalizedString("Cancel", comment: "")
             navigationItem.rightBarButtonItem = UIBarButtonItem(title: cancelTitle, style: .plain, target: self, action: #selector(cancel))
 
@@ -511,7 +427,7 @@ extension ViewController: UIDocumentPickerDelegate {
             configureNavMenu(for: sidebarItem)
         }
     }
-    
+
     @objc func removeNotes() {
         let notes = notesTable.getSelectedNotes()
         notesTable.removeAction(notes: notes)
@@ -531,7 +447,7 @@ extension ViewController: UIDocumentPickerDelegate {
 
         configureSidebarNavMenu()
         configureToolbar()
-        
+
         navigationController?.setToolbarHidden(false, animated: true)
     }
 
@@ -542,7 +458,7 @@ extension ViewController: UIDocumentPickerDelegate {
 
         configureSidebarNavMenu()
         configureToolbar()
-        
+
         navigationController?.setToolbarHidden(false, animated: true)
     }
 
@@ -553,7 +469,7 @@ extension ViewController: UIDocumentPickerDelegate {
 
         configureSidebarNavMenu()
         configureToolbar()
-        
+
         navigationController?.setToolbarHidden(false, animated: true)
     }
 
@@ -562,7 +478,7 @@ extension ViewController: UIDocumentPickerDelegate {
 
         configureSidebarNavMenu()
         configureToolbar()
-        
+
         navigationController?.setToolbarHidden(false, animated: true)
     }
 
@@ -716,7 +632,7 @@ extension ViewController: UIDocumentPickerDelegate {
 
                 if let projects = self.storage.insert(url: newDir) {
                     mvc.sidebarTableView.insertRows(projects: projects)
-                    
+
                     if let first = projects.first {
                         mvc.sidebarTableView.select(project: first)
                     }
@@ -833,127 +749,10 @@ extension ViewController: UIDocumentPickerDelegate {
         UIApplication.getVC().present(controller, animated: true, completion: nil)
     }
 
-    @objc public func unlock() {
-        guard let project = sidebarTableView.getSelectedSidebarItem()?.project else { return }
-
-        unlockProject(selectedProject: project)
-    }
-
-    public func unlockProject(selectedProject: Project?, createNote: Bool = false) {
-        guard let selectedProject = selectedProject else { return }
-
-        getMasterPassword() { password in
-            let result = selectedProject.unlock(password: password)
-
-            DispatchQueue.main.async {
-                guard result.1.count > 0 || result.0.count == 0 else {
-                    self.wrongPassAlert()
-                    return
-                }
-
-                self.sidebarTableView.loadTags(notes: result.1)
-                self.disableLockedProject()
-
-                if let indexPath = self.sidebarTableView.getIndexPathBy(project: selectedProject),
-                   let sidebarItem = self.sidebarTableView.getSidebarItem(project: selectedProject) {
-                    sidebarItem.load(type: .ProjectEncryptedUnlocked)
-
-                    self.sidebarTableView.reload(indexPath: indexPath)
-                    self.sidebarTableView.select(project: selectedProject)
-
-                    if createNote {
-                        self.createNote()
-                    }
-                }
-
-                self.reloadNotesTable()
-                self.configureSidebarNavMenu()
-            }
-        }
-    }
-
-    public func lockProject(selectedProject: Project?) {
-        guard let selectedProject = selectedProject else { return }
-
-        let locked = selectedProject.lock()
-        selectedProject.removeCache()
-
-        DispatchQueue.main.async {
-            self.sidebarTableView.loadTags(notes: locked)
-            self.enableLockedProject()
-
-            if let indexPath = self.sidebarTableView.getIndexPathBy(project: selectedProject),
-               let sidebarItem = self.sidebarTableView.getSidebarItem(project: selectedProject) {
-                sidebarItem.load(type: .ProjectEncryptedLocked)
-
-                self.sidebarTableView.reload(indexPath: indexPath)
-                self.sidebarTableView.select(project: selectedProject)
-            }
-            
-            self.reloadNotesTable()
-            self.configureSidebarNavMenu()
-        }
-    }
-
-    public func encryptProject(selectedProject: Project?) {
-        guard let selectedProject = selectedProject else { return }
-
-        getMasterPassword() { password in
-            let encrypted = selectedProject.encrypt(password: password)
-            selectedProject.removeCache()
-
-            DispatchQueue.main.async {
-                self.sidebarTableView.loadTags(notes: encrypted)
-                self.enableLockedProject()
-
-                if let indexPath = self.sidebarTableView.getIndexPathBy(project: selectedProject),
-                   let sidebarItem = self.sidebarTableView.getSidebarItem(project: selectedProject) {
-                    sidebarItem.load(type: .ProjectEncryptedLocked)
-
-                    self.sidebarTableView.reload(indexPath: indexPath)
-                    self.sidebarTableView.select(project: selectedProject)
-                }
-
-                self.reloadNotesTable()
-                self.configureSidebarNavMenu()
-            }
-        }
-    }
-
     public func addCommitPush(selectedProject: Project?) {
         guard let selectedProject = selectedProject?.getGitProject() else { return }
 
         notesTable.saveRevisionAction(project: selectedProject)
-    }
-
-    public func decryptProject(selectedProject: Project?) {
-        guard let selectedProject = selectedProject else { return }
-
-        getMasterPassword() { password in
-            let notes = selectedProject.storage.getNotesBy(project: selectedProject)
-            let decrypted = selectedProject.decrypt(password: password)
-
-            DispatchQueue.main.async {
-                guard decrypted.count > 0 || notes.count == 0 else {
-                    self.wrongPassAlert()
-                    return
-                }
-
-                self.sidebarTableView.loadTags(notes: decrypted)
-                self.disableLockedProject()
-
-                if let indexPath = self.sidebarTableView.getIndexPathBy(project: selectedProject),
-                   let sidebarItem = self.sidebarTableView.getSidebarItem(project: selectedProject) {
-                    sidebarItem.load(type: .Project)
-
-                    self.sidebarTableView.reload(indexPath: indexPath)
-                    self.sidebarTableView.select(project: selectedProject)
-                }
-
-                self.reloadNotesTable()
-                self.configureSidebarNavMenu()
-            }
-        }
     }
 
     private func wrongPassAlert() {

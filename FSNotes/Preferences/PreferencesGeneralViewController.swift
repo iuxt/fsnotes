@@ -24,15 +24,12 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
     @IBOutlet weak var workspacePathLabel: NSTextField!
     @IBOutlet weak var searchFocusOnESC: NSButton!
     @IBOutlet weak var defaultExtension: NSPopUpButton!
-    @IBOutlet weak var fileContainer: NSPopUpButton!
     @IBOutlet weak var filesNaming: NSPopUpButton!
     @IBOutlet weak var automaticConflictsResolution: NSButton!
-    @IBOutlet weak var saveTextBundleMetaData: NSButton!
     @IBOutlet weak var textMatchAutoSelection: NSButton!
     @IBOutlet weak var hideOnDeactivate: NSButton!
-    
-    //MARK: global variables
 
+    //MARK: global variables
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -52,8 +49,6 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
         }
 
         searchFocusOnESC.state = UserDefaultsManagement.shouldFocusSearchOnESCKeyDown ? .on : .off
-        
-        fileContainer.selectItem(withTag: UserDefaultsManagement.fileContainer.tag)
 
         filesNaming.selectItem(withTag: UserDefaultsManagement.naming.tag)
 
@@ -62,15 +57,13 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
 
         automaticConflictsResolution.state = UserDefaultsManagement.automaticConflictsResolution ? .on : .off
 
-        saveTextBundleMetaData.state = UserDefaultsManagement.useTextBundleMetaToStoreDates ? .on : .off
-
         externalEditorApp.delegate = self
-        
+
         textMatchAutoSelection.state = UserDefaultsManagement.textMatchAutoSelection ? .on : .off
-        
+
         hideOnDeactivate.state = UserDefaultsManagement.hideOnDeactivate ? .on : .off
     }
-    
+
     @IBAction func textMatchAutoSelection(_ sender: NSButton) {
         UserDefaultsManagement.textMatchAutoSelection = (sender.state == .on)
     }
@@ -88,14 +81,6 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
     @IBAction func searchFocusOnESC(_ sender: NSButton) {
         UserDefaultsManagement.shouldFocusSearchOnESCKeyDown = sender.state == .on
     }
-     
-    @IBAction func fileContainer(_ sender: NSPopUpButton) {
-        guard let item = sender.selectedItem else { return }
-
-        if let container = NoteContainer(rawValue: item.tag) {
-            UserDefaultsManagement.fileContainer = container
-        }
-    }
 
     @IBAction func defaultExtension(_ sender: NSPopUpButton) {
         let ext = sender.title.replacingOccurrences(of: ".", with: "")
@@ -111,18 +96,14 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
             UserDefaultsManagement.naming = naming
         }
     }
-    
+
     @IBAction func automaticConflictsResolution(_ sender: NSButton) {
         UserDefaultsManagement.automaticConflictsResolution = sender.state == .on
     }
 
-    @IBAction func saveTextBundleMetaData(_ sender: NSButton) {
-        UserDefaultsManagement.useTextBundleMetaToStoreDates = sender.state == .on
-    }
-    
     @IBAction func changeHideOnDeactivate(_ sender: NSButton) {
         UserDefaultsManagement.hideOnDeactivate = sender.state == .on
-        
+
         // We don't need to set the user defaults value here as the checkbox is
         // bound to it. We do need to update each window's hideOnDeactivate.
         for window in NSApplication.shared.windows {
@@ -138,7 +119,7 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
         guard let vc = ViewController.shared() else { return }
 
         let monitor = GlobalShortcutMonitor.shared()
-        
+
         newNoteshortcutView.shortcutValue = UserDefaultsManagement.newNoteShortcut
         searchNotesShortcut.shortcutValue = UserDefaultsManagement.searchNoteShortcut
         quickNote.shortcutValue = UserDefaultsManagement.quickNoteShortcut
@@ -186,10 +167,10 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
                 UserDefaultsManagement.searchNoteShortcut = nil
             }
         }
-        
+
         quickNote.shortcutValueChange = { (sender) in
             monitor.unregisterShortcut(UserDefaultsManagement.quickNoteShortcut)
-            
+
             if ((self.quickNote.shortcutValue) != nil) {
                 let keyCode = self.quickNote.shortcutValue.keyCode
                 let modifierFlags = self.quickNote.shortcutValue.modifierFlags
@@ -203,10 +184,10 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
                 UserDefaultsManagement.quickNoteShortcut = nil
             }
         }
-        
+
         activateShortcut.shortcutValueChange = { (sender) in
             monitor.unregisterShortcut(UserDefaultsManagement.activateShortcut)
-            
+
             if ((self.activateShortcut.shortcutValue) != nil) {
                 let keyCode = self.activateShortcut.shortcutValue.keyCode
                 let modifierFlags = self.activateShortcut.shortcutValue.modifierFlags

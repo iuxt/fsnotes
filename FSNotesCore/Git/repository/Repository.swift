@@ -112,12 +112,23 @@ public class Repository {
         }
     }
     
-    public func addRemoteOrigin(path: String) {
-        let result = git_remote_set_url(self.pointer.pointee, "origin", path)
-        
-        if result != GIT_OK.rawValue {
-            print("Remote origin error")
+    public func addRemoteOrigin(path: String) throws {
+        var remote: OpaquePointer?
+        var result = git_remote_lookup(&remote, self.pointer.pointee, "origin")
+        if result == GIT_ENOTFOUND.rawValue {
+            result = git_remote_create(&remote, self.pointer.pointee, "origin", path)
+        } else if result == GIT_OK.rawValue {
+            result = git_remote_set_url(self.pointer.pointee, "origin", path)
         }
+        defer { git_remote_free(remote) }
+        guard result == GIT_OK.rawValue else { throw gitUnknownError("Unable to configure origin", code: result) }
+        var refspecs = git_strarray()
+        defer { git_strarray_dispose(&refspecs) }
+        result = git_remote_get_fetch_refspecs(&refspecs, remote)
+        if result == GIT_OK.rawValue, refspecs.count == 0 {
+            result = git_remote_add_fetch(self.pointer.pointee, "origin", "+refs/heads/*:refs/remotes/origin/*")
+        }
+        guard result == GIT_OK.rawValue else { throw gitUnknownError("Unable to configure origin fetch", code: result) }
     }
     
     /// Read a saved file without touching the working tree, index, or HEAD.

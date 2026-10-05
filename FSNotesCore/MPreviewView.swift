@@ -24,34 +24,34 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
     private weak var note: Note?
     private var closure: MPreviewViewClosure?
     public static var template: String?
-    
+
     init(frame: CGRect, note: Note, closure: MPreviewViewClosure?, force: Bool = false) {
         self.closure = closure
         let userContentController = WKUserContentController()
         userContentController.add(HandlerSelection(), name: "newSelectionDetected")
-        
+
         let handlerCheckbox = HandlerCheckbox(note: note)
         userContentController.add(handlerCheckbox, name: "checkbox")
-        
+
         userContentController.add(HandlerMouse(), name: "mouse")
         userContentController.add(HandlerClipboard(), name: "clipboard")
-        
+
         let handlerOpener = HandlerOpen(note: note)
         userContentController.add(handlerOpener, name: "open")
-        
+
         userContentController.add(HandlerQuickLook(), name: "quicklook")
-        
+
         let handlerScroll = PreviewScrollHandler(note: note)
         userContentController.add(handlerScroll, name: "scrollPosition")
 
         let configuration = WKWebViewConfiguration()
         configuration.userContentController = userContentController
         configuration.suppressesIncrementalRendering = true
-        
+
         super.init(frame: frame, configuration: configuration)
 
         navigationDelegate = self
-        
+
 #if os(OSX)
         if #available(macOS 10.14, *) {
               setValue(false, forKey: "drawsBackground")
@@ -69,7 +69,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     public func setEditorVC(evc: EditorViewController? = nil) {
         self.editorVC = evc
     }
@@ -80,16 +80,14 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
             super.mouseDown(with: event)
             return
         }
-        
+
         if let note = evc.vcEditor?.note {
-            if note.container == .encryptedTextPack && !note.isUnlocked() {
-                evc.unLock(notes: [note])
-            } else if note.content.length == 0 {
+            if note.content.length == 0 {
                 evc.disablePreview()
                 evc.focusEditArea()
             }
         }
-        
+
         super.mouseDown(with: event)
     }
 
@@ -164,11 +162,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
         guard let urls = note.attachments, urls.count > 0  else { return html }
 
         var htmlString = html
-        var imagesStorage = note.getURL().deletingLastPathComponent()
-
-        if note.isTextBundle() {
-            imagesStorage = note.getURL()
-        }
+        let imagesStorage = note.getURL().deletingLastPathComponent()
 
         do {
             let regex = try NSRegularExpression(pattern: "<img.*?src=\"([^\"]*)\"")
@@ -221,19 +215,19 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
         /// Do not re-load already loaded view
         guard self.note != note || force else { return }
         self.note = note
-        
+
         let markdownString = note.getPrettifiedContent()
 
         if let urls = note.imageUrl, urls.count > 0 {
             cleanCache()
-            
+
             let dst = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("wkPreview")
-            
+
             if let i = MPreviewView.buildPage(for: note, at: dst) {
                 if getppid() != 1 {
                     print("Web view loaded from: \(i)")
                 }
-                
+
                 let accessURL = i.deletingLastPathComponent()
                 loadFileURL(i, allowingReadAccessTo: accessURL)
             }
@@ -247,7 +241,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
             }
         }
     }
-    
+
     public func cleanCache() {
         URLCache.shared.removeAllCachedResponses()
 
@@ -323,38 +317,30 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
 
     public static func buildPage(for note: Note, at dst: URL, web: Bool = false, print: Bool = false) -> URL? {
         let markdownString = note.getPrettifiedContent()
-        
+
         var htmlString = renderMarkdownHTML(markdown: markdownString)!
-        
-        var imagesStorage = note.getURL().deletingLastPathComponent()
-        if note.isTextBundle() {
-            imagesStorage = note.getURL()
-        }
-        
+
+        let imagesStorage = note.getURL().deletingLastPathComponent()
+
         var webPath: String?
         var zipName: String?
-        
+
         // For uploaded content
         if web {
             // Generate zip
             zipName = "\(note.getLatinName()).zip"
-            
+
             let zipURL = dst.appendingPathComponent(note.getLatinName()).appendingPathExtension("zip")
             try? FileManager.default.createDirectory(at: dst, withIntermediateDirectories: true, attributes: nil)
-            
-            if note.container == .none {
-                SSZipArchive.createZipFile(atPath: zipURL.path, withFilesAtPaths: [note.url.path])
-            } else {
-                SSZipArchive.createZipFile(atPath: zipURL.path, withContentsOfDirectory: note.url.path, keepParentDirectory: true)
-            }
-            
+
+            SSZipArchive.createZipFile(atPath: zipURL.path, withFilesAtPaths: [note.url.path])
+
             if UserDefaultsManagement.customWebServer {
                 webPath = UserDefaultsManagement.sftpWeb
             } else {
                 webPath = UserDefaultsManagement.webPath
             }
         }
-        
 
         let state = !(web || print)
         htmlString = MPreviewView.loadAttachments(html: htmlString, note: note, showButton: state)
@@ -365,10 +351,10 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
 
         if let pageHTMLString = try? htmlFromTemplate(htmlString, webPath: webPath, print: print, archivePath: zipName, note: note) {
             let indexURL = createTemporaryBundle(pageHTMLString: pageHTMLString, at: dst)
-            
+
             return indexURL
         }
-        
+
         return nil
     }
 
@@ -412,7 +398,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
 
     public static func loadImages(imagesStorage: URL, html: String, at: URL, web: Bool = false) -> String {
         var htmlString = html
-        
+
         do {
             let regex = try NSRegularExpression(pattern: "<img.*?src=\"([^\"]*)\"")
             let results = regex.matches(in: html, range: NSRange(html.startIndex..., in: html))
@@ -458,7 +444,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
                 if localPath.first == "/" {
                     localPath.remove(at: localPath.startIndex)
                 }
-                
+
                 // Uploaded over API or SSH
                 if web {
                     localPath = "i/\(imageURL.lastPathComponent)"
@@ -487,7 +473,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
         var template = try String(contentsOf: baseURL, encoding: .utf8)
         var platform = String()
         var appearance = String()
-        
+
         let isWeb = webPath.count > 0
         let preview = String(webPath.count == 0)
 
@@ -502,17 +488,17 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
             appearance = "darkmode"
         }
 #endif
-        
+
         if webPath.count > 0 {
              htmlString = """
                 <style>
-                    
+
                     article {
                         max-width: 1280px;
                         margin: 0 auto;
                         margin-bottom: 70px;
                     }
-            
+
                     footer {
                         max-width: 1280px;
                         margin: 0 auto;
@@ -526,13 +512,13 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
                         padding: 10px 20px 20px 20px;
                         border-top: 1px solid gray;
                     }
-            
+
                     img.logo {
                         display: inline-block;
                         height: 32px;
                         width: 32px;
                     }
-            
+
                     .footer__span {
                         display: inline-block;
                         line-height: 32px;
@@ -541,7 +527,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
                         .footer__span__archive {
                             float: right;
                         }
-            
+
                     .share-button {
                       border: 1px solid #eee;
                       border-radius: 4px;
@@ -572,7 +558,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
                         .share-button .sites a:hover.twitter {
                           color: #03abea;
                         }
-            
+
                         .share-button .sites a:hover.linkedin {
                           color: #0078a8;
                         }
@@ -595,19 +581,19 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
                         body {
                             margin: 0 20px;
                         }
-            
+
                         @media screen and (max-width: 600px) {
                             .share-button .label {
                                 display: none;
                             }
                         }
-            
+
                     .macos ul.cb {
                         margin-left: 0;
                     }
                 </style>
                 <article>\(htmlString)</article>
-                
+
                 <footer>
                     <span class="footer__span">Powered by <a href="https://fsnot.es" target="_blank">FSNotes App</a> <img class="logo" src="https://fsnot.es/img/icon.webp" style="margin: 0 0 -10px 0;"></span>
                     <a class="share-button" href="\(archivePath!)" style="float: right; text-decoration: none;">
@@ -619,14 +605,14 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
                 </footer>
             """
         }
-        
+
         var title = String()
         if let unwrapped = note?.getTitle() {
             title = unwrapped
         }
-        
+
         let inlineCss = MPreviewView.getPreviewStyle(print: print, forceLightTheme: isWeb)
-        
+
         template = template
             .replacingOccurrences(of: "{TITLE}", with: title)
             .replacingOccurrences(of: "{INLINE_CSS}", with: inlineCss)
@@ -636,7 +622,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
             .replacingOccurrences(of: "{FSNOTES_PREVIEW}", with: preview)
             .replacingOccurrences(of: "{NOTE_BODY}", with: htmlString)
             .replacingOccurrences(of: "{WEB_PATH}", with: webPath)
-        
+
         return template
     }
 
@@ -645,7 +631,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
         var fullScreen = false
         var useFixedImageHeight = true
         var css = "<style>"
-        
+
         if print {
             theme = "github-light"
             fullScreen = true
@@ -666,7 +652,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
         }
 
         var codeStyle = String()
-        
+
         if let bundleURL = Bundle.main.url(forResource: "MPreview", withExtension: "bundle"),
             let mPreviewBundle = Bundle(url: bundleURL),
             let theme = theme,
@@ -675,7 +661,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
 
             codeStyle = content
         }
-        
+
         #if os(iOS)
             let codeFamilyName = UserDefaultsManagement.codeFont.familyName
             var familyName = UserDefaultsManagement.noteFont.familyName
@@ -702,21 +688,21 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
 
         let codeBackground = NotesTextProcessor.getHighlighter().options.style.backgroundColor.hexString
         var maxImageWidth = String(Int(UserDefaultsManagement.imagesWidth)) + "px"
-        
+
     #if os(iOS)
         let fontSize = UserDefaultsManagement.noteFont.pointSize
         let codeFontSize = fontSize
-        
+
         let tagAttributes = [NSAttributedString.Key.font: UserDefaultsManagement.codeFont]
         let oneCharSize = ("A" as NSString).size(withAttributes: tagAttributes as [NSAttributedString.Key : Any])
         let codeLineHeight = UserDefaultsManagement.editorLineSpacing / 2 + Float(oneCharSize.height)
         let lineHeight = Int(UserDefaultsManagement.editorLineSpacing) + Int(UserDefaultsManagement.noteFont.lineHeight)
-        
+
         maxImageWidth = "auto"
     #else
         let fontSize = UserDefaultsManagement.fontSize
         let codeFontSize = UserDefaultsManagement.codeFontSize
-        
+
         let codeLineHeight = computeDefaultLineHeight(for: UserDefaultsManagement.codeFont, lineHeightMultiple: UserDefaultsManagement.lineHeightMultiple)
         let lineHeight = computeDefaultLineHeight(for: UserDefaultsManagement.noteFont, lineHeightMultiple: UserDefaultsManagement.lineHeightMultiple)
     #endif
@@ -733,22 +719,22 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
                 src: url('{WEB_PATH}fonts/SourceCodePro-Bold.ttf');
                 font-weight: bold;
             }
-        
+
             body {font: \(fontSize)px '\(familyName)', '-apple-system'; margin: 0 \(width + 5)px; -webkit-text-size-adjust: none;}
             code, pre {font: \(codeFontSize)px '\(codeFamilyName)', Courier, monospace, 'Liberation Mono', Menlo; line-height: \(codeLineHeight + 3)px; -webkit-text-size-adjust: none; }
             img:not(footer img, .attachment) {display: block; margin: 0 auto; max-width: \(maxImageWidth); }
-        
+
             img.attachment { height: \(fontSize + 5)px; max-width: auto }
             a[href^=\"fsnotes://open/?tag=\"] { background: \(tagColor); }
             p, li, blockquote, dl, ol, ul { line-height: \(lineHeight)px; -webkit-text-size-adjust: none; } \(codeStyle) \(css)
-        
+
             code, .hljs { background: \(codeBackground); }
 
             #MathJax_Message+* {
                 margin-top: 0 !important;
             }
         """
-                
+
         if print {
             result += """
                 body { -webkit-text-size-adjust: none; font-size: 1.0em;}
@@ -756,13 +742,13 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
                 pre, pre code { word-wrap: break-word; }
             """
         }
-        
+
         css += result
         css += "</style>"
-        
+
         return css
     }
-    
+
     public static func assignBase64Images(note: Note, html: String) -> String {
         var html = html
 
@@ -794,7 +780,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
     public func clean() {
         loadHTMLString("", baseURL: nil)
     }
-    
+
     private static func computeDefaultLineHeight(for font: Font, lineHeightMultiple: CGFloat = 1.0) -> CGFloat {
         let asc = font.ascender
         let desc = abs(font.descender)
@@ -818,11 +804,11 @@ class HandlerSelection: NSObject, WKScriptMessageHandler {
 
 class HandlerCheckbox: NSObject, WKScriptMessageHandler {
     private var note: Note?
-    
+
     init(note: Note) {
         self.note = note
     }
-    
+
     func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
 
@@ -898,16 +884,16 @@ class HandlerClipboard: NSObject, WKScriptMessageHandler {
 
 class HandlerOpen: NSObject, WKScriptMessageHandler {
     private var note: Note?
-    
+
     init(note: Note) {
         self.note = note
     }
-    
+
     func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
         guard let note = note else { return }
         guard let action = message.body as? String else { return }
-        
+
         var cleanText = action.trim()
         cleanText = cleanText.removingPercentEncoding ?? cleanText
 
@@ -917,14 +903,14 @@ class HandlerOpen: NSObject, WKScriptMessageHandler {
         {
             return
         }
-        
+
         #if os(OSX)
             let result = cleanText.replacingOccurrences(
                 of: "^.*?/(tmp/wkPreview|Resources/MPreview\\.bundle)/",
                 with: "",
                 options: .regularExpression
             )
-        
+
             if let url = result.createURL(for: note) {
                 NSWorkspace.shared.activateFileViewerSelecting([url])
             }
@@ -951,7 +937,7 @@ class HandlerQuickLook: NSObject, WKScriptMessageHandler {
 
 final class PreviewScrollHandler: NSObject, WKScriptMessageHandler {
     private var note: Note?
-    
+
     init(note: Note) {
         self.note = note
     }

@@ -15,12 +15,12 @@ import Foundation
 #endif
 
 public class UserDefaultsManagement {
-    
+
     static var apiPath = "https://api.fsnot.es/"
     static var webPath = "https://p.fsnot.es/"
 
     public static var global = NSUbiquitousKeyValueStore.default
-    
+
 #if os(OSX)
     typealias Color = NSColor
     typealias Image = NSImage
@@ -39,12 +39,11 @@ public class UserDefaultsManagement {
 
     static var DefaultSnapshotsInterval = 1
     static var DefaultSnapshotsIntervalMinutes = 5
-    
+
     static var DefaultFontColor = Color.black
     static var DefaultBgColor = Color.white
 
     private struct Constants {
-        static let AllowTouchID = "allowTouchID"
         static let AppearanceTypeKey = "appearanceType"
         static let AskCommitMessage = "askCommitMessage"
         static let ApiBookmarksData = "apiBookmarksData"
@@ -109,22 +108,15 @@ public class UserDefaultsManagement {
         static let LineHeightMultipleKey = "lineHeightMultipleKey"
         static let LineSpacingEditorKey = "lineSpacingEditor"
         static let LineWidthKey = "lineWidth"
-        static let LockOnSleep = "lockOnSleep"
-        static let LockOnScreenActivated = "lockOnScreenActivated"
-        static let LockAfterIDLE = "lockAfterIdle"
-        static let LockAfterUserSwitch = "lockAfterUserSwitch"
         static let MarginSizeKey = "marginSize"
-        static let MasterPasswordHint = "masterPasswordHint"
         static let MathJaxPreview = "mathJaxPreview"
         static let NonContiguousLayout = "allowsNonContiguousLayout"
-        static let NoteContainer = "noteContainer"
         static let Preview = "preview"
         static let PreviewFontSize = "previewFontSize"
         static let ProjectsKey = "projects"
         static let ProjectsKeyNew = "ProjectsKeyNew"
         static let RecentSearches = "recentSearches"
         static let PullInterval = "pullInterval"
-        static let SaveInKeychain = "saveInKeychain"
         static let SearchHighlight = "searchHighlighting"
         static let SftpHost = "sftpHost"
         static let SftpPort = "sftpPort"
@@ -136,7 +128,6 @@ public class UserDefaultsManagement {
         static let SftpKeysAccessData = "sftpKeysAccessData"
         static let SftpPublicKeyData = "sftpPublicKeyData"
         static let SftpUploadBookmarksData = "sftpUploadBookmarksData"
-        static let SharedContainerKey = "sharedContainer"
         static let ShowDockIcon = "showDockIcon"
         static let shouldFocusSearchOnESCKeyDown = "shouldFocusSearchOnESCKeyDown"
         static let ShowInMenuBar = "showInMenuBar"
@@ -150,7 +141,6 @@ public class UserDefaultsManagement {
         static let TextMatchAutoSelection = "textMatchAutoSelection"
         static let TrashKey = "trashKey"
         static let UploadKey = "uploadKey"
-        static let UseTextBundleToStoreDates = "useTextBundleToStoreDates"
         static let AutocloseBrackets = "autocloseBrackets"
         static let Welcome = "welcome2026"
     }
@@ -193,7 +183,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.FontNameKey)
         }
     }
-    
+
     static var fontSize: Int {
         get {
             if let returnFontSize = shared?.object(forKey: Constants.FontSizeKey) as? Int {
@@ -206,10 +196,10 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.FontSizeKey)
         }
     }
-    
+
     static var externalEditor: String {
         get {
-            
+
             if let name = shared?.object(forKey: "externalEditorApp") as? String, name.count > 0 {
                 return name
             } else {
@@ -231,10 +221,10 @@ public class UserDefaultsManagement {
         }
         set {
             shared?.set(newValue, forKey: Constants.TableOrientation)
-            
+
             // reset the note list height / width
             shared?.removeObject(forKey: "NSSplitView Subview Frames EditorSplitView")
-            
+
             if (newValue){
                 // for top-to-bottom layout, set note list cell height to 0
                 cellSpacing = 0
@@ -244,14 +234,14 @@ public class UserDefaultsManagement {
             }
         }
     }
-    
+
     static var iCloudDocumentsContainer: URL? {
         get {
             if let iCloudDocumentsURL = FileManager.default.url(forUbiquityContainerIdentifier: nil)?.appendingPathComponent("Documents").standardized {
                 if (!FileManager.default.fileExists(atPath: iCloudDocumentsURL.path, isDirectory: nil)) {
                     do {
                         try FileManager.default.createDirectory(at: iCloudDocumentsURL, withIntermediateDirectories: true, attributes: nil)
-                        
+
                         return iCloudDocumentsURL.standardized
                     } catch {
                         print("Home directory creation: \(error)")
@@ -264,7 +254,7 @@ public class UserDefaultsManagement {
             return nil
         }
     }
-    
+
     static var localDocumentsContainer: URL? {
         get {
             if var path = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).first {
@@ -277,11 +267,11 @@ public class UserDefaultsManagement {
 
                 return URL(fileURLWithPath: path, isDirectory: true)
             }
- 
+
             return nil
         }
     }
-    
+
     static var customStoragePath: String? {
         get {
 #if os(macOS)
@@ -295,16 +285,16 @@ public class UserDefaultsManagement {
                     print("Storage path not accessible, settings resetted to default")
                 }
             }
-            
+
             return nil
 #endif
         }
-        
+
         set {
             shared?.set(newValue, forKey: Constants.StoragePathKey)
         }
     }
-    
+
     static var storagePath: String? {
         get {
 #if os(macOS)
@@ -340,7 +330,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue.rawValue, forKey: Constants.StorageType)
         }
     }
-    
+
     static var storageUrl: URL? {
         get {
             if let path = storagePath {
@@ -348,7 +338,7 @@ public class UserDefaultsManagement {
 
                 return URL.init(fileURLWithPath: expanded, isDirectory: true).standardized
             }
-            
+
             return nil
         }
     }
@@ -365,7 +355,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.Preview)
         }
     }
-    
+
     static var lastSync: Date? {
         get {
             if let sync = shared?.object(forKey: "lastSync") as? Date {
@@ -378,7 +368,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: "lastSync")
         }
     }
-    
+
     static var hideOnDeactivate: Bool {
         get {
             if let hideOnDeactivate = shared?.object(forKey: Constants.HideOnDeactivate) as? Bool {
@@ -391,7 +381,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.HideOnDeactivate)
         }
     }
-    
+
     static var cellSpacing: Int {
         get {
             if let cellSpacing = shared?.object(forKey: Constants.CellSpacing) as? NSNumber {
@@ -404,7 +394,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.CellSpacing)
         }
     }
-        
+
     static var cellViewFrameOriginY: CGFloat? {
         get {
             if let number = shared?.object(forKey: Constants.CellFrameOriginY) as? NSNumber {
@@ -420,7 +410,7 @@ public class UserDefaultsManagement {
             }
         }
     }
-    
+
     static var hidePreview: Bool {
         get {
             if let returnMode = shared?.object(forKey: Constants.HidePreviewKey) as? Bool {
@@ -433,7 +423,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.HidePreviewKey)
         }
     }
-        
+
     static var sort: SortBy {
         get {
             if let result = global.object(forKey: "sortBy") as? String, let sortBy = SortBy(rawValue: result) {
@@ -446,7 +436,7 @@ public class UserDefaultsManagement {
             global.set(newValue.rawValue, forKey: "sortBy")
         }
     }
-    
+
     static var sortDirection: Bool {
         get {
             if let returnMode = global.object(forKey: "sortDirection") as? Bool {
@@ -459,7 +449,7 @@ public class UserDefaultsManagement {
             global.set(newValue, forKey: "sortDirection")
         }
     }
-    
+
     static var hideSidebar: Bool {
         get {
             if let hide = shared?.object(forKey: "hideSidebar") as? Bool {
@@ -471,7 +461,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: "hideSidebar")
         }
     }
-    
+
     static var notesTableWidth: CGFloat {
         get {
             if let value = shared?.object(forKey: "sidebarSize") as? Int {
@@ -488,20 +478,20 @@ public class UserDefaultsManagement {
             shared?.set(Int(newValue), forKey: "sidebarSize")
         }
     }
-    
+
     static var hideSidebarTable: Bool {
         get {
             if let hide = shared?.object(forKey: "hideRealSidebar") as? Bool {
                 return hide
             }
-            
+
             return false
         }
         set {
             shared?.set(newValue, forKey: "hideRealSidebar")
         }
     }
-    
+
     static var sidebarTableWidth: CGFloat {
         get {
             if let size = shared?.object(forKey: "realSidebarSize") as? Int {
@@ -513,7 +503,7 @@ public class UserDefaultsManagement {
             shared?.set(Int(newValue), forKey: "realSidebarSize")
         }
     }
-    
+
     static var codeBlockHighlight: Bool {
         get {
             if let highlight = shared?.object(forKey: Constants.codeBlockHighlight) as? Bool {
@@ -537,7 +527,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.LastSelectedPath)
         }
     }
-    
+
     static var focusInEditorOnNoteSelect: Bool {
         get {
             if let result = shared?.object(forKey: "focusInEditorOnNoteSelect") as? Bool {
@@ -549,7 +539,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: "focusInEditorOnNoteSelect")
         }
     }
-    
+
     static var defaultKeyboard: String? {
         get {
             if let dk = shared?.string(forKey: Constants.DefaultKeyboardKey) as? String {
@@ -562,7 +552,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.DefaultKeyboardKey)
         }
     }
-    
+
     static var defaultLanguage: Int {
         get {
             if let dl = shared?.object(forKey: Constants.DefaultLanguageKey) as? Int {
@@ -572,14 +562,14 @@ public class UserDefaultsManagement {
             if let code = NSLocale.current.languageCode {
                 return LanguageType.withCode(rawValue: code)
             }
-            
+
             return 0
         }
         set {
             shared?.set(newValue, forKey: Constants.DefaultLanguageKey)
         }
     }
-    
+
     static var autocloseBrackets: Bool {
         get {
             if let result = shared?.object(forKey: Constants.AutocloseBrackets) as? Bool {
@@ -591,7 +581,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.AutocloseBrackets)
         }
     }
-    
+
     static var lastProjectURL: URL? {
         get {
             if let lastProject = shared?.url(forKey: Constants.LastProjectURL) {
@@ -617,7 +607,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.LastSidebarItem)
         }
     }
-    
+
     static var showDockIcon: Bool {
         get {
             if let result = shared?.object(forKey: Constants.ShowDockIcon) as? Bool {
@@ -629,7 +619,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.ShowDockIcon)
         }
     }
-    
+
     static var editorLineSpacing: Float {
         get {
             if let result = shared?.object(forKey: Constants.LineSpacingEditorKey) as? Float {
@@ -646,7 +636,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.LineSpacingEditorKey)
         }
     }
-    
+
     static var lineHeightMultiple: CGFloat {
         get {
             if let result = shared?.object(forKey: Constants.LineHeightMultipleKey) as? Float {
@@ -683,20 +673,20 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.LineWidthKey)
         }
     }
-    
+
     static var textMatchAutoSelection: Bool {
         get {
             if let result = shared?.object(forKey: Constants.TextMatchAutoSelection) as? Bool {
                 return result
             }
-            
+
             return false
         }
         set {
             shared?.set(newValue, forKey: Constants.TextMatchAutoSelection)
         }
     }
-    
+
     static var continuousSpellChecking: Bool {
         get {
             if let result = shared?.object(forKey: Constants.ContinuousSpellChecking) as? Bool {
@@ -708,7 +698,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.ContinuousSpellChecking)
         }
     }
-    
+
     static var grammarChecking: Bool {
         get {
             if let result = shared?.object(forKey: Constants.GrammarChecking) as? Bool {
@@ -720,7 +710,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.GrammarChecking)
         }
     }
-    
+
     static var smartInsertDelete: Bool {
         get {
             if let result = shared?.object(forKey: Constants.SmartInsertDelete) as? Bool {
@@ -732,7 +722,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.SmartInsertDelete)
         }
     }
-    
+
     static var automaticSpellingCorrection: Bool {
         get {
             if let result = shared?.object(forKey: Constants.AutomaticSpellingCorrection) as? Bool {
@@ -744,7 +734,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.AutomaticSpellingCorrection)
         }
     }
-    
+
     static var automaticQuoteSubstitution: Bool {
         get {
             if let result = shared?.object(forKey: Constants.AutomaticQuoteSubstitution) as? Bool {
@@ -756,7 +746,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.AutomaticQuoteSubstitution)
         }
     }
-    
+
     static var automaticDataDetection: Bool {
         get {
             if let result = shared?.object(forKey: Constants.AutomaticDataDetection) as? Bool {
@@ -768,7 +758,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.AutomaticDataDetection)
         }
     }
-    
+
     static var automaticLinkDetection: Bool {
         get {
             if let result = shared?.object(forKey: Constants.AutomaticLinkDetection) as? Bool {
@@ -780,7 +770,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.AutomaticLinkDetection)
         }
     }
-        
+
     static var automaticTextReplacement: Bool {
         get {
             if let result = shared?.object(forKey: Constants.AutomaticTextReplacement) as? Bool {
@@ -792,7 +782,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.AutomaticTextReplacement)
         }
     }
-    
+
     static var automaticDashSubstitution: Bool {
         get {
             if let result = shared?.object(forKey: Constants.AutomaticDashSubstitution) as? Bool {
@@ -816,7 +806,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.HideSidebar)
         }
     }
-    
+
     static var shouldFocusSearchOnESCKeyDown: Bool {
         get {
             if let result = UserDefaults.standard.object(forKey: Constants.shouldFocusSearchOnESCKeyDown) as? Bool {
@@ -828,7 +818,7 @@ public class UserDefaultsManagement {
             UserDefaults.standard.set(newValue, forKey: Constants.shouldFocusSearchOnESCKeyDown)
         }
     }
-    
+
     static var automaticConflictsResolution: Bool {
         get {
             if let result = UserDefaults.standard.object(forKey: Constants.AutomaticConflictsResolution) as? Bool {
@@ -841,19 +831,6 @@ public class UserDefaultsManagement {
         }
     }
 
-    static var useTextBundleMetaToStoreDates: Bool {
-        get {
-            if let result = UserDefaults.standard.object(forKey: Constants.UseTextBundleToStoreDates) as? Bool {
-                return result
-            }
-            
-            return false
-        }
-        set {
-            UserDefaults.standard.set(newValue, forKey: Constants.UseTextBundleToStoreDates)
-        }
-    }
-
     static var showInMenuBar: Bool {
         get {
             if let result = shared?.object(forKey: Constants.ShowInMenuBar) as? Bool {
@@ -863,29 +840,6 @@ public class UserDefaultsManagement {
         }
         set {
             shared?.set(newValue, forKey: Constants.ShowInMenuBar)
-        }
-    }
-    
-    static var fileContainer: NoteContainer {
-        get {
-            #if SHARE_EXT
-                let defaults = UserDefaults.init(suiteName: "group.es.fsnot.user.defaults")
-                if let result = defaults?.object(forKey: Constants.SharedContainerKey) as? Int, let container = NoteContainer(rawValue: result) {
-                    return container
-                }
-            #endif
-
-            if let result = shared?.object(forKey: Constants.NoteContainer) as? Int, let container = NoteContainer(rawValue: result) {
-                return container
-            }
-            return .none
-        }
-        set {
-            #if os(iOS)
-            UserDefaults.init(suiteName: "group.es.fsnot.user.defaults")?.set(newValue.rawValue, forKey: Constants.SharedContainerKey)
-            #endif
-
-            shared?.set(newValue.rawValue, forKey: Constants.NoteContainer)
         }
     }
 
@@ -936,70 +890,6 @@ public class UserDefaultsManagement {
         }
         set {
             shared?.set(newValue, forKey: Constants.HidePreviewImages)
-        }
-    }
-
-    static var masterPasswordHint: String {
-        get {
-            if let hint = shared?.object(forKey: Constants.MasterPasswordHint) as? String {
-                return hint
-            }
-            return String()
-        }
-        set {
-            shared?.set(newValue, forKey: Constants.MasterPasswordHint)
-        }
-    }
-
-    static var lockOnSleep: Bool {
-        get {
-            if let result = shared?.object(forKey: Constants.LockOnSleep) as? Bool {
-                return result
-            }
-            return true
-        }
-        set {
-            shared?.set(newValue, forKey: Constants.LockOnSleep)
-        }
-    }
-
-    static var lockOnScreenActivated: Bool {
-        get {
-            if let result = shared?.object(forKey: Constants.LockOnScreenActivated) as? Bool {
-                return result
-            }
-            return true
-        }
-        set {
-            shared?.set(newValue, forKey: Constants.LockOnScreenActivated)
-        }
-    }
-
-    static var lockOnUserSwitch: Bool {
-        get {
-            if let result = shared?.object(forKey: Constants.LockAfterUserSwitch) as? Bool {
-                return result
-            }
-            return true
-        }
-        set {
-            shared?.set(newValue, forKey: Constants.LockAfterUserSwitch)
-        }
-    }
-
-    static var allowTouchID: Bool {
-        get {
-            if NSClassFromString("NSTouchBar") == nil {
-                return false
-            }
-
-            if let result = shared?.object(forKey: Constants.AllowTouchID) as? Bool {
-                return result
-            }
-            return true
-        }
-        set {
-            shared?.set(newValue, forKey: Constants.AllowTouchID)
         }
     }
 
@@ -1059,7 +949,7 @@ public class UserDefaultsManagement {
                 if result.count == 0 {
                     return nil
                 }
-                
+
                 return result
             }
 
@@ -1069,14 +959,14 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.GitUsername)
         }
     }
-    
+
     static var gitPassword: String? {
         get {
             if let result = shared?.object(forKey: Constants.GitPassword) as? String {
                 if result.count == 0 {
                     return nil
                 }
-                
+
                 return result
             }
 
@@ -1086,14 +976,14 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.GitPassword)
         }
     }
-    
+
     static var gitOrigin: String? {
         get {
             if let result = shared?.object(forKey: Constants.GitOrigin) as? String {
                 if result.count == 0 {
                     return nil
                 }
-                
+
                 return result
             }
 
@@ -1116,7 +1006,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.SnapshotsInterval)
         }
     }
-    
+
     static var pullInterval: Int {
         get {
             if let interval = shared?.object(forKey: Constants.PullInterval) as? Int {
@@ -1204,7 +1094,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.MathJaxPreview)
         }
     }
-    
+
     static var sidebarVisibilityInbox: Bool {
         get {
             if let result = shared?.object(forKey: "sidebarVisibilityInbox") as? Bool {
@@ -1402,7 +1292,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.AutoVersioning)
         }
     }
-    
+
     static var iCloudDrive: Bool {
         get {
             if let result = shared?.object(forKey: Constants.iCloudDrive) as? Bool {
@@ -1414,7 +1304,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.iCloudDrive)
         }
     }
-    
+
     static var customWebServer: Bool {
         get {
             if let result = shared?.object(forKey: Constants.CustomWebServer) as? Bool {
@@ -1426,7 +1316,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.CustomWebServer)
         }
     }
-    
+
     static var sftpHost: String {
         get {
             if let result = shared?.object(forKey: Constants.SftpHost) as? String {
@@ -1439,7 +1329,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.SftpHost)
         }
     }
-    
+
     static var sftpPort: Int32 {
         get {
             if let result = shared?.object(forKey: Constants.SftpPort) as? Int32 {
@@ -1452,7 +1342,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.SftpPort)
         }
     }
-    
+
     static var sftpUsername: String {
         get {
             if let result = shared?.object(forKey: Constants.SftpUsername) as? String {
@@ -1465,7 +1355,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.SftpUsername)
         }
     }
-    
+
     static var sftpPassword: String {
         get {
             if let result = shared?.object(forKey: Constants.SftpPassword) as? String {
@@ -1478,14 +1368,14 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.SftpPassword)
         }
     }
-    
+
     static var sftpPath: String? {
         get {
             if let result = shared?.object(forKey: Constants.SftpPath) as? String {
                 if result.count == 0 {
                     return nil
                 }
-                
+
                 let suffix = result.hasSuffix("/") ? "" : "/"
                 return result + suffix
             }
@@ -1496,7 +1386,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.SftpPath)
         }
     }
-    
+
     static var sftpPassphrase: String {
         get {
             if let result = shared?.object(forKey: Constants.SftpPasspharse) as? String {
@@ -1509,18 +1399,18 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.SftpPasspharse)
         }
     }
-    
+
     static var sftpWeb: String? {
         get {
             if let result = shared?.object(forKey: Constants.SftpWeb) as? String {
                 if result.count == 0 {
                     return nil
                 }
-                
+
                 if result.last != "/" {
                     return result + "/"
                 }
-                
+
                 return result
             }
 
@@ -1530,7 +1420,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.SftpWeb)
         }
     }
-    
+
     static var sftpAccessData: Data? {
         get {
             return shared?.data(forKey: Constants.SftpKeysAccessData)
@@ -1539,7 +1429,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.SftpKeysAccessData)
         }
     }
-    
+
     static var sftpPublicKeyData: Data? {
         get {
             return shared?.data(forKey: Constants.SftpPublicKeyData)
@@ -1557,7 +1447,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.SftpUploadBookmarksData)
         }
     }
-    
+
     static var apiBookmarksData: Data? {
         get {
             return shared?.data(forKey: Constants.ApiBookmarksData)
@@ -1566,7 +1456,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.ApiBookmarksData)
         }
     }
-    
+
     static var gitPrivateKeyData: Data? {
         get {
             return shared?.data(forKey: Constants.GitPrivateKeyData)
@@ -1575,7 +1465,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.GitPrivateKeyData)
         }
     }
-    
+
     static var gitPassphrase: String {
         get {
             if let result = shared?.object(forKey: Constants.GitPasspharse) as? String {
@@ -1588,7 +1478,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.GitPasspharse)
         }
     }
-    
+
     static var uploadKey: String {
         get {
             if let result = global.object(forKey: Constants.UploadKey) as? String, result.count > 0 {
@@ -1623,7 +1513,7 @@ public class UserDefaultsManagement {
             if let highlight = shared?.object(forKey: Constants.ClickableLinks) as? Bool {
                 return highlight
             }
-            
+
             #if os(iOS)
                 return true
             #else
@@ -1634,7 +1524,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.ClickableLinks)
         }
     }
-    
+
     static var trashURL: URL? {
         get {
             if let trashUrl = shared?.url(forKey: Constants.TrashKey) {
@@ -1647,7 +1537,7 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.TrashKey)
         }
     }
-    
+
     static var askCommitMessage: Bool {
         get {
             if let result = shared?.object(forKey: Constants.AskCommitMessage) as? Bool {
@@ -1659,21 +1549,21 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.AskCommitMessage)
         }
     }
-    
+
     static var lastCommitMessage: String? {
         get {
             if let result = shared?.object(forKey: Constants.LastCommitMessage) as? String, result.count > 0 {
                 return result
             }
-            
+
             return nil
         }
-        
+
         set {
             shared?.set(newValue, forKey: Constants.LastCommitMessage)
         }
     }
-    
+
     static var lightCodeTheme: String {
         get {
             if let theme = UserDefaults.standard.object(forKey: Constants.codeTheme) as? String {
@@ -1686,7 +1576,7 @@ public class UserDefaultsManagement {
             UserDefaults.standard.set(newValue, forKey: Constants.codeTheme)
         }
     }
-    
+
     static var projects: [URL] {
         get {
             guard let defaults = UserDefaults.init(suiteName: "group.es.fsnot.user.defaults") else { return [] }
@@ -1734,7 +1624,7 @@ public class UserDefaultsManagement {
             else {
                 return .atomOne
             }
-                
+
             return theme
         }
         set {
@@ -1742,7 +1632,7 @@ public class UserDefaultsManagement {
         }
     }
 #endif
-    
+
     static var isFirstLaunch: Bool {
         get {
             if let result = shared?.object(forKey: Constants.IsFirstLaunch) as? Bool {
@@ -1754,26 +1644,26 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.IsFirstLaunch)
         }
     }
-    
+
     static var italic: String {
         get {
             if let returnFontName = shared?.object(forKey: Constants.italicKey) as? String {
                 return returnFontName
             }
-            
+
             return "*"
         }
         set {
             shared?.set(newValue, forKey: Constants.italicKey)
         }
     }
-    
+
     static var bold: String {
         get {
             if let returnFontName = shared?.object(forKey: Constants.boldKey) as? String {
                 return returnFontName
             }
-            
+
             return "__"
         }
         set {

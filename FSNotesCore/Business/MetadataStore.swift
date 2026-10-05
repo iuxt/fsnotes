@@ -1,7 +1,6 @@
 import Foundation
-import SQLite3
 
-/// metadata.json is the portable snapshot. SQLite is a local, rebuildable query store.
+/// metadata.json is the persistent snapshot; queries use a rebuildable in-memory index.
 /// Every mutation reads the current snapshot before changing it, including after Git checkout.
 final class MetadataStore {
     struct Folder: Codable, Equatable {
@@ -26,47 +25,47 @@ final class MetadataStore {
     }
     enum Failure: LocalizedError {
         case invalid(String)
-        case database(String, Int32)
         var errorDescription: String? {
             switch self {
             case .invalid(let reason): return "FSNotes metadata: " + reason
-            case .database(let reason, _): return "FSNotes local index: " + reason
             }
         }
     }
 
     let root: URL
-    let databaseURL: URL
     var manifestURL: URL { root.appendingPathComponent("metadata.json") }
     var notesURL: URL { root.appendingPathComponent("notes", isDirectory: true) }
-    private var database: OpaquePointer?
+    var imagesURL: URL { root.appendingPathComponent("images", isDirectory: true) }
     private let lock = NSRecursiveLock()
     private struct Stamp: Equatable { let modified: Date; let size: UInt64; let inode: UInt64 }
     private var loadedStamp: Stamp?
     private var failedStamp: Stamp?
     private var loadedData: Data?
     private var snapshot = Snapshot()
+    private struct Index {
+        let folders: [Folder]
+        let entries: [Entry]
+        let entriesByID: [String: Entry]
+        let entriesByFolder: [String?: [Entry]]
+
+        init(_ snapshot: Snapshot) {
+            folders = snapshot.folders.sorted { $0.id < $1.id }
+            entries = snapshot.notes.sorted { $0.id < $1.id }
+            entriesByID = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
+            entriesByFolder = Dictionary(grouping: entries, by: { $0.folderID })
+        }
+    }
+    private var index = Index(Snapshot())
     private let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         return encoder
     }()
 
-    init(root: URL, databaseURL: URL) throws {
+    init(root: URL) throws {
         self.root = root.standardizedFileURL.resolvingSymlinksInPath()
-        self.databaseURL = databaseURL
-        if (try? notesURL.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true { throw Failure.invalid("the reserved notes directory cannot be a symbolic link") }
-        try FileManager.default.createDirectory(at: databaseURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        var initialized = false
-        defer { if !initialized { sqlite3_close(database); database = nil } }
-        do { try openDatabase() }
-        catch Failure.database(_, let code) where code == SQLITE_CORRUPT || code == SQLITE_NOTADB {
-            sqlite3_close(database)
-            database = nil
-            // The portable manifest is authoritative; quarantine a corrupt local index.
-            let quarantine = databaseURL.appendingPathExtension("corrupt-" + UUID().uuidString)
-            try FileManager.default.moveItem(at: databaseURL, to: quarantine)
-            try openDatabase()
+        for directory in [notesURL, imagesURL] {
+            if (try? directory.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true { throw Failure.invalid("reserved storage directories cannot be symbolic links") }
         }
         try coordinateWrite(at: self.root) {
             if !FileManager.default.fileExists(atPath: manifestURL.path) { try migrate() }
@@ -74,20 +73,24 @@ final class MetadataStore {
         }
         try refresh()
         try FileManager.default.createDirectory(at: notesURL, withIntermediateDirectories: true)
-        initialized = true
+        try FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true)
+        try configureImageTracking()
+        for name in ["Trash", "trash"] {
+            let directory = self.root.appendingPathComponent(name)
+            if let files = try? FileManager.default.contentsOfDirectory(atPath: directory.path), files.isEmpty {
+                try FileManager.default.removeItem(at: directory)
+            }
+        }
     }
 
-    private func openDatabase() throws {
-        let status = sqlite3_open_v2(databaseURL.path, &database, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil)
-        guard status == SQLITE_OK else { throw Failure.database("cannot open local database", status) }
-        sqlite3_busy_timeout(database, 5000)
-        try execute("CREATE TABLE IF NOT EXISTS folders (id TEXT PRIMARY KEY, name TEXT NOT NULL, parent_id TEXT, record TEXT NOT NULL)")
-        try execute("CREATE TABLE IF NOT EXISTS notes (id TEXT PRIMARY KEY, name TEXT NOT NULL, folder_id TEXT, record TEXT NOT NULL)")
-        try execute("CREATE INDEX IF NOT EXISTS notes_folder ON notes(folder_id)")
-        try execute("CREATE INDEX IF NOT EXISTS folders_parent ON folders(parent_id)")
+    /// Keep the rule in the library, so external Git clients use the same storage format.
+    private func configureImageTracking() throws {
+        let attributes = root.appendingPathComponent(".gitattributes")
+        let rule = "images/** filter=lfs diff=lfs merge=lfs -text"
+        let current = FileManager.default.fileExists(atPath: attributes.path) ? try String(contentsOf: attributes, encoding: .utf8) : ""
+        if current.components(separatedBy: .newlines).last(where: { !$0.isEmpty }) == rule { return }
+        try (current + (current.isEmpty || current.hasSuffix("\n") ? "" : "\n") + rule + "\n").write(to: attributes, atomically: true, encoding: .utf8)
     }
-
-    deinit { sqlite3_close(database) }
 
     @discardableResult func refresh(force: Bool = true) throws -> Bool {
         lock.lock()
@@ -100,7 +103,7 @@ final class MetadataStore {
             if loadedData == data { loadedStamp = stamp; failedStamp = nil; return false }
             let next = try JSONDecoder().decode(Snapshot.self, from: data)
             try validate(next)
-            try rebuildDatabase(next)
+            index = Index(next)
             snapshot = next
             loadedData = data
             loadedStamp = stamp
@@ -122,20 +125,19 @@ final class MetadataStore {
     func allFolders() throws -> [Folder] {
         lock.lock(); defer { lock.unlock() }
         try refresh(force: false)
-        return try query("SELECT record FROM folders ORDER BY id", as: Folder.self)
+        return index.folders
     }
 
     func allEntries() throws -> [Entry] {
         lock.lock(); defer { lock.unlock() }
         try refresh(force: false)
-        return try query("SELECT record FROM notes ORDER BY id", as: Entry.self)
+        return index.entries
     }
 
     func entries(inFolder id: String?) throws -> [Entry] {
         lock.lock(); defer { lock.unlock() }
         try refresh(force: false)
-        let predicate = id.map { "folder_id = " + quote($0) } ?? "folder_id IS NULL"
-        return try query("SELECT record FROM notes WHERE " + predicate + " ORDER BY id", as: Entry.self)
+        return index.entriesByFolder[id] ?? []
     }
 
     func entry(at url: URL) -> Entry? {
@@ -147,7 +149,7 @@ final class MetadataStore {
         lock.lock(); defer { lock.unlock() }
         // A malformed/conflicted snapshot blocks writes; the last valid index stays readable.
         do { try refresh(force: false) } catch { NSLog("%@", error.localizedDescription) }
-        return try? query("SELECT record FROM notes WHERE id = \(quote(id))", as: Entry.self).first
+        return index.entriesByID[id]
     }
 
     func fileURL(_ entry: Entry) -> URL {
@@ -268,7 +270,7 @@ final class MetadataStore {
             next.notes.sort { $0.id < $1.id }
             let data = try encoder.encode(next)
             guard data != loadedData else { return }
-            // Publish the portable snapshot first. If SQLite fails, refresh rebuilds it.
+            // Publish the persistent snapshot before replacing the in-memory index.
             guard try Data(contentsOf: manifestURL) == loadedData else { throw Failure.invalid("metadata changed during this operation; retry") }
             try data.write(to: manifestURL, options: .atomic)
             loadedData = nil
@@ -303,49 +305,7 @@ final class MetadataStore {
             guard !next.folders.contains(where: { $0.id != folder.id && $0.parentID == folder.parentID && $0.name.caseInsensitiveCompare(folder.name) == .orderedSame }) else { throw Failure.invalid("folder name already exists") }
         }
         for entry in next.notes {
-            guard UUID(uuidString: entry.id) != nil, ["md", "markdown", "txt", "fountain", "textbundle", "etp"].contains(entry.fileExtension), !entry.name.isEmpty, entry.folderID == nil || folders[entry.folderID!] != nil else { throw Failure.invalid("invalid note") }
-        }
-    }
-
-    private func quote(_ value: String) -> String { "'" + value.replacingOccurrences(of: "'", with: "''") + "'" }
-    private func nullable(_ value: String?) -> String { value.map(quote) ?? "NULL" }
-
-    private func execute(_ sql: String) throws {
-        guard sqlite3_exec(database, sql, nil, nil, nil) == SQLITE_OK else { throw Failure.database(String(cString: sqlite3_errmsg(database)), sqlite3_errcode(database)) }
-    }
-
-    private func query<T: Decodable>(_ sql: String, as type: T.Type) throws -> [T] {
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else { throw Failure.database("database query failed", sqlite3_errcode(database)) }
-        defer { sqlite3_finalize(statement) }
-        var result = [T]()
-        var status = sqlite3_step(statement)
-        while status == SQLITE_ROW {
-            guard let bytes = sqlite3_column_text(statement, 0) else { throw Failure.invalid("invalid database row") }
-            result.append(try JSONDecoder().decode(T.self, from: Data(String(cString: bytes).utf8)))
-            status = sqlite3_step(statement)
-        }
-        guard status == SQLITE_DONE else { throw Failure.database("database read failed", sqlite3_errcode(database)) }
-        return result
-    }
-
-    private func rebuildDatabase(_ next: Snapshot) throws {
-        try execute("BEGIN IMMEDIATE")
-        do {
-            try execute("DELETE FROM notes")
-            try execute("DELETE FROM folders")
-            for folder in next.folders {
-                let json = String(decoding: try encoder.encode(folder), as: UTF8.self)
-                try execute("INSERT INTO folders VALUES (\(quote(folder.id)), \(quote(folder.name)), \(nullable(folder.parentID)), \(quote(json)))")
-            }
-            for entry in next.notes {
-                let json = String(decoding: try encoder.encode(entry), as: UTF8.self)
-                try execute("INSERT INTO notes VALUES (\(quote(entry.id)), \(quote(entry.name)), \(nullable(entry.folderID)), \(quote(json)))")
-            }
-            try execute("COMMIT")
-        } catch {
-            try? execute("ROLLBACK")
-            throw error
+            guard UUID(uuidString: entry.id) != nil, ["md", "markdown", "txt", "fountain"].contains(entry.fileExtension), !entry.name.isEmpty, entry.folderID == nil || folders[entry.folderID!] != nil else { throw Failure.invalid("invalid note") }
         }
     }
 
@@ -360,28 +320,25 @@ final class MetadataStore {
             plan = try JSONDecoder().decode(Snapshot.self, from: Data(contentsOf: journal))
         } else {
             // An existing UUID library without its manifest must never be silently re-imported.
-            let indexedNotes = try query("SELECT record FROM notes LIMIT 1", as: Entry.self)
-            let indexedFolders = try query("SELECT record FROM folders LIMIT 1", as: Folder.self)
             let knownLibrary = manager.fileExists(atPath: notesURL.appendingPathComponent(".fsnotes-library").path)
-                || !indexedNotes.isEmpty || !indexedFolders.isEmpty
             if knownLibrary {
                 throw Failure.invalid("metadata.json is missing from an existing UUID library; restore it from Git")
             }
             func scan(_ directory: URL, parentID: String?) throws {
-                let files = try manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey], options: .skipsHiddenFiles).sorted { $0.path < $1.path }
+                let files = try manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isPackageKey], options: .skipsHiddenFiles).sorted { $0.path < $1.path }
                 for rawFile in files {
                     let file = rawFile.standardizedFileURL.resolvingSymlinksInPath()
-                    let values = try rawFile.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-                    if values.isSymbolicLink == true { continue }
+                    let values = try rawFile.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isPackageKey])
+                    if values.isSymbolicLink == true || values.isPackage == true { continue }
                     let relative = String(file.path.dropFirst(root.path.count + 1))
-                    if ["md", "markdown", "txt", "fountain", "textbundle", "etp"].contains(file.pathExtension.lowercased()) {
+                    if values.isDirectory != true, ["md", "markdown", "txt", "fountain"].contains(file.pathExtension.lowercased()) {
                         var id = UUID(uuidString: file.deletingPathExtension().lastPathComponent)?.uuidString.lowercased() ?? UUID().uuidString.lowercased()
                         if plan.notes.contains(where: { $0.id == id }) { id = UUID().uuidString.lowercased() }
                         let displayName = Self.availableName(Self.legacyDisplayName(file), folderID: parentID, excluding: nil, in: plan)
                         var entry = Entry(id: id, name: displayName, folderID: parentID, fileExtension: file.pathExtension.lowercased(), legacyPath: relative)
                         if let heading = Self.legacyContentTitle(file), heading != displayName { entry.aliases = [heading] }
                         plan.notes.append(entry)
-                    } else if values.isDirectory == true, !["Trash", "assets", "i", "files"].contains(file.lastPathComponent) {
+                    } else if values.isDirectory == true, !["Trash", "trash", "images", "assets", "i", "files"].contains(file.lastPathComponent) {
                         // Nested repositories keep their independent storage and Git root.
                         if manager.fileExists(atPath: file.appendingPathComponent(".git").path) { continue }
                         let folder = Folder(id: UUID().uuidString.lowercased(), name: file.lastPathComponent, parentID: parentID, legacyPath: relative)
@@ -412,28 +369,10 @@ final class MetadataStore {
                 let original = try String(contentsOf: source, encoding: .utf8)
                 let rewritten = Self.relocateLinks(original, source: source, destination: destination, notes: paths)
                 if rewritten != original { try rewritten.write(to: staging, atomically: true, encoding: .utf8) }
-            } else if entry.fileExtension == "textbundle" {
-                for file in try manager.contentsOfDirectory(at: source, includingPropertiesForKeys: nil) where ["md", "markdown"].contains(file.pathExtension) {
-                    let original = try String(contentsOf: file, encoding: .utf8)
-                    let rewritten = Self.relocateLinks(original, source: file, destination: destination.appendingPathComponent(file.lastPathComponent), notes: paths)
-                    if rewritten != original { try rewritten.write(to: staging.appendingPathComponent(file.lastPathComponent), atomically: true, encoding: .utf8) }
-                }
             }
             let attributes = try manager.attributesOfItem(atPath: source.path)
             try manager.setAttributes(attributes.filter { [.creationDate, .modificationDate, .posixPermissions].contains($0.key) }, ofItemAtPath: staging.path)
             try manager.moveItem(at: staging, to: destination)
-        }
-        // Preserve existing encrypted-folder markers at a stable folder ID path.
-        for folder in plan.folders {
-            if let old = folder.legacyPath {
-                let marker = root.appendingPathComponent(old).appendingPathComponent(".encrypt")
-                if manager.fileExists(atPath: marker.path) {
-                    let directory = folderURL(folder.id)
-                    try manager.createDirectory(at: directory, withIntermediateDirectories: true)
-                    let destination = directory.appendingPathComponent(".encrypt")
-                    if !manager.fileExists(atPath: destination.path) { try manager.copyItem(at: marker, to: destination) }
-                }
-            }
         }
         plan.folders.sort { $0.id < $1.id }
         plan.notes.sort { $0.id < $1.id }
@@ -470,11 +409,8 @@ final class MetadataStore {
     }
 
     private static func legacyContentTitle(_ file: URL) -> String? {
-        if file.pathExtension.lowercased() == "etp" { return nil }
-        var body = file
-        if file.pathExtension.lowercased() == "textbundle" {
-            body = ["text.markdown", "text.md", "text.txt", "text.fountain"].map { file.appendingPathComponent($0) }.first { FileManager.default.fileExists(atPath: $0.path) } ?? file
-        }
+        let body = file
+
         guard let text = try? String(contentsOf: body, encoding: .utf8) else { return nil }
         var lines = text.components(separatedBy: .newlines)
         if lines.first == "---", let closing = lines.dropFirst().firstIndex(of: "---") {
@@ -531,17 +467,8 @@ final class MetadataStore {
                 } else { expected = original }
                 guard try Data(contentsOf: to) == expected else { throw Failure.invalid("original changed during migration; both copies have been retained") }
             }
-            if entry.fileExtension == "textbundle" {
-                guard let files = manager.enumerator(at: source, includingPropertiesForKeys: [.isDirectoryKey]) else { throw Failure.invalid("cannot validate migrated TextBundle") }
-                for case let raw as URL in files {
-                    if try raw.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true { continue }
-                    let from = raw.standardizedFileURL.resolvingSymlinksInPath()
-                    let target = destination.appendingPathComponent(String(from.path.dropFirst(source.path.count + 1)))
-                    try verify(from, target, rewrite: from.deletingLastPathComponent() == source && ["md", "markdown"].contains(from.pathExtension))
-                }
-            } else {
-                try verify(source, destination, rewrite: ["md", "markdown", "txt", "fountain"].contains(entry.fileExtension))
-            }
+            try verify(source, destination, rewrite: ["md", "markdown", "txt", "fountain"].contains(entry.fileExtension))
+
             originals.append(source)
         }
         for source in originals { try manager.removeItem(at: source) }
@@ -580,10 +507,8 @@ final class MetadataStore {
             let parts = target.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)
             let path = String(parts[0]).removingPercentEncoding ?? String(parts[0])
             let resolved = source.deletingLastPathComponent().appendingPathComponent(path).standardizedFileURL
-            var to = notes[resolved.path] ?? resolved
-            if notes[resolved.path] == nil, let package = notes.keys.first(where: { $0.hasSuffix(".textbundle") && resolved.path.hasPrefix($0 + "/") }), let moved = notes[package] {
-                to = moved.appendingPathComponent(String(resolved.path.dropFirst(package.count + 1)))
-            }
+            let to = notes[resolved.path] ?? resolved
+
             let fromParts = destination.deletingLastPathComponent().pathComponents
             let toParts = to.pathComponents
             var common = 0

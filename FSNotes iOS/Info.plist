@@ -8,30 +8,7 @@
 	<string>FSNotes</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
-		<dict>
-			<key>CFBundleTypeExtensions</key>
-			<array>
-				<string>textbundle</string>
-			</array>
-			<key>CFBundleTypeIconFiles</key>
-			<array>
-				<string>TextBundle.icns</string>
-			</array>
-			<key>CFBundleTypeMIMETypes</key>
-			<array>
-				<string>text/x-textbundle</string>
-			</array>
-			<key>CFBundleTypeName</key>
-			<string>TextBundle</string>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>LSHandlerRank</key>
-			<string>Alternate</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>org.textbundle.package</string>
-			</array>
-		</dict>
+
 		<dict>
 			<key>CFBundleTypeExtensions</key>
 			<array>
@@ -131,8 +108,6 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Needs for attach photo in notes</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Note encryption and decryption with FaceID</string>
 	<key>NSHumanReadableCopyright</key>
 	<string></string>
 	<key>NSLocationWhenInUseUsageDescription</key>
@@ -247,27 +222,7 @@
 	<true/>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
-		<dict>
-			<key>UTTypeConformsTo</key>
-			<array>
-				<string>com.apple.package</string>
-			</array>
-			<key>UTTypeDescription</key>
-			<string>TextBundle</string>
-			<key>UTTypeIconFiles</key>
-			<array>
-				<string>TextBundle.icns</string>
-			</array>
-			<key>UTTypeIdentifier</key>
-			<string>org.textbundle.package</string>
-			<key>UTTypeTagSpecification</key>
-			<dict>
-				<key>public.filename-extension</key>
-				<array>
-					<string>textbundle</string>
-				</array>
-			</dict>
-		</dict>
+
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>

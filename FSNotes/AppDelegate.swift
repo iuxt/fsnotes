@@ -25,12 +25,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     public static var mainWindowController: MainWindowController?
     public static var noteWindows = [NSWindowController]()
-    
+
     public static var appTitle: String {
         let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
         return name ?? Bundle.main.object(forInfoDictionaryKey: kCFBundleNameKey as String) as! String
     }
-    
+
     public static var gitProgress: GitProgress?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -45,11 +45,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             catch { NSAlert(error: error).runModal(); exit(EXIT_FAILURE) }
         }
         loadDockIcon()
-        
+
         if UserDefaultsManagement.showInMenuBar {
             constructMenu()
         }
-        
+
         if !UserDefaultsManagement.showDockIcon {
             let transformState = ProcessApplicationTransformState(kProcessTransformToUIElementApplication)
             var psn = ProcessSerialNumber(highLongOfPSN: 0, lowLongOfPSN: UInt32(kCurrentProcess))
@@ -68,7 +68,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         #if CLOUD_RELATED_BLOCK
         if let iCloudDocumentsURL = FileManager.default.url(forUbiquityContainerIdentifier: nil)?.appendingPathComponent("Documents").standardized {
-            
+
             if (!FileManager.default.fileExists(atPath: iCloudDocumentsURL.path, isDirectory: nil)) {
                 do {
                     try FileManager.default.createDirectory(at: iCloudDocumentsURL, withIntermediateDirectories: true, attributes: nil)
@@ -80,38 +80,35 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         #endif
 
         let storyboard = NSStoryboard(name: "Main", bundle: nil)
-        
+
         guard let mainWC = storyboard.instantiateController(withIdentifier: "MainWindowController") as? MainWindowController else {
             fatalError("Error getting main window controller")
         }
-        
+
         AppDelegate.mainWindowController = mainWC
         mainWC.window?.makeKeyAndOrderFront(nil)
     }
-        
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if (!flag) {
             AppDelegate.mainWindowController?.makeNew()
         }
-                
+
         return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         UserDefaultsManagement.crashedLastTime = false
-        
+
         if !isSwitchingWorkspace { AppDelegate.saveWindowsState() }
-        
+
         Storage.shared().saveUploadPaths()
-        
+
         let webkitPreview = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("wkPreview")
         try? FileManager.default.removeItem(at: webkitPreview)
 
         let printDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("Print")
         try? FileManager.default.removeItem(at: printDir)
-
-        let encryption = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("Encryption")
-        try? FileManager.default.removeItem(at: encryption)
 
         var temporary = URL(fileURLWithPath: NSTemporaryDirectory())
         temporary.appendPathComponent("ThumbnailsBig")
@@ -126,15 +123,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             UserDefaultsManagement.lastScreenX = Int(x)
             UserDefaultsManagement.lastScreenY = Int(y)
         }
-        
+
         Storage.shared().saveProjectsCache()
-        
+
         print("Termination end, crash status: \(UserDefaultsManagement.crashedLastTime)")
     }
-    
+
     private static func saveWindowsState() {
         var result = [[String: Any]]()
-                
+
         let noteWindows = self.noteWindows.sorted(by: { $0.window!.orderedIndex > $1.window!.orderedIndex })
         for windowController in noteWindows {
             if let frame = windowController.window?.frame,
@@ -142,28 +139,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                let controller = windowController.contentViewController as? NoteViewController,
                    let note = controller.editor.note {
 
-
                 let key = windowController.window?.isKeyWindow == true
 
                 result.append(["frame": data, "preview": controller.editor.isPreviewEnabled(), "url": note.url, "main": false, "key": key])
             }
         }
-        
+
         // Main frame
         if let vc = ViewController.shared(), let note = vc.editor?.note, let mainFrame = vc.view.window?.frame,
            let data = try? NSKeyedArchiver.archivedData(withRootObject: mainFrame, requiringSecureCoding: true) {
 
             let key = vc.view.window?.isKeyWindow == true
-            
+
             result.append(["frame": data, "preview": vc.editor.isPreviewEnabled(), "url": note.url, "main": true, "key": key])
         }
-    
+
         let projectsData = try? NSKeyedArchiver.archivedData(withRootObject: result, requiringSecureCoding: true)
         if let documentDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
             try? projectsData?.write(to: documentDir.appendingPathComponent("editors.settings"))
         }
     }
-    
+
     private func applyAppearance() {
         if UserDefaultsManagement.appearanceType == .Dark {
             NSApp.appearance = NSAppearance.init(named: NSAppearance.Name.darkAqua)
@@ -179,7 +175,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             UserDataService.instance.isDark = true
         }
     }
-    
+
     func switchWorkspace(to url: URL) {
         // Stop producers before draining their queues and changing the root path.
         guard !isSwitchingWorkspace else { return }
@@ -194,7 +190,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DispatchQueue.global(qos: .userInitiated).async {
             ViewController.gitQueue.waitUntilAllOperationsAreFinished()
             Storage.shared().plainWriter.waitUntilAllOperationsAreFinished()
-            Storage.shared().ciphertextWriter.waitUntilAllOperationsAreFinished()
             DispatchQueue.main.async {
                 do {
                     try WorkspaceDirectory.save(url)
@@ -252,10 +247,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(NSMenuItem(title: NSLocalizedString("Search and create", comment: ""), action: #selector(AppDelegate.searchAndCreate(_:)), keyEquivalent: "l"))
         menu.addItem(NSMenuItem(title: NSLocalizedString("Settings", comment: ""), action: #selector(AppDelegate.openPreferences(_:)), keyEquivalent: ","))
 
-        let lock = NSMenuItem(title: NSLocalizedString("Lock All Encrypted", comment: ""), action: #selector(ViewController.shared()?.lockAll(_:)), keyEquivalent: "l")
-        lock.keyEquivalentModifierMask = [.command, .shift]
-        menu.addItem(lock)
-
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: NSLocalizedString("Quit FSNotes", comment: ""), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
@@ -267,7 +258,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let event = NSApp.currentEvent!
 
         if event.type == NSEvent.EventType.leftMouseUp {
-            
+
             // Hide active not hidden and not miniaturized
             if !NSApp.isHidden && NSApp.isActive {
                 if let mainWindow = AppDelegate.mainWindowController?.window, !mainWindow.isMiniaturized {
@@ -275,13 +266,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     return
                 }
             }
-            
+
             NSApp.unhide(nil)
             NSApp.activate(ignoringOtherApps: true)
-            
+
             AppDelegate.mainWindowController?.window?.makeKeyAndOrderFront(nil)
             ViewController.shared()?.search.becomeFirstResponder()
-            
+
             return
         }
 
@@ -297,13 +288,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuDidClose(_ menu: NSMenu) {
         statusItem?.menu = nil
     }
-    
+
     // MARK: IBActions
-    
+
     @IBAction func openMainWindow(_ sender: Any) {
         AppDelegate.mainWindowController?.makeNew()
     }
-    
+
     @IBAction func openHelp(_ sender: Any) {
         NSWorkspace.shared.open(URL(string: "https://github.com/glushchenko/fsnotes/wiki")!)
     }
@@ -315,49 +306,49 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @IBAction func openSite(_ sender: Any) {
         NSWorkspace.shared.open(URL(string: "https://fsnot.es")!)
     }
-    
+
     @IBAction func openPreferences(_ sender: Any?) {
         if prefsWindowController == nil {
             let storyboard = NSStoryboard(name: "Main", bundle: nil)
             prefsWindowController = storyboard.instantiateController(withIdentifier: "Preferences") as? PrefsWindowController
         }
-        
+
         guard let prefsWindowController = prefsWindowController else { return }
-        
+
         prefsWindowController.showWindow(nil)
         prefsWindowController.window?.makeKeyAndOrderFront(prefsWindowController)
-        
+
         NSApp.activate(ignoringOtherApps: true)
     }
-    
+
     @IBAction func new(_ sender: Any?) {
         AppDelegate.mainWindowController?.makeNew()
         NSApp.activate(ignoringOtherApps: true)
         ViewController.shared()?.fileMenuNewNote(self)
     }
-    
+
     @IBAction func createInNewWindow(_ sender: Any?) {
         AppDelegate.mainWindowController?.makeNew()
         NSApp.activate(ignoringOtherApps: true)
         ViewController.shared()?.createInNewWindow(self)
     }
-    
+
     @IBAction func searchAndCreate(_ sender: Any?) {
         AppDelegate.mainWindowController?.makeNew()
         NSApp.activate(ignoringOtherApps: true)
-        
+
         guard let vc = ViewController.shared() else { return }
-        
+
         DispatchQueue.main.async {
             vc.search.window?.makeFirstResponder(vc.search)
         }
     }
-    
+
     @IBAction func removeMenuBar(_ sender: Any?) {
         guard let statusItem = statusItem else { return }
         NSStatusBar.system.removeStatusItem(statusItem)
     }
-    
+
     @IBAction func addMenuBar(_ sender: Any?) {
         constructMenu()
     }
@@ -405,30 +396,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         return true
     }
-    
+
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
         return true
     }
-    
+
     public static func getEditTextViews() -> [EditTextView] {
         var views = getOpenedEditTextViews()
-                
+
         if let controller = mainWindowController?.contentViewController as? ViewController {
             views.append(controller.editor)
         }
-        
+
         return views
     }
-    
+
     public static func getOpenedEditTextViews() -> [EditTextView] {
         var views = [EditTextView]()
-        
+
         for window in noteWindows {
             if let controller = window.contentViewController as? NoteViewController {
                 views.append(controller.editor)
             }
         }
-        
+
         return views
     }
 }

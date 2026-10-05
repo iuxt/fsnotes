@@ -10,13 +10,12 @@ import UIKit
 import MobileCoreServices
 import AudioToolbox
 import SwipeCellKit
-import ZipArchive
 
 class NotesTableView: UITableView,
     UITableViewDelegate,
     UITableViewDataSource,
     UITableViewDragDelegate {
-    
+
     var notes = [Note]()
     var viewDelegate: ViewController? = nil
     public var selectedIndexPaths: [IndexPath]?
@@ -24,7 +23,7 @@ class NotesTableView: UITableView,
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return notes.count
     }
-    
+
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return calcHeight(indexPath: indexPath)
     }
@@ -68,7 +67,7 @@ class NotesTableView: UITableView,
 
         return 75
     }
-    
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "noteCell", for: indexPath) as! NoteCellView
 
@@ -81,7 +80,7 @@ class NotesTableView: UITableView,
         if !note.isLoaded && !note.isLoadedFromCache {
             note.uiLoad()
         }
-        
+
         cell.configure(note: note)
         cell.selectionStyle = .gray
         cell.loadImagesPreview(position: indexPath.row)
@@ -101,28 +100,12 @@ class NotesTableView: UITableView,
 
         guard !self.isEditing, notes.indices.contains(indexPath.row) else { return }
 
-        var note = notes[indexPath.row]
+        let note = notes[indexPath.row]
         note.loadPreviewState()
-        
+
         let evc = UIApplication.getEVC()
         if let editArea = evc.editArea, let u = editArea.undoManager {
             u.removeAllActions()
-        }
-
-        if note.container == .encryptedTextPack {
-            viewDelegate?.unLock(notes: [note], completion: { notes in
-                DispatchQueue.main.async {
-                    guard note.container != .encryptedTextPack else {
-                        self.askPasswordAndUnlock(note: note, indexPath: indexPath)
-                        return
-                    }
-
-                    self.reloadRows(notes: [note])
-                    self.fill(note: note, indexPath: indexPath)
-                }
-            })
-            
-            return
         }
 
         fill(note: note, indexPath: indexPath)
@@ -136,33 +119,6 @@ class NotesTableView: UITableView,
         }
     }
 
-    private func askPasswordAndUnlock(note: Note, indexPath: IndexPath) {
-        self.viewDelegate?.unlockPasswordPrompt(completion: { password in
-            self.viewDelegate?.unLock(notes: [note], completion: { success in
-                if let success = success, success.count > 0 {
-                    self.reloadRows(notes: [note])
-                    self.fill(note: note, indexPath: indexPath)
-                }
-            }, password: password)
-        })
-    }
-
-    private func askPasswordAndUnEncrypt(note: Note) {
-        self.viewDelegate?.unlockPasswordPrompt(completion: { password in
-            if note.container == .encryptedTextPack {
-                let success = note.unEncrypt(password: password)
-                note.password = nil
-
-                if success {
-                    DispatchQueue.main.async {
-                        UIApplication.getEVC().refill()
-                        self.reloadRows(notes: [note], resetKeys: true)
-                    }
-                }
-            }
-        })
-    }
-
     private func fill(note: Note, indexPath: IndexPath) {
         UIApplication.getVC().openEditorViewController()
         UIApplication.getEVC().fill(note: note, clearPreview: true) {
@@ -171,7 +127,7 @@ class NotesTableView: UITableView,
             }
         }
     }
-    
+
     func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
         return true
     }
@@ -291,16 +247,6 @@ class NotesTableView: UITableView,
                     note.addPin()
                     self.addPins(notes: [note])
                 }
-            case "lockUnlock":
-                self.viewDelegate?.toggleNotesLock(notes: [note])
-
-                if editor {
-                    if !note.isUnlocked() {
-                        UIApplication.getEVC().cancel()
-                    }
-                }
-            case "removeEncryption":
-                self.removeEncryption(note: note)
             case "copy":
                 self.copyAction(note: note)
             case "share":
@@ -313,7 +259,7 @@ class NotesTableView: UITableView,
                 break
             }
 
-            if ["pinUnpin", "removeEncryption"].contains(action.identifier.rawValue) {
+            if action.identifier.rawValue == "pinUnpin" {
                 DispatchQueue.main.async {
                     UIApplication.getEVC().configureNavMenu()
                 }
@@ -341,14 +287,13 @@ class NotesTableView: UITableView,
         let moveImage = UIImage(systemName: "folder")
         actions.append(UIAction(title: moveTitle, image: moveImage, identifier: UIAction.Identifier("move"), handler: handler))
 
-
-        if note.hasGitRepository() && !note.isEncrypted() {
+        if note.hasGitRepository() {
             let commitTitle = NSLocalizedString("Save Revision", comment: "")
             let commitImage = UIImage(systemName: "plus.circle")
             actions.append(UIAction(title: commitTitle, image: commitImage, identifier: UIAction.Identifier("commit"), handler: handler))
         }
 
-        if UserDefaultsManagement.autoVersioning && !note.isEncrypted() {
+        if UserDefaultsManagement.autoVersioning {
             let historyTitle = NSLocalizedString("History", comment: "")
             let historyImage = UIImage(systemName: "clock.arrow.circlepath")
             actions.append(UIAction(title: historyTitle, image: historyImage, identifier: UIAction.Identifier("history"), handler: handler))
@@ -361,22 +306,6 @@ class NotesTableView: UITableView,
         let pinUnpinTitle = note.isPinned ? NSLocalizedString("Unpin", comment: "") : NSLocalizedString("Pin", comment: "")
         let pinUnpinImage = UIImage(systemName: note.isPinned ? "pin.slash" : "pin")
         actions.append(UIAction(title: pinUnpinTitle, image: pinUnpinImage, identifier: UIAction.Identifier("pinUnpin"), handler: handler))
-
-        let lockUnlockTitle =
-            (note.isUnlocked() && note.isEncrypted()) || !note.isEncrypted()
-                ? NSLocalizedString("Lock", comment: "")
-                : NSLocalizedString("Unlock", comment: "")
-        let lockUnlockImageName = (note.isUnlocked() && note.isEncrypted()) || !note.isEncrypted()
-            ? "lock"
-            : "lock.open"
-        let lockUnlockImage = UIImage(systemName: lockUnlockImageName)
-        actions.append(UIAction(title: lockUnlockTitle, image: lockUnlockImage, identifier: UIAction.Identifier("lockUnlock"), handler: handler))
-
-        if note.isEncrypted() && !note.project.isEncrypted {
-            let removeEncryptionTitle = NSLocalizedString("Remove Encryption", comment: "")
-            let removeEncryptionImage = UIImage(systemName: "lock.slash")
-            actions.append(UIAction(title: removeEncryptionTitle, image: removeEncryptionImage, identifier: UIAction.Identifier("removeEncryption"), handler: handler))
-        }
 
         var clipboardName = "doc.on.clipboard"
         if #available(iOS 16.0, *) {
@@ -437,7 +366,7 @@ class NotesTableView: UITableView,
         }
         actionSheet.addAction(remove)
 
-        if showAll && note.hasGitRepository() && !note.isEncrypted() {
+        if showAll && note.hasGitRepository() {
             let history = UIAlertAction(title: NSLocalizedString("Save Revision", comment: ""), style: .default, handler: { _ in
                 self.saveRevisionAction(note: notes.first!)
             })
@@ -447,8 +376,8 @@ class NotesTableView: UITableView,
             }
             actionSheet.addAction(history)
         }
-        
-        if showAll && UserDefaultsManagement.autoVersioning && !note.isEncrypted() {
+
+        if showAll && UserDefaultsManagement.autoVersioning {
             let history = UIAlertAction(title: NSLocalizedString("History", comment: ""), style: .default, handler: { _ in
                 self.historyAction(note: notes.first!)
             })
@@ -522,41 +451,6 @@ class NotesTableView: UITableView,
         actionSheet.addAction(move)
 
         if showAll {
-            let alertTitle =
-                (note.isUnlocked() && note.isEncrypted()) || !note.isEncrypted()
-                    ? NSLocalizedString("Lock", comment: "")
-                    : NSLocalizedString("Unlock", comment: "")
-
-            let imageName = (note.isUnlocked() && note.isEncrypted()) || !note.isEncrypted()
-                ? "lock"
-                : "lock.open"
-
-            let encryption = UIAlertAction(title: alertTitle, style: .default, handler: { _ in
-                self.viewDelegate?.toggleNotesLock(notes: [note])
-
-                if !note.isUnlocked(), presentController.isKind(of: EditorViewController.self) || back {
-                    UIApplication.getEVC().cancel()
-                }
-            })
-            encryption.setValue(CATextLayerAlignmentMode.left, forKey: "titleTextAlignment")
-            if let image = UIImage(systemName: imageName)?.resize(maxWidthHeight: 23) {
-                encryption.setValue(image, forKey: "image")
-            }
-            actionSheet.addAction(encryption)
-
-            if note.isEncrypted() {
-                let removeEncryption = UIAlertAction(title: NSLocalizedString("Remove Encryption", comment: ""), style: .default, handler: { _ in
-                    self.removeEncryption(note: note)
-                })
-
-                removeEncryption.setValue(CATextLayerAlignmentMode.left, forKey: "titleTextAlignment")
-                if let image = UIImage(systemName: "lock.slash")?.resize(maxWidthHeight: 23) {
-                    removeEncryption.setValue(image, forKey: "image")
-                }
-
-                actionSheet.addAction(removeEncryption)
-            }
-
             var clipboardName = "doc.on.clipboard"
             if #available(iOS 16.0, *) {
                 clipboardName = "clipboard"
@@ -597,7 +491,7 @@ class NotesTableView: UITableView,
 
         presentController.present(actionSheet, animated: true, completion: nil)
     }
-    
+
     public func removeRows(notes: [Note]) {
         guard notes.count > 0, let vc = viewDelegate, vc.isNoteInsertionAllowed() else { return }
 
@@ -611,12 +505,12 @@ class NotesTableView: UITableView,
                 tags.append(contentsOf: note.tags)
             }
         }
-        
+
         beginUpdates()
         self.notes.removeAll(where: { notes.contains($0) })
         deleteRows(at: indexPaths, with: .automatic)
         endUpdates()
-        
+
         vc.updateNotesCounter()
         vc.sidebarTableView.delete(tags: tags)
     }
@@ -674,11 +568,11 @@ class NotesTableView: UITableView,
 
         viewDelegate?.updateSpotlightIndex(notes: notes)
     }
-    
+
     public func reloadRowForce(note: Note) {
         note.invalidateCache()
         note.loadPreviewInfo()
-        
+
         if let index = notes.firstIndex(of: note) {
             reloadRows(at: [IndexPath(row: index, section: 0)], with: .automatic)
         }
@@ -724,14 +618,13 @@ class NotesTableView: UITableView,
         var name = name
         var i = 1
 
-        
         while note.project.fileExistCaseInsensitive(fileName: name, ext: note.url.pathExtension) {
 
             // disables renaming loop
             if note.fileName.startsWith(string: name) {
                 return
             }
-            
+
             let items = name.split(separator: " ")
 
             if let last = items.last, let position = Int(last) {
@@ -753,14 +646,10 @@ class NotesTableView: UITableView,
 
         note.removePin()
 
-        if note.isEncrypted() {
-            _ = note.lock()
-        }
-
         if note.move(to: dst) {
             note.url = dst
             note.parseURL()
-            
+
             note.moveHistory(src: src, dst: dst)
         }
 
@@ -927,11 +816,7 @@ class NotesTableView: UITableView,
     public func shareAction(note: Note, isHTML: Bool = false) {
         AudioServicesPlaySystemSound(1519)
 
-        var tempURL = note.url
-        if note.isTextBundle() {
-            tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("\(note.getName()).zip")
-            SSZipArchive.createZipFile(atPath: tempURL.path, withContentsOfDirectory: note.url.path, keepParentDirectory: true)
-        }
+        let tempURL = note.url
 
         let objectsToShare = [tempURL] as [Any]
         let activityVC = UIActivityViewController(activityItems: objectsToShare, applicationActivities: nil)
@@ -971,26 +856,14 @@ class NotesTableView: UITableView,
                 } catch { NSLog("%@", error.localizedDescription) }
                 continue
             }
-            let src = note.url
             let dst = NameHelper.generateCopy(file: note.url)
 
-            if note.isTextBundle() || note.isEncrypted() {
-                try? FileManager.default.copyItem(at: src, to: dst)
-
-                let noteDupe = Note(url: dst, with: note.project)
-                noteDupe.load()
-
-                viewDelegate?.storage.add(noteDupe)
-                dupes.append(noteDupe)
-                continue
-            }
-
             let name = dst.deletingPathExtension().lastPathComponent
-            let noteDupe = Note(name: name, project: note.project, type: note.type, cont: note.container)
+            let noteDupe = Note(name: name, project: note.project, type: note.type)
             noteDupe.content = NSMutableAttributedString(string: note.content.string)
 
             // Clone images
-            if note.type == .Markdown && note.container == .none {
+            if note.type == .Markdown {
                 let images = note.content.getImagesAndFiles()
                 for image in images {
                     noteDupe.move(from: image.url, imagePath: image.path, to: note.project, copy: true)
@@ -1008,54 +881,6 @@ class NotesTableView: UITableView,
 
         if let scrollTo = dupes.first {
             viewDelegate?.notesTable.scrollTo(note: scrollTo)
-        }
-    }
-
-    private func decryptUnlocked(notes: [Note]) -> [Note] {
-        var notes = notes
-        var toReload = [Note]()
-
-        for note in notes {
-            if note.isUnlocked() {
-                if note.unEncryptUnlocked() {
-                    notes.removeAll { $0 === note }
-                    toReload.append(note)
-                    note.invalidateCache()
-                }
-            }
-        }
-
-        DispatchQueue.main.async {
-            self.reloadRows(notes: toReload, resetKeys: true)
-        }
-
-        return notes
-    }
-
-    public func removeEncryption(note: Note) {
-        let vc = UIApplication.getVC()
-
-        let notes = decryptUnlocked(notes: [note])
-        guard let note = notes.first else { return }
-
-        vc.getMasterPassword() { password in
-            if note.container == .encryptedTextPack {
-                let success = note.unEncrypt(password: password)
-                note.password = nil
-
-                if success {
-                    DispatchQueue.main.async {
-                        UIApplication.getEVC().refill()
-                    }
-                } else {
-                    self.askPasswordAndUnEncrypt(note: note)
-                    return
-                }
-            }
-
-            DispatchQueue.main.async {
-                self.reloadRows(notes: notes, resetKeys: true)
-            }
         }
     }
 
@@ -1140,7 +965,7 @@ class NotesTableView: UITableView,
 
         guard currentIndex != targetIndex else { return }
         self.notes = sorted
-        
+
         let from = IndexPath(row: currentIndex, section: 0)
         let to = IndexPath(row: targetIndex, section: 0)
 
@@ -1208,11 +1033,11 @@ class NotesTableView: UITableView,
                 at: IndexPath(row: from, section: 0),
                 to: IndexPath(row: to, section: 0)
             )
-            
+
             rowsToReload.append(IndexPath(row: to, section: 0))
         }
         endUpdates()
-        
+
         if !rowsToReload.isEmpty {
             reloadRows(at: rowsToReload, with: .none)
         }
@@ -1240,12 +1065,12 @@ class NotesTableView: UITableView,
                 at: IndexPath(row: from, section: 0),
                 to: IndexPath(row: to, section: 0)
             )
-            
+
             rowsToReload.append(IndexPath(row: to, section: 0))
         }
 
         endUpdates()
-        
+
         if !rowsToReload.isEmpty {
             reloadRows(at: rowsToReload, with: .none)
         }
@@ -1257,12 +1082,12 @@ class NotesTableView: UITableView,
             scrollToRow(at: indexPath, at: .top, animated: true)
         }
     }
-    
+
     public func doVisualChanges(results: ([Note], [Note], [Note])) {
         guard results.0.count > 0 || results.1.count > 0 || results.2.count > 0 else {
             return
         }
-        
+
         DispatchQueue.main.async {
             self.removeRows(notes: results.0)
             self.insertRows(notes: results.1)

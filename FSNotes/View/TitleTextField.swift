@@ -36,8 +36,7 @@ class TitleTextField: NSTextField {
     }
 
     override func textDidEndEditing(_ notification: Notification) {
-        guard stringValue.count > 0,
-            let vc = ViewController.shared(),
+        guard let vc = ViewController.shared(),
             let note = vc.editor.note
         else { return }
 
@@ -48,7 +47,7 @@ class TitleTextField: NSTextField {
             updateNotesTableView()
             editModeOff()
         }
-        
+
         if currentName != currentTitle {
             rename(currentTitle: currentTitle, note: note)
             return
@@ -62,54 +61,17 @@ class TitleTextField: NSTextField {
     }
 
     public func rename(currentTitle: String, note: Note) {
-        guard let vc = ViewController.shared() else { return }
-
-        _ = vc.lockUnlocked(notes: [note])
-
-        let currentName = note.getFileName()
-        let ext = note.url.pathExtension
-        let fileName =
-            currentTitle
-                .trimmingCharacters(in: CharacterSet.whitespaces)
-                .replacingOccurrences(of: ":", with: "")
-                .replacingOccurrences(of: "/", with: "")
-
-        let dst = note.project.url
-            .appendingPathComponent(fileName)
-            .appendingPathExtension(ext)
-
-        let hasCaseSensitiveDiffOnly = currentName.lowercased() == fileName.lowercased()
-
-        if !FileManager.default.fileExists(atPath: dst.path) || hasCaseSensitiveDiffOnly {
-            _ = note.move(to: dst, forceRewrite: hasCaseSensitiveDiffOnly)
-
-            vc.updateTitle(note: note)
-            updateNotesTableView()
-
-            vc.reSort(note: note)
-        } else {
-            vc.updateTitle(note: note)
-            self.resignFirstResponder()
-            updateNotesTableView()
-            vc.titleLabel.isEditable = false
-            vc.titleLabel.isEnabled = false
-
-            let alert = NSAlert()
-            let informativeText = NSLocalizedString("Note with name \"%@\" already exists in selected directory.", comment: "")
-
-            alert.alertStyle = .critical
-            alert.informativeText = String(format: informativeText, currentTitle)
-            alert.runModal()
-        }
+        ViewController.shared()?.rename(note: note, to: currentTitle)
+        ViewController.shared()?.updateTitle(note: note)
     }
 
     public func editModeOn() {
         self.isEnabled = true
         self.isEditable = true
-        
+
         MainWindowController.shared()?.makeFirstResponder(self)
     }
-    
+
     public func editModeOff() {
         self.isEnabled = false
         self.isEditable = false
@@ -119,11 +81,11 @@ class TitleTextField: NSTextField {
 
         vc.updateTitle(note: note)
     }
-    
+
     public func updateNotesTableView() {
         guard let vc = ViewController.shared(), let note = vc.editor.note else { return }
 
-        if (note.container == .encryptedTextPack && !note.isUnlocked()) || !note.project.settings.isFirstLineAsTitle() {
+        if !note.project.settings.isFirstLineAsTitle() {
             vc.notesTableView.reloadRow(note: note)
         }
 

@@ -22,75 +22,74 @@ class ProjectSettingsViewController: SettingsViewController {
     @IBOutlet weak var nestedFoldersContent: NSButton!
     @IBOutlet weak var gitView: NSView!
     @IBOutlet weak var gitViewHeight: NSLayoutConstraint!
-    
+
     override func viewDidLoad() {
         gitView.isHidden = true
         gitViewHeight.constant = 0
     }
-    
+
     @IBAction func sortBy(_ sender: NSButton) {
         guard let project = project else { return }
-        
+
         let sortBy = SortBy(rawValue: sender.identifier!.rawValue)!
         project.settings.sortBy = sortBy
         project.saveSettings()
-        
+
         guard let vc = ViewController.shared() else { return }
 
         vc.buildSearchQuery()
         vc.updateTable()
     }
-    
+
     @IBAction func sortDirection(_ sender: NSButton) {
         guard let project = project else { return }
-        
+
         project.settings.sortDirection = SortDirection(rawValue: sender.identifier!.rawValue)!
         project.saveSettings()
-        
+
         guard let vc = ViewController.shared() else { return }
 
         vc.buildSearchQuery()
         vc.updateTable()
     }
-    
-    
+
     @IBAction func showNotesInMainList(_ sender: NSButton) {
         project?.settings.showInCommon = sender.state == .on
         project?.saveSettings()
     }
-    
+
     @IBAction func firstLineAsTitle(_ sender: NSButton) {
         guard let project = self.project else { return }
-        
+
         project.settings.firstLineAsTitle = sender.state == .on
         project.saveSettings()
-        
+
         let notes = Storage.shared().getNotesBy(project: project)
         for note in notes {
             note.invalidateCache()
         }
-        
+
         guard let vc = ViewController.shared() else { return }
         vc.notesTableView.reloadData()
     }
-    
+
     @IBAction func close(_ sender: Any) {
         self.dismiss(nil)
     }
-    
+
     @IBAction func showNestedFoldersContent(_ sender: NSButton) {
         guard let project = self.project else { return }
-        
+
         project.settings.showNestedFoldersContent = sender.state == .on
         project.saveSettings()
-        
+
         guard let vc = ViewController.shared() else { return }
         vc.updateTable()
     }
 
     public func load(project: Project) {
         self.project = project
-        
+
         if project.isVirtual {
             showInAll.isEnabled = false
             nestedFoldersContent.isEnabled = false
@@ -109,11 +108,11 @@ class ProjectSettingsViewController: SettingsViewController {
         directionASC.state = project.settings.sortDirection == .asc ? .on : .off
         directionDESC.state = project.settings.sortDirection == .desc ? .on : .off
 
-        if project.parent == nil && !project.isTrash && !project.isEncrypted {
+        if project.parent == nil && !project.isTrash {
             gitView.isHidden = false
             gitViewHeight.constant = 150
         }
-        
+
         loadGit(project: project)
     }
 

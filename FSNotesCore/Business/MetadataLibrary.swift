@@ -4,9 +4,7 @@ extension Storage {
     func openMetadataLibrary(for project: Project) {
         guard project.isDefault || project.isBookmark || FileManager.default.fileExists(atPath: project.url.appendingPathComponent(".git").path) else { return }
         do {
-            let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            let database = support.appendingPathComponent("FSNotes/Metadata", isDirectory: true).appendingPathComponent(project.url.path.md5 + ".sqlite")
-            let store = try MetadataStore(root: project.url, databaseURL: database)
+            let store = try MetadataStore(root: project.url)
             metadataStores[project.url.path] = store
             project.metadataStore = store
             project.metadataUnavailable = false
@@ -22,12 +20,12 @@ extension Storage {
     }
 
     private func discoverNestedRepositories(in root: Project) {
-        guard let enumerator = FileManager.default.enumerator(at: root.url, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey], options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return }
+        guard let enumerator = FileManager.default.enumerator(at: root.url, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isPackageKey], options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return }
         for case let url as URL in enumerator {
-            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isPackageKey])
             if values?.isSymbolicLink == true { enumerator.skipDescendants(); continue }
             guard values?.isDirectory == true else { continue }
-            if ["assets", "i", "files", "Trash"].contains(url.lastPathComponent) { enumerator.skipDescendants(); continue }
+            if ["images", "assets", "i", "files", "Trash", "trash"].contains(url.lastPathComponent) { enumerator.skipDescendants(); continue }
             guard FileManager.default.fileExists(atPath: url.appendingPathComponent(".git").path) else { continue }
             enumerator.skipDescendants()
             let canonical = url.standardizedFileURL.resolvingSymlinksInPath()
@@ -88,38 +86,40 @@ extension Storage {
     /// Import is explicit; unindexed UUID files are preserved until their metadata arrives.
     func importMetadataFile(_ source: URL, to project: Project, name: String? = nil, id: String? = nil) throws -> URL {
         guard let store = project.metadataStore else { throw MetadataStore.Failure.invalid("destination is not a metadata library") }
+        guard try source.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else { throw MetadataStore.Failure.invalid("source is not a note file") }
         let entry = try store.register(id: id ?? UUID().uuidString.lowercased(), name: name ?? source.deletingPathExtension().lastPathComponent, folderID: project.metadataFolderID, ext: source.pathExtension.lowercased())
         do { return try copyMetadataFile(source, entry: entry, store: store) }
         catch {
             try? FileManager.default.removeItem(at: store.fileURL(entry))
-            try? FileManager.default.removeItem(at: store.notesURL.appendingPathComponent("assets").appendingPathComponent(entry.id))
+            try? FileManager.default.removeItem(at: store.imagesURL.appendingPathComponent(entry.id))
             try? store.delete(id: entry.id)
             throw error
         }
     }
 
     func importMetadataDirectory(_ source: URL, to parent: Project) throws -> Project? {
+        guard (try? source.resourceValues(forKeys: [.isPackageKey]).isPackage) != true else { return nil }
         guard let store = parent.metadataStore, let destination = try createMetadataFolder(in: parent, name: source.lastPathComponent) else { return nil }
         let sourceRoot = source.standardizedFileURL.resolvingSymlinksInPath()
         var notes = [(URL, MetadataStore.Entry)]()
         var resources = [(URL, URL)]()
         var mapping = [String: URL]()
-        let assets = store.notesURL.appendingPathComponent("assets").appendingPathComponent(destination.metadataFolderID!)
+        let assets = store.imagesURL.appendingPathComponent(destination.metadataFolderID!)
         do {
             func plan(_ directory: URL, project: Project) throws {
-                for raw in try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey], options: .skipsHiddenFiles) {
-                    let values = try raw.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-                    if values.isSymbolicLink == true { continue }
+                for raw in try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isPackageKey], options: .skipsHiddenFiles) {
+                    let values = try raw.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isPackageKey])
+                    if values.isSymbolicLink == true || values.isPackage == true { continue }
                     let file = raw.standardizedFileURL.resolvingSymlinksInPath()
                     if allowedExtensions.contains(file.pathExtension.lowercased()) {
                         let entry = try store.register(name: file.deletingPathExtension().lastPathComponent, folderID: project.metadataFolderID, ext: file.pathExtension.lowercased())
                         notes.append((file, entry))
                         mapping[file.path] = store.fileURL(entry)
                     } else if values.isDirectory == true {
-                        if ["i", "files", "assets"].contains(file.lastPathComponent) {
-                            guard let enumerator = FileManager.default.enumerator(at: file, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey], options: .skipsHiddenFiles) else { continue }
+                        if ["images", "i", "files", "assets"].contains(file.lastPathComponent) {
+                            guard let enumerator = FileManager.default.enumerator(at: file, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isPackageKey], options: .skipsHiddenFiles) else { continue }
                             for case let asset as URL in enumerator {
-                                let attributes = try asset.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                                let attributes = try asset.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isPackageKey])
                                 if attributes.isDirectory == true || attributes.isSymbolicLink == true { continue }
                                 let canonical = asset.standardizedFileURL.resolvingSymlinksInPath()
                                 let target = assets.appendingPathComponent(UUID().uuidString.lowercased()).appendingPathExtension(asset.pathExtension)
@@ -145,6 +145,7 @@ extension Storage {
             for (_, entry) in notes {
                 if let note = getBy(url: store.fileURL(entry)) { removeBy(note: note) }
                 try? FileManager.default.removeItem(at: store.fileURL(entry))
+                try? FileManager.default.removeItem(at: store.imagesURL.appendingPathComponent(entry.id))
                 try? store.delete(id: entry.id)
             }
             try? FileManager.default.removeItem(at: assets)
@@ -164,20 +165,16 @@ extension Storage {
             if let legacy = existing.legacyPath { mapping[store.root.appendingPathComponent(legacy).standardizedFileURL.path] = store.fileURL(existing) }
         }
         let bodies: [URL]
-        if source.pathExtension.lowercased() == "textbundle" {
-            mapping[source.standardizedFileURL.path] = destination
-            bodies = try manager.contentsOfDirectory(at: source, includingPropertiesForKeys: nil).filter { ["md", "markdown", "txt", "fountain"].contains($0.pathExtension.lowercased()) }
-        } else { bodies = ["md", "markdown", "txt", "fountain"].contains(source.pathExtension.lowercased()) ? [source] : [] }
+        bodies = ["md", "markdown", "txt", "fountain"].contains(source.pathExtension.lowercased()) ? [source] : []
         for rawBody in bodies {
             let body = rawBody.standardizedFileURL.resolvingSymlinksInPath()
-            let targetBody = source.pathExtension.lowercased() == "textbundle" ? destination.appendingPathComponent(body.lastPathComponent) : destination
+            let targetBody = destination
             let text = try String(contentsOf: body, encoding: .utf8)
-            let resources = store.notesURL.appendingPathComponent("assets", isDirectory: true).appendingPathComponent(entry.id, isDirectory: true)
+            let resources = store.imagesURL.appendingPathComponent(entry.id, isDirectory: true)
             for target in MetadataStore.localLinkTargets(in: text) {
                 let path = String(target.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)[0])
                 let referenced = body.deletingLastPathComponent().appendingPathComponent(path.removingPercentEncoding ?? path).standardizedFileURL
                 if mapping[referenced.path] != nil { continue }
-                if source.pathExtension.lowercased() == "textbundle" && referenced.path.hasPrefix(source.standardizedFileURL.path + "/") { continue }
                 if metadataStore(for: referenced)?.entry(at: referenced) != nil { continue }
                 guard manager.fileExists(atPath: referenced.path) else { continue }
                 try manager.createDirectory(at: resources, withIntermediateDirectories: true)

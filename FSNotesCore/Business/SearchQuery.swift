@@ -17,7 +17,7 @@ class SearchQuery {
     public var filter = String()
 
     init() {}
-    
+
     public func tagsModifierAnd(_ value: Bool = false) {
         tagsAnd = value
     }
@@ -35,9 +35,9 @@ class SearchQuery {
                 return
             }
         }
-        
+
         self.filter = filter
-        
+
         terms = filter.split(separator: " ")
     }
 
@@ -66,11 +66,8 @@ class SearchQuery {
                             { self.contains(tag: $0, in: self.tags) }
                         ).count > 0
                         || tagsAnd && Set(self.tags).isSubset(of: Set(note.tags))
-                        
+
                     )
-            ) && !(
-                note.project.isEncrypted &&
-                note.project.isLocked()
             ) && (
                 self.type != .Todo
                 || self.type == .Todo && note.content.hasTodoAttribute()

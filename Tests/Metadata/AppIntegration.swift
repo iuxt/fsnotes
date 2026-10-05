@@ -12,7 +12,7 @@ import Foundation
         defer { try? manager.removeItem(at: temporary) }
         let rootURL = temporary.appendingPathComponent("library")
         try manager.createDirectory(at: rootURL, withIntermediateDirectories: true)
-        let store = try MetadataStore(root: rootURL, databaseURL: temporary.appendingPathComponent("local.sqlite"))
+        let store = try MetadataStore(root: rootURL)
         let storage = Storage()
         let root = Project(storage: storage, url: store.root)
         root.isDefault = true; root.metadataStore = store
@@ -36,6 +36,7 @@ import Foundation
         let copiedBody = try String(contentsOf: imported, encoding: .utf8)
         let copiedImage = MetadataStore.localLinkTargets(in: copiedBody).first!
         let imageURL = imported.deletingLastPathComponent().appendingPathComponent(copiedImage)
+        try expect(imageURL.standardizedFileURL.path.hasPrefix(store.imagesURL.path + "/"), "imported images live in root images directory")
         try expect(try Data(contentsOf: imageURL) == Data([1,2,3]), "import copies relative resources")
         try expect(manager.fileExists(atPath: document.path), "import retains source")
         try note.renameMetadata(to: "新名称")
@@ -52,16 +53,24 @@ import Foundation
         let duplicateImage = MetadataStore.localLinkTargets(in: duplicateBody).first!
         try expect(duplicateImage != copiedImage, "duplicate resources independently copied")
         try expect(try Data(contentsOf: duplicate.deletingLastPathComponent().appendingPathComponent(duplicateImage)) == Data([1,2,3]), "duplicate image reachable")
-        let package = source.appendingPathComponent("Bundle.textbundle")
-        try manager.createDirectory(at: package.appendingPathComponent("assets"), withIntermediateDirectories: true)
-        try Data([4,5]).write(to: package.appendingPathComponent("assets/b.png"))
-        try "![b](assets/b.png)\n![external](../assets/p.png)".write(to: package.appendingPathComponent("text.markdown"), atomically: true, encoding: .utf8)
-        try Data("{}".utf8).write(to: package.appendingPathComponent("info.json"))
-        let importedPackage = try storage.importMetadataFile(package, to: child)
-        let packageBody = try String(contentsOf: importedPackage.appendingPathComponent("text.markdown"), encoding: .utf8)
-        try expect(packageBody.contains("assets/b.png"), "TextBundle internal links unchanged")
-        let externalImage = MetadataStore.localLinkTargets(in: packageBody).last!
-        try expect(try Data(contentsOf: importedPackage.appendingPathComponent(externalImage).standardizedFileURL) == Data([1,2,3]), "TextBundle external resource copied")
+        let countBeforeRejection = try store.allEntries().count
+        let unsupported = source.appendingPathComponent("Unsupported.archive")
+        try Data([1, 2, 3]).write(to: unsupported)
+        var rejected = false
+        do { _ = try storage.importMetadataFile(unsupported, to: child) }
+        catch { rejected = true }
+        try expect(rejected, "unsupported formats cannot be imported")
+        let fakeNote = source.appendingPathComponent("Directory.md")
+        try manager.createDirectory(at: fakeNote, withIntermediateDirectories: true)
+        rejected = false
+        do { _ = try storage.importMetadataFile(fakeNote, to: child) }
+        catch { rejected = true }
+        try expect(rejected, "directories cannot be imported as notes")
+        try expect(try store.allEntries().count == countBeforeRejection, "rejected imports do not create metadata")
+        let opaquePackage = source.appendingPathComponent("Opaque.rtfd")
+        try manager.createDirectory(at: opaquePackage, withIntermediateDirectories: true)
+        try "hidden".write(to: opaquePackage.appendingPathComponent("Hidden.md"), atomically: true, encoding: .utf8)
+        try expect(try storage.importMetadataDirectory(opaquePackage, to: root) == nil, "document packages are not traversed as folders")
         let directory = source.appendingPathComponent("Imported")
         try manager.createDirectory(at: directory.appendingPathComponent("nested"), withIntermediateDirectories: true)
         try "[B](nested/B.md)".write(to: directory.appendingPathComponent("A.md"), atomically: true, encoding: .utf8)
@@ -73,6 +82,7 @@ import Foundation
         try expect(try String(contentsOf: store.fileURL(entryA), encoding: .utf8) == "[B](" + entryB.id + ".md)", "directory forward link uses planned UUID")
         try expect(try String(contentsOf: store.fileURL(entryB), encoding: .utf8) == "[A](" + entryA.id + ".md)", "directory reverse link uses planned UUID")
         try expect(importedFolder.child.count == 1, "directory hierarchy imported")
+        try expect(!manager.fileExists(atPath: rootURL.appendingPathComponent("Trash").path), "metadata trash has no physical folder")
         let invalid = source.appendingPathComponent("Invalid.md")
         try Data([0xff,0xfe,0x80]).write(to: invalid)
         let countBefore = try store.allEntries().count
@@ -126,7 +136,7 @@ import Foundation
             (try? Data(contentsOf: replacementURL.deletingLastPathComponent().appendingPathComponent(path))) == Data([1,2,3])
         }, "restore preserves replacement body and attachment")
         _ = note.removeMetadataFile()
-        let reopened = try MetadataStore(root: rootURL, databaseURL: temporary.appendingPathComponent("reopened.sqlite"))
+        let reopened = try MetadataStore(root: rootURL)
         try expect(reopened.entry(id: identity)?.trashed == true, "trash persists after reopening and index rebuilding")
         try expect(try String(contentsOf: reopened.fileURL(reopened.entry(id: identity)!), encoding: .utf8) == copiedBody, "reopening preserves trash body")
         let empty = source.appendingPathComponent("Empty.md")
@@ -136,11 +146,6 @@ import Foundation
         _ = emptyNote.removeMetadataFile()
         _ = emptyNote.removeMetadataFile()
         try expect(manager.fileExists(atPath: emptyURL.path) && emptyNote.metadataEntry?.trashed == true, "empty note is retained in trash")
-        let bundleNote = storage.getBy(url: importedPackage)!
-        _ = bundleNote.removeMetadataFile()
-        _ = bundleNote.removeMetadataFile()
-        try expect(try Data(contentsOf: importedPackage.appendingPathComponent("assets/b.png")) == Data([4,5]), "trash retains TextBundle assets")
-        try expect(try String(contentsOf: importedPackage.appendingPathComponent("text.markdown"), encoding: .utf8) == packageBody, "trash retains TextBundle body")
         print("Metadata adapter integration: \(checks) checks passed")
     }
 }

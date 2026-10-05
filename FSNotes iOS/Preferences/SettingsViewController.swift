@@ -23,7 +23,6 @@ class SettingsViewController: UITableViewController, UIDocumentPickerDelegate {
         [
             NSLocalizedString("Files", comment: "Settings"),
             NSLocalizedString("Editor", comment: "Settings"),
-            NSLocalizedString("Security", comment: "Settings"),
             NSLocalizedString("Git", comment: "Settings"),
             NSLocalizedString("Web", comment: "Settings"),
             NSLocalizedString("Icon", comment: "Settings"),
@@ -45,7 +44,6 @@ class SettingsViewController: UITableViewController, UIDocumentPickerDelegate {
         [
             "doc.badge.gearshape.fill",
             "paragraphsign",
-            "lock.fill",
             "arrow.triangle.pull",
             "server.rack",
             "square.grid.3x3.middleleft.filled",
@@ -62,12 +60,11 @@ class SettingsViewController: UITableViewController, UIDocumentPickerDelegate {
             "heart.fill"
         ]
     ]
-    
+
     private var gradients = [
         [
             ["#0a84ff", "#30d158"],
             ["#ff453a", "#ff9f0a"],
-            ["#bf5af2", "#40c8e0"],
             ["#8e8e93", "#48484a"],
             ["#0a84ff", "#5ac8fa"],
             ["#5e5ce6", "#8e8e93"],
@@ -87,12 +84,11 @@ class SettingsViewController: UITableViewController, UIDocumentPickerDelegate {
         ]
     ]
 
-    var rowsInSection = [7, 4, 4]
 
     override func viewWillAppear(_ animated: Bool) {
         navigationController?.navigationBar.prefersLargeTitles = true
     }
-    
+
     override func viewDidLoad() {
         title = NSLocalizedString("Settings", comment: "Sidebar settings")
         navigationItem.rightBarButtonItem = Buttons.getRateUs(target: self, selector: #selector(rateUs))
@@ -115,22 +111,22 @@ class SettingsViewController: UITableViewController, UIDocumentPickerDelegate {
         version.textAlignment = .center
 
         tableView.tableFooterView = version
-        
+
         navigationController?.navigationBar.prefersLargeTitles = true
     }
 
     override func numberOfSections(in tableView: UITableView) -> Int {
         return 3
     }
-    
+
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return rowsInSection[section]
+        return rows[section].count
     }
-    
+
     override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         return sections[section]
     }
-    
+
     override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
         return 50
     }
@@ -138,9 +134,9 @@ class SettingsViewController: UITableViewController, UIDocumentPickerDelegate {
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let iconName = icons[indexPath.section][indexPath.row]
         let gradient = gradients[indexPath.section][indexPath.row]
-        
+
         var cell = SettingsTableViewCell(iconName: iconName, gradient: gradient, style: .default, reuseIdentifier: iconName)
-        
+
         if indexPath.section == 0x01 && indexPath.row == 0x03 {
             cell = SettingsTableViewCell(iconName: iconName, gradient: gradient, style: .subtitle, reuseIdentifier: iconName)
         }
@@ -169,7 +165,7 @@ class SettingsViewController: UITableViewController, UIDocumentPickerDelegate {
                 cell.detailTextLabel?.textColor = UIColor.blackWhite
                 cell.detailTextLabel?.numberOfLines = 0
                 cell.detailTextLabel?.lineBreakMode = .byWordWrapping
-                cell.detailTextLabel?.text = NSLocalizedString("Compatible with Bear and Ulysses (textbundle), markdown, txt.", comment: "")
+                cell.detailTextLabel?.text = NSLocalizedString("Supports Markdown and plain text.", comment: "")
             default:
                 return cell
             }
@@ -190,14 +186,14 @@ class SettingsViewController: UITableViewController, UIDocumentPickerDelegate {
         UIGraphicsEndImageContext()
         return newImage!.withRenderingMode(.automatic)
     }
-    
+
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         defer {
             tableView.deselectRow(at: indexPath, animated: false)
         }
 
         var lvc: UIViewController?
-        
+
         if indexPath.section == 0x00 {
             switch indexPath.row {
             case 0:
@@ -205,15 +201,13 @@ class SettingsViewController: UITableViewController, UIDocumentPickerDelegate {
             case 1:
                 lvc = SettingsEditorViewController()
             case 2:
-                lvc = SecurityViewController()
-            case 3:
                 guard let project = Storage.shared().getDefault() else { return }
                 lvc = AppDelegate.getGitVC(for: project)
-            case 4:
+            case 3:
                 lvc = SFTPViewController()
-            case 5:
+            case 4:
                 lvc = AppIconViewController()
-            case 6:
+            case 5:
                 lvc = ProViewController()
             default:
                 return
@@ -275,7 +269,7 @@ class SettingsViewController: UITableViewController, UIDocumentPickerDelegate {
                 UIApplication.shared.open(url, options: [:], completionHandler: nil)
             }
         }
-        
+
         if let controller = lvc {
             self.navigationController?.pushViewController(controller, animated: true)
         }

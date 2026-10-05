@@ -41,7 +41,7 @@ class NoteCellView: SwipeTableViewCell {
         imagePreview.isHidden = true
         imagePreviewSecond.isHidden = true
         imagePreviewThird.isHidden = true
-        
+
         contentLength = 0
         timestamp = nil
 
@@ -62,11 +62,6 @@ class NoteCellView: SwipeTableViewCell {
 
         if note.isPublished() {
             pin.image = UIImage(systemName: "globe")
-            pin.isHidden = false
-        } else if note.isEncrypted() {
-            let name = note.isUnlocked() ? "lock.open" : "lock"
-            pin.contentMode = .scaleAspectFit
-            pin.image = UIImage(systemName: name)
             pin.isHidden = false
         } else {
             pin.image = UIImage(systemName: "pin")

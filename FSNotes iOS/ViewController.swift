@@ -7,7 +7,6 @@
 //
 
 import UIKit
-import LocalAuthentication
 import WebKit
 import AudioToolbox
 import CoreSpotlight
@@ -24,8 +23,6 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
     @IBOutlet weak var leftPreSafeArea: UIView!
     @IBOutlet weak var rightPreSafeArea: UIView!
 
-    @IBOutlet weak var lockedProject: UIImageView!
-
     private var newsPopup: MPreviewView?
     private var newsOverlay: UIView?
 
@@ -36,7 +33,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
 
     private let searchQueue = OperationQueue()
     private let metadataQueue = OperationQueue()
-    
+
     public let gitQueue = OperationQueue()
     public let gitQueueState = OperationQueue()
 
@@ -56,7 +53,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
     private var sidebarWidth: CGFloat = 0
     private var isLandscape: Bool?
     public var restoreFindID: String?
-    
+
     public var isLoadedDB: Bool = false
     public var isLoadedSidebar: Bool = false
 
@@ -64,10 +61,10 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
     public var currentFolder: String?
 
     lazy var searchBar = UISearchBar(frame: CGRect.zero)
-    
+
     // Pass for access from CloudDriveManager
     public var editorViewController: EditorViewController?
-    
+
     private var gitClean: Bool = false
     private var gitPullTimer: Timer?
 
@@ -77,7 +74,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
     // Project for import picker
     public var selectedProject: Project?
     public var initialLoadingState = false
-    
+
     override func viewWillAppear(_ animated: Bool) {
         navigationController?.navigationBar.prefersLargeTitles = false
 
@@ -140,7 +137,6 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
 
         scheduledGitPull()
 
-        disableLockedProject()
         loadSidebar()
 
         loadNotches()
@@ -150,9 +146,9 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
             configureSearchController()
 
             initialLoadingState = true
-            
+
             loadNews()
-            
+
             if let sceneDelegate = UIApplication.getSceneDelegate(),
                let shortcut = sceneDelegate.launchedShortcutItem {
                 handleShortCutItem(shortcut)
@@ -167,7 +163,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
         }
 
         super.viewDidLoad()
-        
+
         configureToolbar()
 
         isLandscape = UIDevice.current.orientation.isLandscape
@@ -177,7 +173,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
         DispatchQueue.global(qos: .background).async {
             self.checkExternal()
         }
-        
+
         addPullTask()
     }
 
@@ -187,7 +183,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
         gitPullTimer?.invalidate()
         gitPullTimer = Timer.scheduledTimer(timeInterval: 30, target: self, selector: #selector(self.addPullTask), userInfo: nil, repeats: true)
     }
-        
+
     public func startCloudDriveSyncEngine(completion: (() -> ())? = nil) {
         guard UserDefaultsManagement.iCloudDrive else { return }
 
@@ -231,7 +227,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
         ]
 
         setNavTitle(folder: NSLocalizedString("Inbox", comment: ""))
-        
+
         sidebarTableView.backgroundColor = UIColor.sidebar
         sidebarTableView.dropDelegate = sidebarTableView
         if #available(iOS 15.0, *) {
@@ -279,7 +275,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
         }
 
         navigationItem.title = folder
-        
+
         if #available(iOS 26.0, *) {
             navigationItem.subtitle = qty
         }
@@ -294,7 +290,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
         if NSUbiquitousKeyValueStore.default.synchronize() == false {
             fatalError("This app was not built with the proper entitlement requests.")
         }
-        
+
         NSUbiquitousKeyValueStore.default.synchronize()
 
         NotificationCenter.default.addObserver(self, selector: #selector(preferredContentSizeChanged), name: UIContentSizeCategory.didChangeNotification, object: nil)
@@ -306,7 +302,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
         NotificationCenter.default.addObserver(self, selector: #selector(ViewController.keyboardWillShow), name: UIResponder.keyboardWillShowNotification, object: nil)
 
         NotificationCenter.default.addObserver(self, selector: #selector(ViewController.keyboardWillHide), name: UIResponder.keyboardWillHideNotification, object: nil)
-        
+
         NotificationCenter.default.addObserver(self, selector: #selector(didBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
     }
 
@@ -363,7 +359,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
                 selector: #selector(newButtonAction)
             )
         )
-        
+
         if needsRightPadding() {
             let rightPadding = UIBarButtonItem(
                 barButtonSystemItem: .fixedSpace,
@@ -382,7 +378,6 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
         return true
     }
 
-
     public func enableSearchFocus(string: String? = nil) {
         searchFocus = true
         searchString = string
@@ -391,7 +386,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
     public func disableSearchFocus() {
         searchFocus = false
     }
-    
+
     public func handleShortCutItem(_ shortcutItem: UIApplicationShortcutItem) {
         guard ShortcutIdentifier(fullType: shortcutItem.type) != nil else { return }
         guard let shortCutType = shortcutItem.type as String? else { return }
@@ -444,11 +439,6 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
         sidebarTableView.viewController = self
         maxSidebarWidth = self.calculateLabelMaxWidth()
 
-        lockedProject.layer.zPosition = 1001
-        lockedProject.isUserInteractionEnabled = true
-        let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(unlock))
-        lockedProject.addGestureRecognizer(tapRecognizer)
-
         initSidebar()
 
         if UserDefaultsManagement.sidebarIsOpened {
@@ -458,37 +448,37 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
 
     public func loadDB() {
         let storage = self.storage
-        
+
         let dirsLoading = Date()
         storage.loadNonSystemProject()
         storage.loadProjectRelations()
-        
+
         print("1. Loaded non system projects and relations in \(dirsLoading.timeIntervalSinceNow * -1) seconds")
-        
+
         let notesLoadingPoint = Date()
         let projects = storage.getProjects()
-        
+
         for project in projects {
             // print("Reading project: \(project.label) (\(project.url))")
             _ = project.loadNotes()
         }
-        
+
         print("2. Notes loading finished in \(notesLoadingPoint.timeIntervalSinceNow * -1) seconds")
 
         OperationQueue.main.addOperation {
-            
+
             self.importSavedInSharedExtension()
             self.sidebarTableView.reloadSidebar()
-            
+
             DispatchQueue.global(qos: .userInitiated).async {
                 let diffLoading = Date()
                 for project in storage.getProjects() {
                     let changes = project.checkNotesCacheDiff()
                     self.notesTable.doVisualChanges(results: changes)
                 }
-                
+
                 print("3. Notes diff loading finished in \(diffLoading.timeIntervalSinceNow * -1) seconds")
-                
+
                 // find://
                 if let restore = self.restoreFindID {
                     self.restoreFindID = nil
@@ -499,16 +489,16 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
                         }
                     }
                 }
-                
+
                 // Load notes content
                 let notesFullLoading = Date()
                 self.storage.loadNotesContent()
                 print("4. Full notes loading in \(notesFullLoading.timeIntervalSinceNow * -1) seconds")
-                
+
                 let spotlightPoint = Date()
                 self.reIndexSpotlight()
                 print("5. Spotlight indexation finished in \(spotlightPoint.timeIntervalSinceNow * -1) seconds")
-                
+
                 // enable iCloud Drive updates after projects structure formalized
                 self.cloudDriveManager?.metadataQuery.enableUpdates()
                 self.isLoadedDB = true
@@ -646,7 +636,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
     public func getLeftInset() -> CGFloat {
         return view.safeAreaInsets.left
     }
-    
+
     public func getRightInset() -> CGFloat {
         return view.safeAreaInsets.right
     }
@@ -688,7 +678,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
                         }
                     }
                 }
-                
+
                 if key.startsWith(string: "es.fsnot.project-settings") {
                     let settingsKey = key.replacingOccurrences(of: "es.fsnot.project-settings", with: "")
                     if let project = storage.getProjectBy(settingsKey: settingsKey) {
@@ -711,10 +701,10 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
         } else {
             toggleSearchView()
         }
-        
+
         refreshControl.endRefreshing()
     }
-    
+
     @objc func addPullTask(force: Bool = false) {
         guard storage.hasOrigins() else { return }
 
@@ -758,18 +748,18 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
             }
         }
     }
-    
+
     public func checkExternal() {
         storage.refreshMetadataLibraries()
         sidebarTableView.reloadSidebar()
         let projects = Storage.shared().projects.filter({ $0.isBookmark })
-        
+
         guard projects.count > 0 else { return }
-        
+
         var remove = [Note]()
         var insert = [Note]()
         var reload = [Note]()
-        
+
         for project in projects {
             if let childProjects = project.getAllChild() {
                 for childProject in childProjects {
@@ -779,22 +769,22 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
                     reload += changes.2
                 }
             }
-            
+
             let changes = project.checkFSAndMemoryDiff()
             remove += changes.0
             insert += changes.1
             reload += changes.2
         }
-        
+
         for note in insert {
             note.loadPreviewInfo()
         }
-        
+
         for note in reload {
             note.invalidateCache()
             note.loadPreviewInfo()
         }
-        
+
         self.notesTable.doVisualChanges(results: (remove, insert, reload))
     }
 
@@ -833,7 +823,6 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
     func searchBarTextDidBeginEditing(_ searchBar: UISearchBar) {
         notesTable.setContentOffset(CGPoint(x: 0, y: -44), animated: true)
 
-        disableLockedProject()
     }
 
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
@@ -882,10 +871,6 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
                 if Storage.shared().searchQuery.isFit(note: note) {
                     notes.append(note)
                 }
-            }
-
-            if let project = Storage.shared().searchQuery.projects.first, project.isLocked() {
-                notes.removeAll()
             }
 
             var modifiedNotesList = [Note]()
@@ -943,10 +928,6 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
     }
 
     @objc func newButtonAction() {
-        if let project = sidebarTableView.getSidebarProjects()?.first, project.isEncrypted, project.password == nil {
-            unlockProject(selectedProject: project, createNote: true)
-            return
-        }
 
         createNote(content: nil)
     }
@@ -995,7 +976,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
                 selectedRange = NSRange(location: content.count, length: 0)
             }
         }
-        
+
         if note.save() {
             Storage.shared().add(note)
         }
@@ -1020,13 +1001,6 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
             }
             evc.editArea.becomeFirstResponder()
 
-            if let password = note.project.password {
-                if note.encrypt(password: password) {
-                    if note.unLock(password: password) {
-                        note.password = password
-                    }
-                }
-            }
         }
     }
 
@@ -1043,7 +1017,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
 
         let evc = UIApplication.getEVC()
         editorViewController = evc
-        
+
         navigationController?.pushViewController(evc, animated: true)
     }
 
@@ -1074,13 +1048,13 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
 
     public func importSavedInSharedExtension() {
         var notes = [Note]()
-        
+
         for url in UserDefaultsManagement.importURLs {
             if let note = storage.importNote(url: url) {
                 notes.append(note)
             }
         }
-        
+
         notesTable.insertRows(notes: notes)
 
         UserDefaultsManagement.importURLs = []
@@ -1298,174 +1272,6 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
         return width
     }
 
-    public func unLock(notes: [Note], completion: @escaping ([Note]?) -> ()) {
-        getMasterPassword() { password in
-            self.unLock(notes: notes, completion: completion, password: password)
-        }
-    }
-
-    public func unLock(notes: [Note], completion: @escaping ([Note]?) -> (), password: String) {
-        for note in notes {
-            var success = [Note]()
-            if note.unLock(password: password) {
-                note.password = password
-                success.append(note)
-            }
-
-            DispatchQueue.main.async {
-                self.notesTable.reloadRowForce(note: note)
-            }
-
-            completion(success)
-        }
-    }
-
-    public func toggleNotesLock(notes: [Note]) {
-        var notes = notes
-
-        notes = lockUnlocked(notes: notes)
-        guard notes.count > 0 else { return }
-
-        getMasterPassword() { password in
-            for note in notes {
-                if note.container == .encryptedTextPack {
-                    if note.unLock(password: password) {
-                        note.password = password
-
-                        DispatchQueue.main.async {
-                            self.notesTable.reloadRowForce(note: note)
-                            UIApplication.getEVC().fill(note: note)
-                            UIApplication.getVC().openEditorViewController()
-                        }
-                    }
-                } else {
-                    if note.encrypt(password: password) {
-                        note.password = nil
-
-                        DispatchQueue.main.async {
-                            self.notesTable.reloadRowForce(note: note)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func lockUnlocked(notes: [Note]) -> [Note] {
-        var notes = notes
-        var isFirst = true
-
-        for note in notes {
-            if note.isUnlocked() {
-                if note.lock() && isFirst {
-                    note.password = nil
-
-                    notesTable.reloadRowForce(note: note)
-                }
-                notes.removeAll { $0 === note }
-            }
-            isFirst = false
-        }
-
-        return notes
-    }
-
-    public func getMasterPassword(isUnlock: Bool = false, completion: @escaping (String) -> ()) {
-        let context = LAContext()
-        context.localizedFallbackTitle = NSLocalizedString("Enter Master Password", comment: "")
-
-        var passwordExist = false
-        do {
-            let item = KeychainPasswordItem(service: KeychainConfiguration.serviceName, account: "Master Password")
-            let password = try item.readPassword()
-            passwordExist = password.count > 0
-        } catch {/*_*/}
-        
-        guard passwordExist && context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil) else {
-            masterPasswordPrompt(completion: completion)
-            return
-        }
-
-        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: "To access master password") { (success, evaluateError) in
-
-            if !success {
-                self.masterPasswordPrompt(completion: completion)
-                return
-            }
-
-            do {
-                let item = KeychainPasswordItem(service: KeychainConfiguration.serviceName, account: "Master Password")
-                let password = try item.readPassword()
-
-                completion(password)
-                return
-            } catch {
-                print(error)
-            }
-
-            self.masterPasswordPrompt(completion: completion)
-        }
-    }
-
-    private func masterPasswordPrompt(completion: @escaping (String) -> ()) {
-        DispatchQueue.main.async {
-            let title = NSLocalizedString("Master password:", comment: "")
-            let alertController = UIAlertController(title: title, message: nil, preferredStyle: .alert)
-
-            alertController.addTextField(configurationHandler: {
-                [] (textField: UITextField) in
-                textField.placeholder = "mast3r passw0rd"
-            })
-
-            let confirmAction = UIAlertAction(title: "OK", style: .default) { (_) in
-                guard let password = alertController.textFields?[0].text, password.count > 0 else {
-                    return
-                }
-
-                completion(password)
-            }
-
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { (_) in }
-
-            alertController.addAction(confirmAction)
-            alertController.addAction(cancelAction)
-
-            self.present(alertController, animated: true) {
-                alertController.textFields![0].selectAll(nil)
-            }
-        }
-    }
-
-    public func unlockPasswordPrompt(completion: @escaping (String) -> ()) {
-        DispatchQueue.main.async {
-            let title = NSLocalizedString("Password:", comment: "")
-            let alertController = UIAlertController(title: title, message: nil, preferredStyle: .alert)
-
-            alertController.addTextField(configurationHandler: {
-                [] (textField: UITextField) in
-                textField.placeholder = "note passw0rd"
-                textField.isSecureTextEntry = true
-            })
-
-            let confirmAction = UIAlertAction(title: "OK", style: .default) { (_) in
-                guard let password = alertController.textFields?[0].text, password.count > 0 else {
-                    return
-                }
-
-                completion(password)
-            }
-
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { (_) in }
-
-            alertController.addAction(confirmAction)
-            alertController.addAction(cancelAction)
-
-            self.present(alertController, animated: true) {
-                alertController.textFields![0].selectAll(nil)
-            }
-        }
-    }
-
     public func resizeSidebar(withAnimation: Bool = false) {
         let leftInset = getLeftInset()
         let width = calculateLabelMaxWidth()
@@ -1497,18 +1303,17 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
             let noteURL = UserDefaultsManagement.currentNote,
             FileManager.default.fileExists(atPath: noteURL.path)
         else { return }
-            
+
         let note = Storage.shared().addNote(url: noteURL)
-        
-        guard !note.isEncrypted() else { return }
+
         note.loadPreviewState()
 
         UIApplication.getVC().openEditorViewController()
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             UIApplication.getEVC().fill(note: note)
             UIApplication.getEVC().configureNavMenu()
-            
+
             if UserDefaultsManagement.currentEditorState == true,
                let selectedRange = UserDefaultsManagement.currentRange,
                !note.previewState,
@@ -1516,7 +1321,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
             {
                 UIApplication.getEVC().editArea.becomeFirstResponder()
                 UIApplication.getEVC().editArea.selectedRange = selectedRange
-                
+
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     UIApplication.getEVC().editArea.scrollRangeToVisible(selectedRange)
                 }
@@ -1525,7 +1330,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
 
         UserDefaultsManagement.currentNote = nil
     }
-    
+
     public func reloadDatabase() {
         Storage.instance = nil
 
@@ -1534,15 +1339,6 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
 
         initialLoadingState = false
         viewDidLoad()
-    }
-
-    public func enableLockedProject() {
-        lockedProject.isHidden = false
-        clean()
-    }
-
-    public func disableLockedProject() {
-        lockedProject.isHidden = true
     }
 
     public func clean() {

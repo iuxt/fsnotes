@@ -149,78 +149,6 @@
         }
       }
     },
-    "NSFaceIDUsageDescription" : {
-      "comment" : "Privacy - Face ID Usage Description",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Šifrování a dešifrování poznámek pomocí Face ID"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ver- und Entschlüsselung mit FaceID"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Note encryption and decryption with FaceID"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Note encryption and decryption with FaceID"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FaceID के साथ नोट्स एन्क्रिप्शन और डिक्रिप्शन"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Crittografia e decrittografia delle note con FaceID"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FaceIDによるノートの暗号化・復号化のため"
-          }
-        },
-        "nl-NL" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Let op codering en decodering met FaceID"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Criptografar e descriptografar com FaceID"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Шифрування та дешифрування за допомогою FaceID"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "注意使用 Face 进行加密和解密"
-          }
-        }
-      }
-    },
     "NSHumanReadableCopyright" : {
       "comment" : "Copyright (human-readable)",
       "extractionState" : "extracted_with_value",
@@ -445,22 +373,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "需要在笔记中附加图像"
-          }
-        }
-      }
-    },
-    "TextBundle" : {
-      "localizations" : {
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "TextBundle"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "TextBundle"
           }
         }
       }

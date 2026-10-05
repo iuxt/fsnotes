@@ -12,7 +12,7 @@ import Carbon.HIToolbox
 class SearchTextField: NSSearchField, NSSearchFieldDelegate {
 
     public var vcDelegate: ViewController!
-    
+
     private var filterQueue = OperationQueue.init()
 
     public var searchQuery = ""
@@ -72,7 +72,7 @@ class SearchTextField: NSSearchField, NSSearchFieldDelegate {
             vcDelegate.notesTableView.selectCurrent()
             return
         }
-        
+
         if (event.keyCode == kVK_LeftArrow && stringValue.count == 0) {
             vcDelegate.sidebarOutlineView.window?.makeFirstResponder(vcDelegate.sidebarOutlineView)
 
@@ -97,7 +97,7 @@ class SearchTextField: NSSearchField, NSSearchFieldDelegate {
                 let text = editor.string
                 let location = editor.selectedRange.location
                 let length = editor.selectedRange.length
-                
+
                 if length > 0 && location > 0 && location <= text.count {
                     let endIndex = text.index(text.startIndex, offsetBy: location, limitedBy: text.endIndex) ?? text.endIndex
                     let query = String(text[..<endIndex])
@@ -138,10 +138,9 @@ class SearchTextField: NSSearchField, NSSearchFieldDelegate {
 
                 markCompleteonAsSuccess()
 
-                if vcDelegate.vcEditor?.isPreviewEnabled() == true
-                    && vcDelegate.editor.note?.container != .encryptedTextPack {
+                if vcDelegate.vcEditor?.isPreviewEnabled() == true {
                     vcDelegate.vcEditor?.disablePreviewEditorAndNote()
-                    
+
                     DispatchQueue.main.async {
                         self.vcDelegate.refillEditArea()
                         NSApp.mainWindow?.makeFirstResponder(self.vcDelegate.editor)
@@ -199,7 +198,7 @@ class SearchTextField: NSSearchField, NSSearchFieldDelegate {
             lastSearchQuery = String()
         }
     }
-    
+
     public func suggestAutocomplete(_ note: Note, filter: String) {
         guard note.title.lowercased() != filter.lowercased(),
             let editor = currentEditor()
@@ -347,7 +346,7 @@ class SearchTextField: NSSearchField, NSSearchFieldDelegate {
                 recents.remove(at: index)
             }
         }
-        
+
         recents.insert(query, at: 0)
 
         if recents.count > 9 {

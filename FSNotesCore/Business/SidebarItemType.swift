@@ -16,8 +16,6 @@ enum SidebarItemType: Int {
     case Project = 0x09
     case Header = 0x10
     case Untagged = 0x11
-    case ProjectEncryptedLocked = 12
-    case ProjectEncryptedUnlocked = 13
     case Separator = 14
 
     public var icon: String? {
@@ -31,8 +29,6 @@ enum SidebarItemType: Int {
         case .Project: return "sidebar_project"
         case .Header: return "sidebar_icloud_drive"
         case .Untagged: return "sidebar_untagged"
-        case .ProjectEncryptedLocked: return "sidebar_project_encrypted_locked"
-        case .ProjectEncryptedUnlocked: return "sidebar_project_encrypted_unlocked"
         case .Separator: return nil
         }
     }

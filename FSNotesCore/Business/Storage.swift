@@ -47,8 +47,6 @@ class Storage {
         "markdown",
         "txt",
         "fountain",
-        "textbundle",
-        "etp" // Encrypted Text Pack
     ]
 
     private var trashURL = URL(string: String())
@@ -59,7 +57,6 @@ class Storage {
     private var relativeInlineImagePaths = [String]()
 
     public var plainWriter = OperationQueue.init()
-    public var ciphertextWriter = OperationQueue.init()
 
     public var searchQuery: SearchQuery = SearchQuery()
 
@@ -70,7 +67,7 @@ class Storage {
     public var allNotesProject: Project?
     public var todoProject: Project?
     public var untaggedProject: Project?
-    
+
     public var welcomeProject: Project?
     public var welcomeNote: Note?
 
@@ -78,7 +75,7 @@ class Storage {
 
 #if CLOUD_RELATED_BLOCK
         // Sync pins and related stuff
-        
+
         NSUbiquitousKeyValueStore.default.synchronize()
 #endif
 
@@ -91,7 +88,6 @@ class Storage {
         guard let url = getRoot() else { return }
 
         removeCachesIfCrashed()
-
 
         let name = getDefaultName(url: url)
         let project =
@@ -135,18 +131,15 @@ class Storage {
         }
 
         loadProjectRelations()
-        
+
         loadPins(notes: noteList)
-        
+
         plainWriter.maxConcurrentOperationCount = 1
         plainWriter.qualityOfService = .userInteractive
 
-        ciphertextWriter.maxConcurrentOperationCount = 1
-        ciphertextWriter.qualityOfService = .userInteractive
-
     #if os(iOS)
         checkWelcome()
-        
+
         let revHistory = getRevisionsHistory()
         let revHistoryDS = getRevisionsHistoryDocumentsSupport()
 
@@ -172,10 +165,10 @@ class Storage {
             print("Project exist: \(project.label)")
             return
         }
-        
+
         projects.append(project)
     }
-    
+
     public static func shared() -> Storage {
         guard let storage = self.instance else {
             self.instance = Storage()
@@ -183,7 +176,7 @@ class Storage {
         }
         return storage
     }
-    
+
     private func getDefaultName(url: URL) -> String {
         var name = url.lastPathComponent
         if let iCloudURL = getCloudDrive(), iCloudURL == url {
@@ -226,9 +219,9 @@ class Storage {
 
     private func removeCachesIfCrashed() {
         if UserDefaultsManagement.crashedLastTime {
-            
+
             removeCachedTree()
-            
+
             if let cache = getCacheDir() {
                 if let files = try? FileManager.default.contentsOfDirectory(atPath: cache.path) {
                     for file in files {
@@ -251,27 +244,14 @@ class Storage {
         return url
     }
 
-    public func makeTempEncryptionDirectory() -> URL? {
-        let url = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("Encryption")
-            .appendingPathComponent(UUID().uuidString)
-
-        do {
-            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
-            return url
-        } catch {
-            return nil
-        }
-    }
-
     public func getChildProjects(project: Project) -> [Project] {
         return projects.filter({ $0.parent == project }).sorted(by: { $0.label.lowercased() < $1.label.lowercased() })
     }
-    
+
     public func getDefault() -> Project? {
         return projects.first(where: { $0.isDefault })
     }
-    
+
     public func getSidebarProjects() -> [Project] {
         return projects
             .filter({ $0.isBookmark || $0.parent?.isDefault == true })
@@ -282,7 +262,7 @@ class Storage {
     public func getDefaultTrash() -> Project? {
         return projects.first(where: { $0.isTrash })
     }
-        
+
     public func insert(url: URL, bookmark: Bool = false, cacheOnly: Bool = false) -> [Project]? {
         // Directory creation is also reported by the file-system observer. Keep
         // the existence check and insertion in one critical section so both
@@ -303,12 +283,12 @@ class Storage {
             || url.path.contains(".Trash")
             || url.path.contains(".cache")
             || url.path.contains("Trash")
-            || url.path.contains("/.")
-            || url.path.contains(".textbundle") {
-            
+            || url.path.contains("/.") {
+
             return nil
         }
-        
+
+        guard (try? url.resourceValues(forKeys: [.isPackageKey]).isPackage) != true else { return nil }
         let project = Project(storage: self, url: url, isBookmark: bookmark)
         if bookmark {
             insertProject(project: project)
@@ -318,14 +298,14 @@ class Storage {
             return inserted
         }
         var insert = [project]
-        
+
         let results = project.getProjectsFSAndMemoryDiff()
         insert.append(contentsOf: results.1)
-                
+
         for item in insert {
             if !projectExist(url: item.url) {
                 insertProject(project: item)
-                
+
                 _ = item.loadNotes(cacheOnly: cacheOnly)
             }
         }
@@ -334,33 +314,13 @@ class Storage {
         // before sidebar observers render them. Otherwise a new subfolder is
         // briefly (or permanently) treated as a root project.
         loadProjectRelations()
-        
+
         return insert
     }
 
     private func assignTrash(by url: URL) {
-        var trashURL = url.appendingPathComponent("Trash", isDirectory: true)
-        
-    #if os(OSX)
-        if let trash = UserDefaultsManagement.trashURL {
-            trashURL = trash
-        }
-    #endif
-        
-        do {
-            try FileManager.default.contentsOfDirectory(atPath: trashURL.path)
-        } catch {
-            var isDir = ObjCBool(false)
-            if !FileManager.default.fileExists(atPath: trashURL.path, isDirectory: &isDir) && !isDir.boolValue {
-                do {
-                    try FileManager.default.createDirectory(at: trashURL, withIntermediateDirectories: false, attributes: nil)
-
-                    print("New trash created: \(trashURL)")
-                } catch {
-                    print("Trash dir error: \(error)")
-                }
-            }
-        }
+        // A sidebar identity only. Deleted notes remain in notes/ with trashed metadata.
+        let trashURL = url.appendingPathComponent(".fsnotes-trash", isDirectory: true)
 
         guard !projectExist(url: trashURL) else { return }
 
@@ -369,19 +329,19 @@ class Storage {
 
         self.trashURL = trashURL
     }
-    
+
     private func getCloudDrive() -> URL? {
         if let iCloudDocumentsURL = FileManager.default.url(forUbiquityContainerIdentifier: nil)?.appendingPathComponent("Documents").standardized {
-            
+
             var isDirectory = ObjCBool(true)
             if FileManager.default.fileExists(atPath: iCloudDocumentsURL.path, isDirectory: &isDirectory), isDirectory.boolValue {
                 return iCloudDocumentsURL
             }
         }
-        
+
         return nil
     }
-            
+
     func projectExist(url: URL) -> Bool {
         projectsLock.lock()
         defer { projectsLock.unlock() }
@@ -391,14 +351,14 @@ class Storage {
             $0.url.standardizedFileURL.path == standardizedPath
         })
     }
-    
+
     public func removeBy(project: Project) {
         noteListLock.lock()
         defer { noteListLock.unlock() }
 
         _noteList.removeAll(where: { $0.project.url ==
             project.url })
-        
+
         projects.removeAll(where: { $0.url == project.url })
     }
 
@@ -411,7 +371,7 @@ class Storage {
     public func assignBookmarks() {
         let bookmarksManager = SandboxBookmark.sharedInstance()
         let bookmarks = bookmarksManager.getRestoredUrls()
-        
+
         for url in bookmarks {
             if url.pathExtension == "css" 
                 || projectExist(url: url) {
@@ -422,17 +382,17 @@ class Storage {
             insertProject(project: project)
         }
     }
-    
+
     func getTrash(url: URL) -> URL? {
         return try? FileManager.default.url(for: .trashDirectory, in: .allDomainsMask, appropriateFor: url, create: false)
     }
-    
+
     public func resetCacheAttributes() {
         for note in self.noteList {
             note.cacheHash = nil
         }
     }
-    
+
     public func getProjects() -> [Project] {
         return projects
     }
@@ -463,28 +423,28 @@ class Storage {
             && $0.settings.showInSidebar
         })
     }
-        
+
     public func getProjectPaths() -> [String] {
         var pathList: [String] = []
         let projects = getProjects()
-        
+
         for project in projects {
             if project.metadataFolderID == nil {
                 pathList.append(NSString(string: project.url.path).expandingTildeInPath)
             }
             if let store = project.metadataStore, !pathList.contains(store.notesURL.path) { pathList.append(store.notesURL.path) }
         }
-        
+
         return pathList
     }
-    
+
     public func getProjectByNote(url: URL) -> Project? {
         if let store = metadataStore(for: url) {
             guard let entry = store.entry(at: url) else { return nil }
             return project(for: entry, in: store)
         }
         let projectURL = url.deletingLastPathComponent()
-        
+
         return
             projects.first(where: {
                 return (
@@ -502,18 +462,18 @@ class Storage {
 
     public func sortNotes(noteList: [Note], operation: BlockOperation? = nil) -> [Note] {
         var noteList = noteList
-        
+
         // Pre sort by creation and modified date, title
         if !searchQuery.filter.isEmpty {
             noteList = noteList.sorted(by: {
                 if let operation = operation, operation.isCancelled {
                     return false
                 }
-                
+
                 return sortQuery(note: $0, next: $1)
             })
         }
-        
+
         return noteList.sorted(by: {
             if let operation = operation, operation.isCancelled {
                 return false
@@ -537,14 +497,14 @@ class Storage {
                 ) {
                     return true
                 }
-                
+
                 return false
             }
-            
+
             return sortQuery(note: $0, next: $1)
         })
     }
-    
+
     private func sortQuery(note: Note, next: Note) -> Bool {
         if note.isPinned == next.isPinned {
             switch self.sortByState {
@@ -555,41 +515,36 @@ class Storage {
             case .modificationDate, .none:
                 return self.sortDirectionState == .asc && note.modifiedLocalAt < next.modifiedLocalAt || self.sortDirectionState == .desc && note.modifiedLocalAt > next.modifiedLocalAt
             case .title:
-                var title = note.title
-                var nextTitle = next.title
-                if note.isEncryptedAndLocked() {
-                    title = note.fileName
-                }
-                if next.isEncryptedAndLocked() {
-                    nextTitle = next.fileName
-                }
-                
+                let title = note.title
+                let nextTitle = next.title
+
                 let comparisonResult = title.localizedStandardCompare(nextTitle)
-                
+
                 return self.sortDirectionState == .asc
                     ? comparisonResult == .orderedAscending
                     : comparisonResult == .orderedDescending
             }
         }
-        
+
         return note.isPinned && !next.isPinned
     }
 
     public func isValidNote(url: URL) -> Bool {
+        guard (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true else { return false }
         if allowedExtensions.contains(url.pathExtension) || isValidUTI(url: url) {
-            
+
             // disallow parent dir with dot at start – https://github.com/glushchenko/fsnotes/issues/1653
             let qty = url.pathComponents.count
             if qty > 1 {
                 return !url.pathComponents[qty-2].startsWith(string: ".")
             }
-            
+
             return true
         }
-        
+
         return false
     }
-    
+
     public func isValidUTI(url: URL) -> Bool {
         guard url.fileSize < 100000000 else { return false }
 
@@ -597,7 +552,7 @@ class Storage {
 
         return type.conforms(to: .text)
     }
-    
+
     func add(_ note: Note) {
         noteListLock.lock()
         defer { noteListLock.unlock() }
@@ -623,7 +578,7 @@ class Storage {
 
         return false
     }
-    
+
     func removeBy(note: Note) {
         noteListLock.lock()
         defer { noteListLock.unlock() }
@@ -632,14 +587,14 @@ class Storage {
             _noteList.remove(at: i)
         }
     }
-    
+
     func getNextId() -> Int {
         noteListLock.lock()
         defer { noteListLock.unlock() }
 
         return _noteList.count
     }
-    
+
     func getBy(url: URL, caseSensitive: Bool = false) -> Note? {
         noteListLock.lock()
         defer { noteListLock.unlock() }
@@ -662,7 +617,7 @@ class Storage {
                 )
             })
     }
-        
+
     func getBy(name: String) -> Note? {
         return
             noteList.first(where: {
@@ -671,7 +626,7 @@ class Storage {
                 )
             })
     }
-    
+
     func getBy(title: String, exclude: Note? = nil) -> Note? {
         return
             noteList.first(where: {
@@ -693,7 +648,7 @@ class Storage {
                 )
             })
     }
-    
+
     func getBy(titleOrName: String) -> Note? {
         if UUID(uuidString: titleOrName) != nil, let note = noteList.first(where: { !$0.isTrash() && $0.url.deletingPathExtension().lastPathComponent.caseInsensitiveCompare(titleOrName) == .orderedSame }) { return note }
         if let direct = getBy(fileName: titleOrName) ?? getBy(title: titleOrName) { return direct }
@@ -703,7 +658,7 @@ class Storage {
                 || entry.legacyPath.map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent.caseInsensitiveCompare(titleOrName) == .orderedSame } == true
         }
     }
-    
+
     func getBy(startWith: String) -> [Note]? {
         return
             noteList.filter{
@@ -738,52 +693,52 @@ class Storage {
                     || $0.fileName.range(of: word, options: .caseInsensitive) != nil && !$0.project.settings.isFirstLineAsTitle()
                 }
                 .filter({ !$0.isTrash() })
-            
+
             guard notes.count > 0 else { return nil }
             var titles = notes.map{ String($0.project.settings.isFirstLineAsTitle() ? $0.title : $0.fileName) }
-            
+
             titles = Array(Set(titles))
             titles = titles
                 .filter({ !$0.starts(with: "![](") && !$0.starts(with: "[[") })
                 .sorted { (first, second) -> Bool in
                     let firstStarts = first.range(of: word, options: [.caseInsensitive, .anchored]) != nil
                     let secondStarts = second.range(of: word, options: [.caseInsensitive, .anchored]) != nil
-                    
+
                     if firstStarts && secondStarts || !firstStarts && !secondStarts {
                         return first.localizedCaseInsensitiveCompare(second) == .orderedAscending
                     }
-                    
+
                     return firstStarts && !secondStarts
                 }
-            
+
             if titles.count > 100 {
                 return Array(titles[0..<100])
             }
-            
+
             return titles
         }
-        
+
         guard notes.count > 0 else { return nil }
         notes = notes.sorted { first, second in
             return first.modifiedLocalAt > second.modifiedLocalAt
         }
-        
+
         let titles = notes
             .filter({ !$0.isTrash() })
             .map{ String($0.project.settings.isFirstLineAsTitle() ? $0.title : $0.fileName ) }
             .filter({ $0.count > 0 })
             .filter({ !$0.starts(with: "![](") })
             .prefix(100)
-        
+
         return Array(titles)
     }
-    
+
     func getDemoSubdirURL() -> URL? {
 #if os(OSX)
         if let project = projects.first {
             return project.url
         }
-        
+
         return nil
 #else
         if let icloud = UserDefaultsManagement.iCloudDocumentsContainer {
@@ -793,14 +748,14 @@ class Storage {
         return UserDefaultsManagement.storageUrl
 #endif
     }
-    
+
     func removeNotes(notes: [Note], fsRemove: Bool = true, completion: @escaping ([URL: URL]?) -> ()) {
     #if !SHARE_EXT
         guard notes.count > 0 else {
             completion(nil)
             return
         }
-        
+
         var removed = [URL: URL]()
         for note in notes {
             if fsRemove {
@@ -845,7 +800,6 @@ class Storage {
                 && !$0.path.contains("/files")
                 && !$0.path.contains("/.Trash")
                 && !$0.path.contains("/Trash")
-                && !$0.path.contains(".textbundle")
                 && !$0.path.contains(".revisions")
                 && !$0.path.contains("/.git")
             })
@@ -863,7 +817,7 @@ class Storage {
 
                 if isDirectoryResourceValue as? Bool == true,
                     isPackageResourceValue as? Bool == false {
-                    
+
                     i = i + 1
                     fin.append(url)
                 }
@@ -879,7 +833,7 @@ class Storage {
 
         return fin
     }
-    
+
     public func getCurrentProject() -> Project? {
         return projects.first
     }
@@ -902,7 +856,7 @@ class Storage {
             let keyStore = NSUbiquitousKeyValueStore.default
             keyStore.set(names, forKey: "co.fluder.fsnotes.pins.shared")
             keyStore.synchronize()
-        
+
             print("Pins successfully saved: \(names)")
         }
         #endif
@@ -933,7 +887,7 @@ class Storage {
         #if CLOUD_RELATED_BLOCK
         let keyStore = NSUbiquitousKeyValueStore.default
         keyStore.synchronize()
-        
+
         if let names = keyStore.array(forKey: "co.fluder.fsnotes.pins.shared") as? [String] {
             if let pinned = getPinned() {
                 for note in pinned {
@@ -955,7 +909,7 @@ class Storage {
 
         return (removed, added)
     }
-    
+
     public func getPinned() -> [Note]? {
         return noteList.filter({ $0.isPinned })
     }
@@ -963,10 +917,10 @@ class Storage {
     public func remove(project: Project) {
         if let index = projects.firstIndex(of: project) {
             projects.remove(at: index)
-            
+
             cleanCachedTree(url: project.url)
         }
-        
+
         removeBy(project: project)
     }
 
@@ -1014,7 +968,7 @@ class Storage {
         guard let url = URL(string: "file://" + cacheDir) else { return nil }
 
         let cacheURL = url.appendingPathComponent(key + ".cache")
-        
+
         return try? Data(contentsOf: cacheURL)
     }
 
@@ -1022,7 +976,7 @@ class Storage {
         for project in projects {
             project.saveCache()
         }
-        
+
         saveCachedTree()
     }
 
@@ -1036,14 +990,14 @@ class Storage {
                 guard let destination = project else { return }
                 let existing = try root.metadataStore!.allEntries().filter { $0.folderID == destination.metadataFolderID }
                 if existing.isEmpty {
-                    for file in try FileManager.default.contentsOfDirectory(at: bundle, includingPropertiesForKeys: nil) where file.pathExtension == "textbundle" {
+                    for file in try FileManager.default.contentsOfDirectory(at: bundle, includingPropertiesForKeys: nil) where allowedExtensions.contains(file.pathExtension) {
                         _ = try importMetadataFile(file, to: destination)
                     }
                 }
                 welcomeProject = destination
                 welcomeNote = destination.getNotes().first { $0.fileName == "1. Introduction" }
                 #else
-                guard noteList.isEmpty, let source = Bundle.main.resourceURL?.appendingPathComponent("Meet FSNotes 7.textbundle") else { return }
+                guard noteList.isEmpty, let source = Bundle.main.resourceURL?.appendingPathComponent("Meet FSNotes 7.md") else { return }
                 _ = try importMetadataFile(source, to: root)
                 #endif
                 UserDefaultsManagement.showWelcome = false
@@ -1058,7 +1012,7 @@ class Storage {
 
             let bundle = URL(fileURLWithPath: bundlePath)
             let url = storageUrl.appendingPathComponent("Welcome", isDirectory: true)
-        
+
             if FileManager.default.fileExists(atPath: url.path) {
                 return
             }
@@ -1068,16 +1022,16 @@ class Storage {
             do {
                 var files = try FileManager.default.contentsOfDirectory(atPath: bundle.path)
                 files = files.sorted(by: { $0.localizedStandardCompare($1) == .orderedDescending })
-                
+
                 var i = 0
                 for file in files {
                     i += 1
-                    
+
                     let dstPath = "\(url.path)/\(file)"
                     try? FileManager.default.copyItem(atPath: "\(bundle.path)/\(file)", toPath: dstPath)
-                    
+
                     // Adds sorting for global sort by .creationDate
-                    let mdPath = "\(url.path)/\(file)/text.markdown"
+                    let mdPath = "\(url.path)/\(file)"
                     if let attributes = try? FileManager.default.attributesOfItem(atPath: mdPath),
                        let creationDate = attributes[.creationDate] as? Date
                     {
@@ -1088,21 +1042,21 @@ class Storage {
             } catch {
                 print("Initial copy error: \(error)")
             }
-        
+
             let project = Project(storage: self, url: url, label: "Welcome")
             insertProject(project: project)
-            
+
             let notes = project.loadNotes()
             _ = notes.compactMap({ $0.load() })
-        
+
             welcomeProject = project
             welcomeNote = notes.first(where: { $0.fileName == "1. Introduction"})
-        
+
         #else
             guard UserDefaultsManagement.showWelcome else { return }
             guard noteList.isEmpty else { return }
 
-            let welcomeFileName = "Meet FSNotes 7.textbundle"
+            let welcomeFileName = "Meet FSNotes 7.md"
 
             guard let src = Bundle.main.resourceURL?.appendingPathComponent(welcomeFileName) else { return }
             guard let dst = getDefault()?.url.appendingPathComponent(welcomeFileName) else { return }
@@ -1110,6 +1064,14 @@ class Storage {
             do {
                 if !FileManager.default.fileExists(atPath: dst.path) {
                     try FileManager.default.copyItem(atPath: src.path, toPath: dst.path)
+                    let imageName = "meet-fsnotes-7-logo.png"
+                    let sourceImage = src.deletingLastPathComponent().appendingPathComponent("assets/" + imageName)
+                    let assets = dst.deletingLastPathComponent().appendingPathComponent("assets", isDirectory: true)
+                    try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+                    let image = assets.appendingPathComponent(imageName)
+                    if !FileManager.default.fileExists(atPath: image.path) {
+                        try FileManager.default.copyItem(at: sourceImage, to: image)
+                    }
 
                     if let project = getDefault() {
                         let note = Note(url: dst, with: project)
@@ -1146,18 +1108,18 @@ class Storage {
     }
 
     public func getNews() -> URL? {
-        return Bundle.main.resourceURL?.appendingPathComponent("Meet FSNotes 7.textbundle")
+        return Bundle.main.resourceURL?.appendingPathComponent("Meet FSNotes 7.md")
     }
 
     public func loadNonSystemProject() {
         guard let main = getDefault() else { return }
-        
+
         let projectURLs = getAllSubUrls(for: main.url)
         for projectURL in projectURLs {
             let project = Project(storage: self, url: projectURL)
             insertProject(project: project)
         }
-        
+
         let bookmarkURLs = fetchBookmarkUrls()
         for url in bookmarkURLs {
             if !projectURLs.contains(url) {
@@ -1166,20 +1128,20 @@ class Storage {
             }
         }
     }
-    
+
     public func fetchBookmarkUrls() -> [URL] {
         guard let main = getDefault()?.url else { return [URL]() }
-        
+
         var projectURLs = [URL]()
         let bookmarkUrls = SandboxBookmark.sharedInstance().getRestoredUrls()
-        
+
         for url in bookmarkUrls {
             if !projectURLs.contains(url)
                 && url != main
                 && url != self.trashURL {
 
                 projectURLs.append(url)
-                
+
                 if let subUrls = fetchAllDirectories(url: url) {
                     for sUrl in subUrls {
                         if !projectURLs.contains(sUrl) {
@@ -1192,13 +1154,13 @@ class Storage {
 
         return projectURLs
     }
-    
+
     private func getAllSubUrls(for rootUrl: URL) -> [URL] {
         if let store = metadataStores[rootUrl.path] {
             return projects.filter { $0.metadataStore === store && $0.metadataFolderID != nil }.map { $0.url }
         }
         let trash = trashURL
-        
+
         var projectURLs = [URL]()
         if let urls = fetchAllDirectories(url: rootUrl) {
             for url in urls {
@@ -1210,14 +1172,14 @@ class Storage {
                 projectURLs.append(standardizedURL)
             }
         }
-        
+
         return projectURLs
     }
-    
+
     public func getProjectDiffs() -> ([Project], [Project], [Note], [Note]) {
         var insert = [Project]()
         var remove = [Project]()
-        
+
         let roots = projects.filter { $0.isDefault || $0.isBookmark || ($0.metadataStore != nil && $0.metadataFolderID == nil) }
         for root in roots {
             let results = root.getProjectsFSAndMemoryDiff()
@@ -1228,10 +1190,10 @@ class Storage {
         for insertItem in insert {
             insertProject(project: insertItem)
         }
-        
+
         loadProjectRelations()
         saveCachedTree()
-        
+
         var insertNotes = [Note]()
         for insertItem in insert {
             let append = insertItem.loadNotes()
@@ -1250,6 +1212,7 @@ class Storage {
     }
 
     public func importNote(url: URL) -> Note? {
+        guard isValidNote(url: url) else { return nil }
         if let root = projects.first(where: { $0.metadataStore != nil && $0.metadataFolderID == nil && $0.url.standardizedFileURL.resolvingSymlinksInPath() == url.deletingLastPathComponent().standardizedFileURL.resolvingSymlinksInPath() }), let store = root.metadataStore, url.deletingLastPathComponent() != store.notesURL {
             do {
                 let destination = try importMetadataFile(url, to: root)
@@ -1264,22 +1227,18 @@ class Storage {
         guard getBy(url: url) == nil,
             let project = self.getProjectByNote(url: url)
         else { return nil }
-        
+
         let note = Note(url: url, with: project)
-        
-        if note.isTextBundle() && !note.isFullLoadedTextBundle() {
-            return nil
-        }
-        
+
         note.load()
         note.loadModifiedLocalAt()
         note.loadCreationDate()
-        
+
         loadPins(notes: [note])
         add(note)
-        
+
         print("FSWatcher import note: \"\(note.name)\"")
-        
+
         return note
     }
 
@@ -1375,22 +1334,22 @@ class Storage {
 
         return revisionsUrl
     }
-    
+
     public func saveUploadPaths() {
         let notes = noteList.filter({ $0.uploadPath != nil })
-        
+
         var bookmarks = [URL: String]()
         for note in notes {
             if let path = note.uploadPath, path.count > 1 {
                 bookmarks[note.url] = path
             }
         }
-        
+
         if let data = try? NSKeyedArchiver.archivedData(withRootObject: bookmarks, requiringSecureCoding: true) {
             UserDefaultsManagement.sftpUploadBookmarksData = data
         }
     }
-    
+
     public func restoreUploadPaths() {
         guard let data = UserDefaultsManagement.sftpUploadBookmarksData,
               let uploadBookmarks = try? NSKeyedUnarchiver.unarchivedObject(ofClasses: [NSDictionary.self, NSURL.self, NSString.self], from: data) as? [URL: String] else { return }
@@ -1406,14 +1365,14 @@ class Storage {
         guard let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
             .first?
             .appendingPathComponent("Keys", isDirectory: true) else { return nil }
-        
+
         if !FileManager.default.fileExists(atPath: url.path) {
             try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         }
-        
+
         return url
     }
-    
+
     public func getProjectBy(settingsKey: String) -> Project? {
         return
             projects.first(where: {
@@ -1480,24 +1439,24 @@ class Storage {
 
     public func saveCachedTree() {
         guard let cacheDir = getCacheDir() else { return }
-        
+
         var urls =
             getNonSystemProjects()
             .sorted(by: {
                 $0.url.path.components(separatedBy: "/").count < $1.url.path.components(separatedBy: "/").count
             })
             .compactMap({ $0.url })
-        
+
         // Deduplicate
         let deduplicatedUrls = urls.reduce(into: [String: URL]()) { result, object in
             result[object.path] = object
         }.values
-        
+
         urls = Array(deduplicatedUrls)
-        
+
         if let data = try? NSKeyedArchiver.archivedData(withRootObject: urls, requiringSecureCoding: true) {
             let url = cacheDir.appendingPathComponent("sidebarTree")
-            
+
             do {
                 try data.write(to: url)
                 print("B. Sidebar tree caching is finished")
@@ -1506,33 +1465,33 @@ class Storage {
             }
         }
     }
-    
+
     public func getCachedTree() -> [URL]? {
         guard let cacheDir = getCacheDir() else { return nil }
         let url = cacheDir.appendingPathComponent("sidebarTree")
-        
+
         if let data = try? Data(contentsOf: url), let urls = try? NSKeyedUnarchiver.unarchivedObject(ofClasses: [NSArray.self, NSURL.self], from: data) as? [URL] {
             return urls
         }
-        
+
         return nil
     }
-    
+
     public func removeCachedTree() {
         guard let cacheDir = getCacheDir() else { return }
         let url = cacheDir.appendingPathComponent("sidebarTree")
-        
+
         try? FileManager.default.removeItem(at: url)
     }
-    
+
     public func cleanCachedTree(url: URL) {
         guard let urls = getCachedTree() else { return }
         let cleanList = urls.filter({ !$0.path.startsWith(string: url.path) })
-        
+
         if let data = try? NSKeyedArchiver.archivedData(withRootObject: cleanList, requiringSecureCoding: false) {
             if let cacheDir = getCacheDir() {
                 let url = cacheDir.appendingPathComponent("sidebarTree")
-                
+
                 do {
                     try data.write(to: url)
                 } catch {
@@ -1541,7 +1500,7 @@ class Storage {
             }
         }
     }
-    
+
     public func getSortedProjects() -> [Project] {
         return self.projects.sorted(by: {$0.url.path < $1.url.path})
     }
@@ -1614,11 +1573,11 @@ class Storage {
 
         UserDefaultsManagement.apiBookmarksData = nil
     }
-    
+
     public func addNote(url: URL) -> Note {
         let projectURL = url.deletingLastPathComponent()
         var project: Project? = getProjectByNote(url: url)
-        
+
         if let managed = project {
             project = managed
         } else if let unwrappedProject = getProjectBy(url: projectURL) {
@@ -1627,10 +1586,10 @@ class Storage {
             project = Project(storage: self, url: projectURL)
             insertProject(project: project!)
         }
-        
+
         let note = Note(url: url, with: project!)
         add(note)
-        
+
         return note
     }
 }

@@ -10,6 +10,72 @@ import Cocoa
 
 private var gitRestoringNotes = Set<ObjectIdentifier>()
 
+extension ViewController {
+    func configureGitSyncButton() {
+        syncButton.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: NSLocalizedString("Sync", comment: "Git"))
+        syncButton.toolTip = NSLocalizedString("Sync: pull, commit and push", comment: "Git")
+        syncButton.setAccessibilityLabel(NSLocalizedString("Sync", comment: "Git"))
+        syncProgressIndicator.style = .spinning
+        syncProgressIndicator.controlSize = .small
+        syncProgressIndicator.isDisplayedWhenStopped = false
+        syncProgressIndicator.translatesAutoresizingMaskIntoConstraints = false
+        syncButton.addSubview(syncProgressIndicator)
+        NSLayoutConstraint.activate([
+            syncProgressIndicator.centerXAnchor.constraint(equalTo: syncButton.centerXAnchor),
+            syncProgressIndicator.centerYAnchor.constraint(equalTo: syncButton.centerYAnchor),
+            syncProgressIndicator.widthAnchor.constraint(equalToConstant: 16),
+            syncProgressIndicator.heightAnchor.constraint(equalToConstant: 16)
+        ])
+    }
+
+    @IBAction func synchronizeGit(_ sender: NSButton) {
+        guard syncButton.isEnabled, let window = view.window else { return }
+        guard let project = getGitProject(), project.hasRepository(), project.getGitOrigin() != nil else {
+            let alert = NSAlert()
+            alert.messageText = NSLocalizedString("Git sync is not configured", comment: "Git")
+            alert.informativeText = NSLocalizedString("Set up the repository and remote in Preferences → Git before syncing.", comment: "Git")
+            alert.beginSheetModal(for: window)
+            return
+        }
+        guard !project.isActiveGit else { return }
+        project.isActiveGit = true
+        syncButton.isEnabled = false
+        syncButton.image = nil
+        syncButton.toolTip = NSLocalizedString("Syncing…", comment: "Git")
+        syncProgressIndicator.startAnimation(nil)
+
+        ViewController.gitQueue.addOperation {
+            ViewController.gitQueueOperationDate = Date()
+            ViewController.gitQueueBusy = true
+            self.storage.plainWriter.waitUntilAllOperationsAreFinished()
+            var failure: Error?
+            do { try project.synchronize() }
+            catch { failure = error }
+            ViewController.gitQueueOperationDate = nil
+            ViewController.gitQueueBusy = false
+            DispatchQueue.main.async {
+                project.isActiveGit = false
+                self.syncProgressIndicator.stopAnimation(nil)
+                self.syncButton.isEnabled = true
+                self.syncButton.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: NSLocalizedString("Sync", comment: "Git"))
+                self.syncButton.toolTip = NSLocalizedString("Sync: pull, commit and push", comment: "Git")
+                self.storage.refreshMetadataLibraries()
+                self.sidebarOutlineView.loadAllTags()
+                self.notesTableView.reloadData()
+                if let failure = failure {
+                    let alert = NSAlert()
+                    alert.alertStyle = .critical
+                    alert.messageText = NSLocalizedString("Git sync failed", comment: "Git")
+                    alert.informativeText = (failure as? GitError)?.associatedValue() ?? failure.localizedDescription
+                    alert.beginSheetModal(for: window)
+                } else {
+                    self.syncButton.toolTip = NSLocalizedString("Sync complete", comment: "Git")
+                }
+            }
+        }
+    }
+}
+
 extension EditorViewController {
 
     @IBAction func saveRevision(_ sender: NSMenuItem) {
@@ -28,7 +94,7 @@ extension EditorViewController {
             if let lastMessage = UserDefaultsManagement.lastCommitMessage {
                 field.stringValue = lastMessage
             }
-            
+
             let alert = NSAlert()
             alert.messageText = NSLocalizedString("Commit message:", comment: "")
             alert.accessoryView = field
@@ -38,22 +104,22 @@ extension EditorViewController {
             alert.beginSheetModal(for: window) { (returnCode: NSApplication.ModalResponse) -> Void in
                 if returnCode == NSApplication.ModalResponse.alertFirstButtonReturn {
                     let commitMessage: String? = field.stringValue.count > 0 ? field.stringValue : nil
-                    
+
                     if field.stringValue.count > 0 {
                         UserDefaultsManagement.lastCommitMessage = commitMessage
                     }
-                    
+
                     self.saveRevision(project: gitProject, commitMessage: commitMessage)
                 }
             }
-            
+
             field.becomeFirstResponder()
             return
         }
-        
+
         saveRevision(project: gitProject, commitMessage: nil)
     }
-    
+
     private func saveRevision(project: Project, commitMessage: String? = nil) {
         guard let window = self.view.window else { return }
 
@@ -93,7 +159,7 @@ extension EditorViewController {
     }
 
     func openHistory(for note: Note) {
-        guard note.hasGitRepository(), !note.isEncrypted() else { return }
+        guard note.hasGitRepository() else { return }
         NoteHistoryWindowController.open(note: note) { commit, window, completion in
             self.confirmGitRestore(note: note, commit: commit, in: window, completion: completion)
         }
@@ -186,7 +252,7 @@ extension EditorViewController {
         ) else { return }
 
         guard UserDefaultsManagement.snapshotsIntervalMinutes == minute else { return }
-        
+
         lastSnapshot = minute
 
         ViewController.gitQueue.addOperation({
@@ -212,7 +278,7 @@ extension EditorViewController {
             }
         })
     }
-    
+
     @IBAction private func pull(_ sender: Any) {
 
         // Restart queue if operation stucked more then 2 minutes
@@ -251,23 +317,23 @@ extension EditorViewController {
             self.snapshotsTimer = Timer.scheduledTimer(timeInterval: 5, target: self, selector: #selector(self.makeFullSnapshot), userInfo: nil, repeats: true)
         }
     }
-    
+
     public func schedulePull() {
         guard !UserDefaultsManagement.backupManually else { return }
 
         let interval = UserDefaultsManagement.pullInterval
-        
+
         pullTimer.invalidate()
         pullTimer = Timer.scheduledTimer(timeInterval: TimeInterval(interval), target: self, selector: #selector(pull), userInfo: nil, repeats: true)
     }
-    
+
     public func stopPull() {
         pullTimer.invalidate()
     }
-    
+
     public func getGitProject() -> Project? {
         guard let vc = ViewController.shared() else { return nil }
-        
+
         if let project = vc.getSelectedNote()?.project.getGitProject() {
             return project
         }

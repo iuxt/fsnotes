@@ -10,52 +10,7 @@
 	<string>FSNotes</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
-		<dict>
-			<key>CFBundleTypeExtensions</key>
-			<array>
-				<string>etp</string>
-			</array>
-			<key>CFBundleTypeIconFile</key>
-			<string>EncryptedTextPack</string>
-			<key>CFBundleTypeMIMETypes</key>
-			<array/>
-			<key>CFBundleTypeName</key>
-			<string>Encrypted Text Pack</string>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>LSHandlerRank</key>
-			<string>Owner</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>es.fsnot.etp.package</string>
-			</array>
-			<key>LSTypeIsPackage</key>
-			<integer>0</integer>
-			<key>NSDocumentClass</key>
-			<string></string>
-		</dict>
-		<dict>
-			<key>CFBundleTypeExtensions</key>
-			<array>
-				<string>textbundle</string>
-			</array>
-			<key>CFBundleTypeIconFile</key>
-			<string>TextBundle</string>
-			<key>CFBundleTypeName</key>
-			<string>TextBundle</string>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>LSHandlerRank</key>
-			<string>Default</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>org.textbundle.package</string>
-			</array>
-			<key>LSTypeIsPackage</key>
-			<integer>1</integer>
-			<key>NSDocumentClass</key>
-			<string></string>
-		</dict>
+
 		<dict>
 			<key>CFBundleTypeExtensions</key>
 			<array>
@@ -201,50 +156,7 @@
 	</array>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
-		<dict>
-			<key>UTTypeConformsTo</key>
-			<array>
-				<string>public.data</string>
-			</array>
-			<key>UTTypeDescription</key>
-			<string>Encrypted Text Pack</string>
-			<key>UTTypeIconFile</key>
-			<string>EncryptedTextPack</string>
-			<key>UTTypeIdentifier</key>
-			<string>es.fsnot.etp.package</string>
-			<key>UTTypeReferenceURL</key>
-			<string>https://fsnot.es</string>
-			<key>UTTypeTagSpecification</key>
-			<dict>
-				<key>public.filename-extension</key>
-				<array>
-					<string>etp</string>
-				</array>
-				<key>public.mime-type</key>
-				<array/>
-			</dict>
-		</dict>
-		<dict>
-			<key>UTTypeConformsTo</key>
-			<array>
-				<string>com.apple.package</string>
-			</array>
-			<key>UTTypeDescription</key>
-			<string>TextBundle</string>
-			<key>UTTypeIconFile</key>
-			<string>TextBundle</string>
-			<key>UTTypeIdentifier</key>
-			<string>org.textbundle.package</string>
-			<key>UTTypeReferenceURL</key>
-			<string>http://www.textbundle.org</string>
-			<key>UTTypeTagSpecification</key>
-			<dict>
-				<key>public.filename-extension</key>
-				<array>
-					<string>textbundle</string>
-				</array>
-			</dict>
-		</dict>
+
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>

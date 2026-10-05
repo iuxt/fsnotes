@@ -18,10 +18,6 @@ extension Note {
             path = gitPath
         }
 
-        if history && isTextBundle(), let contentURL = getContentFileURL() {
-            path += "/" + contentURL.lastPathComponent
-        }
-
         return path
     }
 
@@ -188,9 +184,7 @@ extension Note {
         let source = store.root.appendingPathComponent(legacy).standardizedFileURL
         let prefix = gitRoot.path + "/"
         guard source.path.hasPrefix(prefix) else { return nil }
-        var path = String(source.path.dropFirst(prefix.count))
-        if source.pathExtension == "textbundle", let content = getContentFileURL() { path += "/" + content.lastPathComponent }
-        return path
+        return String(source.path.dropFirst(prefix.count))
     }
 
     public func checkout(commit: Commit) {

@@ -22,7 +22,7 @@ class SidebarTableCellView: UITableViewCell {
 
         let depth = projectDepth(sidebarItem.project)
         iconLeadingConstraint?.constant = 15 + CGFloat(depth * 18)
-        
+
         self.icon.constraints[1].constant = 21
         self.labelConstraint.constant = 11
         icon.image = sidebarItem.icon
@@ -30,8 +30,6 @@ class SidebarTableCellView: UITableViewCell {
         var font = UIFont.systemFont(ofSize: 15)
 
         if sidebarItem.type == .Project || 
-            sidebarItem.type == .ProjectEncryptedLocked ||
-            sidebarItem.type == .ProjectEncryptedUnlocked ||
             sidebarItem.type == .Tag {
             font = UIFont.systemFont(ofSize: 14)
         }
@@ -116,9 +114,7 @@ class SidebarTableCellView: UITableViewCell {
             return depth
         }
 
-        guard sidebarItem?.type == .Project
-            || sidebarItem?.type == .ProjectEncryptedLocked
-            || sidebarItem?.type == .ProjectEncryptedUnlocked else { return 0 }
+        guard sidebarItem?.type == .Project else { return 0 }
 
         var depth = 0
         var parent = project?.parent

@@ -12,7 +12,7 @@ import UIKit
 class CloudDriveManager {
 
     private var cloudDriveResults = [URL]()
-    
+
     private var delegate: ViewController
     private var storage: Storage
 
@@ -58,7 +58,7 @@ class CloudDriveManager {
 
         metadataQuery.enableUpdates()
     }
-    
+
     @objc func handleMetadataQueryUpdates(notification: NSNotification) {
         guard let metadataQuery = notification.object as? NSMetadataQuery else { return }
         metadataQuery.disableUpdates()
@@ -124,15 +124,15 @@ class CloudDriveManager {
             }
         }
     }
-    
+
     private func isProject(item: NSMetadataItem) -> Bool {
         let itemUrl = item.value(forAttribute: NSMetadataItemURLKey) as? URL
         let isDirectory = (item.value(forAttribute: NSMetadataItemContentTypeKey) as? String) == "public.folder"
-        let isPackage = (try? itemUrl?.resourceValues(forKeys: [.isDirectoryKey]))?.isPackage ?? false
-        
-        guard let url = itemUrl?.standardized else { return false }
-        
-        return isDirectory && !isPackage && url.pathExtension != "textbundle"
+        let isPackage = (try? itemUrl?.resourceValues(forKeys: [.isPackageKey]))?.isPackage ?? false
+
+        guard itemUrl != nil else { return false }
+
+        return isDirectory && !isPackage
     }
 
     private func change(notification: NSNotification) -> Int {
@@ -146,12 +146,11 @@ class CloudDriveManager {
             let itemUrl = item.value(forAttribute: NSMetadataItemURLKey) as? URL
             let contentChangeDate = item.value(forAttribute: NSMetadataItemFSContentChangeDateKey) as? Date
             let creationDate = item.value(forAttribute: NSMetadataItemFSCreationDateKey) as? Date
-            
-            
+
             if status == NSMetadataUbiquitousItemDownloadingStatusCurrent {
                 completed += 1
             }
-            
+
             guard let url = itemUrl?.standardized, status == NSMetadataUbiquitousItemDownloadingStatusCurrent else {
                 continue
             }
@@ -160,16 +159,16 @@ class CloudDriveManager {
 
                 // Renamed – remove old
                 if let project = getProjectFromCloudDriveResults(item: item) {
-                    
+
                     // Remove old
                     projectsDeletionQueue.append(project)
-                    
+
                     // Insert new
                     if let projects = storage.insert(url: url) {
                         projectsInsertionQueue.append(contentsOf: projects)
                     }
                 } else {
-                    
+
                     // Move from outside iCloud Drive
                     if storage.getProjectBy(url: url) == nil {
                         if let projects = storage.insert(url: url) {
@@ -177,13 +176,7 @@ class CloudDriveManager {
                         }
                     }
                 }
-                
-                continue
-            }
 
-
-            if url.lastPathComponent == ".encrypt" {
-                self.loadEncryptionStatus(url: url)
                 continue
             }
 
@@ -192,9 +185,6 @@ class CloudDriveManager {
 
             // Note already exist and update completed
             if let note = storage.getBy(url: url, caseSensitive: true) {
-                if note.isTextBundle() && !note.isFullLoadedTextBundle() {
-                    continue
-                }
 
                 let modificationDate = note.getFileModifiedDate()
                 let isOpened = delegate.editorViewController?.editArea.note?.isEqualURL(url: url) == true
@@ -216,12 +206,6 @@ class CloudDriveManager {
                         note.modifiedLocalAt = prepareDate
                     }
 
-
-                    // Trying load content from encrypted note with current password
-                    if url.pathExtension == "etp", let password = note.password {
-                        _ = note.unLock(password: password)
-                    }
-
                     note.forceLoad()
                     delegate.refreshTextStorage(note: note)
                 }
@@ -229,11 +213,7 @@ class CloudDriveManager {
                 // print("File changed: \(url)")
 
                 // Not updates in FS attributes, must be loaded from Cloud Drive Meta
-                if note.isTextBundle() {
-                    note.loadCreationDate()
-                } else {
                     note.creationDate = creationDate
-                }
 
                 notesModificationQueue.append(note)
                 //resolveConflict(url: url)
@@ -311,7 +291,7 @@ class CloudDriveManager {
 
         return nil
     }
-    
+
     private func added(notification: NSNotification) -> Int {
         guard let addedMetadataItems =
             notification.userInfo?[NSMetadataQueryUpdateAddedItemsKey] as? [NSMetadataItem]
@@ -319,7 +299,7 @@ class CloudDriveManager {
 
         for item in addedMetadataItems {
             guard let url = (item.value(forAttribute: NSMetadataItemURLKey) as? URL)?.standardized else { continue }
-            
+
             print("Added: \(url)")
 
             let status = item.value(forAttribute: NSMetadataUbiquitousItemDownloadingStatusKey) as? String
@@ -335,12 +315,12 @@ class CloudDriveManager {
 
                 continue
             }
-            
+
             if isProject(item: item) {
                 if let projects = storage.insert(url: url) {
                     projectsInsertionQueue.append(contentsOf: projects)
                 }
-                
+
                 continue
             }
 
@@ -356,7 +336,7 @@ class CloudDriveManager {
 
         return addedMetadataItems.count
     }
-    
+
     private func remove(notification: NSNotification) -> Int {
         guard let removedMetadataItems =
             notification.userInfo?[NSMetadataQueryUpdateRemovedItemsKey] as?
@@ -365,17 +345,12 @@ class CloudDriveManager {
 
         for item in removedMetadataItems {
             guard let url = (item.value(forAttribute: NSMetadataItemURLKey) as? URL)?.standardized else { continue }
-            
+
             if isProject(item: item) {
                 if let project = storage.getProjectBy(url: url) {
                     projectsDeletionQueue.append(contentsOf: [project])
                 }
-                
-                continue
-            }
 
-            if url.lastPathComponent == ".encrypt" {
-                self.loadEncryptionStatus(url: url)
                 continue
             }
 
@@ -396,61 +371,6 @@ class CloudDriveManager {
         }
 
         return removedMetadataItems.count
-    }
-
-    private func loadEncryptionStatus(url: URL) {
-        if let project = self.storage.getProjectBy(url: url.deletingLastPathComponent()) {
-            let state = project.isEncrypted
-            project.isEncrypted = FileManager.default.fileExists(atPath: url.path)
-
-            if state && !project.isEncrypted {
-                project.password = nil
-            }
-
-            DispatchQueue.main.async {
-                if let indexPath = self.delegate.sidebarTableView.getIndexPathBy(project: project) {
-
-                    if let sidebarItem = self.delegate.sidebarTableView.getSidebarItem(project: project) {
-
-                        var type: SidebarItemType = .Project
-                        
-                        if project.isEncrypted {
-                            if project.isLocked() {
-                                type = .ProjectEncryptedLocked
-                            } else {
-                                type = .ProjectEncryptedUnlocked
-                            }
-                        }
-
-                        sidebarItem.setType(type: type)
-
-                        let cell = self.delegate.sidebarTableView.cellForRow(at: indexPath) as? SidebarTableCellView
-
-                        cell?.configure(sidebarItem: sidebarItem)
-                    }
-
-                    self.delegate.sidebarTableView.reload(indexPath: indexPath)
-
-                    // Selected at this moment
-
-                    if indexPath == self.delegate.sidebarTableView.indexPathForSelectedRow {
-                        if project.isEncrypted && project.isLocked() {
-                            self.delegate.enableLockedProject()
-                        } else {
-                            self.delegate.disableLockedProject()
-                        }
-
-                        self.delegate.reloadNotesTable()
-
-                        // Reconfigure new state in menu
-
-                        if let sidebarItem = self.delegate.sidebarTableView.getSidebarItem(project: project) {
-                            self.delegate.configureNavMenu(for: sidebarItem)
-                        }
-                    }
-                }
-            }
-        }
     }
 
     public func resolveConflict(url: URL) {
@@ -477,7 +397,7 @@ class CloudDriveManager {
                 ]
                 let dateString: String = dateFormatter.string(from: modificationDate)
                 let conflictName = "\(name) (CONFLICT \(dateString)).\(ext)"
-                
+
                 let to = url.deletingLastPathComponent().appendingPathComponent(conflictName)
 
                 if FileManager.default.fileExists(atPath: to.path) {
@@ -485,11 +405,8 @@ class CloudDriveManager {
                     continue
                 }
 
-                // Reload current encrypted note
+                // Reload the current note
                 if let currentNote = delegate.editorViewController?.editArea.note, currentNote.url == url {
-                    if let password = currentNote.password, ext == "etp" {
-                        _ = currentNote.unLock(password: password)
-                    }
 
                     currentNote.forceLoad()
                     delegate.refreshTextStorage(note: currentNote)
@@ -537,7 +454,7 @@ class CloudDriveManager {
             self.delegate.notesTable.removeRows(notes: delete)
             self.delegate.notesTable.insertRows(notes: insert)
             self.delegate.notesTable.reloadRows(notes: change)
-            
+
             self.delegate.sidebarTableView.removeRows(projects: projectsDeletion)
             self.delegate.sidebarTableView.insertRows(projects: projectsInsertion)
 

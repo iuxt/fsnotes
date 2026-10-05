@@ -115,6 +115,9 @@ extension Head {
             try fastForward(branch: branch, signature: signature, progress: progress)
             return true
         case .normal:
+            // Do not overwrite uncommitted edits while creating a merge commit.
+            do { try checkout(tree: revTree(), type: .none, progress: progress) }
+            catch { throw GitError.uncommittedConflict }
             return try normalMerge(branch: branch, signature: signature, progress: progress)
         case .none:
             throw GitError.unableToMerge(msg: "Unmergeable branch \(branch)")
@@ -130,12 +133,10 @@ extension Head {
     /// - throws: GitError
     private func fastForward(branch: Branch, signature: Signature, progress: Progress? = nil) throws {
         do {
-            // Dry run for detect dirty
-            try checkout(tree: revTree(), type: .none, progress: progress)
-
-            // All fine – force checkout
+            // Git pull can preserve edits to files untouched by the remote update.
+            // Checkout first: a conflict must leave HEAD at its original commit.
+            try checkout(tree: branch.revTree(), type: .safe, progress: progress)
             try targetReference().updateTargetCommit(commit: try branch.targetCommit(), message: "Merge '\(branch.name)': Fast forward")
-            try checkout(tree: revTree(), type: .force, progress: progress)
         } catch {
             throw GitError.uncommittedConflict
         }
@@ -229,7 +230,7 @@ extension Head {
                                             signature: signature)
             
             // Checkout new commit
-            try checkout(tree: try repository.head().revTree(), type: .force, progress: progress)
+            try checkout(tree: try repository.head().revTree(), type: .safe, progress: progress)
             
             return true
         }
@@ -308,7 +309,6 @@ extension Head {
         // Create now signature
         try signature.now(sig: sig)
         
-        
         // Parents
         var parentsPtr : UnsafeMutablePointer<OpaquePointer?>? = nil
         defer {
@@ -327,7 +327,6 @@ extension Head {
         
         it.initialize(to: parent2.pointer.pointee)
         it = it.successor()
-        
         
         // Create merge commit
         var commit_id = git_oid()

@@ -10,11 +10,11 @@ import Cocoa
 
 class NoteCellView: NSTableCellView {
 
-    @IBOutlet var name: NSTextField!
+    @IBOutlet var name: NameTextField!
     @IBOutlet var preview: PreviewTextField!
     @IBOutlet var date: NSTextField!
     @IBOutlet var pin: NSImageView!
-    
+
     @IBOutlet weak var titleConstraint: NSLayoutConstraint!
     @IBOutlet weak var imagePreview: NSImageView!
     @IBOutlet weak var imagePreviewSecond: NSImageView!
@@ -26,44 +26,45 @@ class NoteCellView: NSTableCellView {
 
     private var previewMaximumLineHeight: CGFloat = 12
     private let previewLineSpacing: CGFloat = 3
+    private var renameWidthConstraint: NSLayoutConstraint?
 
     public var imageKeys = [String]()
-    
+
     public var tableView: NotesTableView? {
         get {
             guard let vc = ViewController.shared() else { return nil }
-            
+
             return vc.notesTableView
         }
     }
 
     public static var pinImages = [String: NSImage]()
-    public static var pinEncryptedImages = [String: NSImage]()
     public static var pinSharedImages = [String: NSImage]()
 
     override func prepareForReuse() {
+        name.cancelRenaming()
         super.prepareForReuse()
-        
+
         imagePreview.image = nil
         imagePreview.isHidden = true
-        
+
         imagePreviewSecond.image = nil
         imagePreviewSecond.isHidden = true
-        
+
         imagePreviewThird.image = nil
         imagePreviewThird.isHidden = true
-        
+
         imageKeys = []
-        
+
         timestamp = nil
-        
+
         note = nil
-        
+
         name.stringValue = ""
         preview.stringValue = ""
         date.stringValue = ""
     }
-    
+
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
@@ -100,9 +101,27 @@ class NoteCellView: NSTableCellView {
     }
 
     public func configure(note: Note) {
+        name.cancelRenaming()
         self.note = note
     }
-    
+
+    func beginRenaming() {
+        guard !name.isRenaming, let note = note, let tableView = tableView else { return }
+        let widthConstraint = name.trailingAnchor.constraint(equalTo: date.leadingAnchor, constant: -titleConstraint.constant)
+        renameWidthConstraint = widthConstraint
+        widthConstraint.isActive = true
+        layoutSubtreeIfNeeded()
+        name.beginRenaming(name: note.getFileName(), restoringFocusTo: tableView) { [weak self] value in
+            self?.renameWidthConstraint?.isActive = false
+            self?.renameWidthConstraint = nil
+            if let value = value {
+                ViewController.shared()?.rename(note: note, to: value)
+            }
+            guard let self = self, self.note === note else { return }
+            self.attachHeaders(note: note)
+        }
+    }
+
     func applyPreviewStyle() {
         let additionalHeight = CGFloat(UserDefaultsManagement.cellSpacing)
 
@@ -161,14 +180,14 @@ class NoteCellView: NSTableCellView {
         // apply font and max lines numbers
         applyPreviewAttributes(numberOfLines)
     }
-    
+
     func applyPreviewAttributes(_ maximumNumberOfLines: Int = 1) {
         let string = preview.stringValue
         let fontName = UserDefaultsManagement.noteFont.fontName
 
         let previewFontSize = CGFloat(UserDefaultsManagement.previewFontSize)
         guard let font = NSFont(name: fontName, size: previewFontSize) else { return }
-        
+
         let textParagraph = NSMutableParagraphStyle()
         textParagraph.lineSpacing = previewLineSpacing
         textParagraph.maximumLineHeight = previewMaximumLineHeight
@@ -221,14 +240,6 @@ class NoteCellView: NSTableCellView {
                     pin.image?.size = NSSize(width: 14, height: 14)
                 }
 
-                pin.isHidden = false
-            } else if note.isEncrypted() {
-                let systemName = note.isUnlocked() ? "lock.open" : "lock"
-                if let image = NSImage(systemSymbolName: systemName, accessibilityDescription: nil) {
-                    pin.image = image
-                    pin.image?.isTemplate = true
-                    pin.contentTintColor = .controlAccentColor
-                }
                 pin.isHidden = false
             } else {
                 if #available(macOS 12.0, *), let image = NSImage(systemSymbolName: "pin", accessibilityDescription: nil) {
@@ -373,10 +384,10 @@ class NoteCellView: NSTableCellView {
 
     public func attachHeaders(note: Note) {
         if let title = note.getTitle() {
-            self.name.stringValue = title
+            if !name.isRenaming { self.name.stringValue = title }
             self.preview.stringValue = note.preview
         } else {
-            self.name.stringValue = ""
+            if !name.isRenaming { self.name.stringValue = "" }
             self.preview.stringValue = ""
         }
 
