@@ -1061,7 +1061,7 @@ public class Note: NSObject  {
             return URL(string: name)
         }
 
-        return project.url.appendingPathComponent(name)
+        return getURL().deletingLastPathComponent().appendingPathComponent(name).standardizedFileURL
     }
 
     #if os(OSX)
