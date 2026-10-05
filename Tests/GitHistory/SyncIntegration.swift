@@ -29,6 +29,22 @@ import Foundation
         try git(["init", "--bare", "-q", remote.path], in: temp)
         try manager.createDirectory(at: local, withIntermediateDirectories: true)
         let project = Project(url: local)
+        let keysDirectory = temp.appendingPathComponent("Keys")
+        try manager.createDirectory(at: keysDirectory, withIntermediateDirectories: true)
+        project.storage.gitKeysDir = keysDirectory
+        project.settings.gitPrivateKey = Data("test private key".utf8)
+        let keyURL = project.installSSHKey()!
+        try expect(try manager.attributesOfItem(atPath: keyURL.path)[.posixPermissions] as? Int == 0o600,
+                   "imported private key is only readable by its owner")
+        try expect(try Data(contentsOf: keyURL) == project.settings.gitPrivateKey, "private key import preserves its contents")
+        try manager.setAttributes([.posixPermissions: 0o644], ofItemAtPath: keyURL.path)
+        project.settings.gitPrivateKey = Data("replacement test key".utf8)
+        try expect(project.installSSHKey() == keyURL, "private key replacement succeeds")
+        try expect(try manager.attributesOfItem(atPath: keyURL.path)[.posixPermissions] as? Int == 0o600,
+                   "rewriting an existing private key enforces mode 0600")
+        try expect(try Data(contentsOf: keyURL) == project.settings.gitPrivateKey, "private key replacement preserves the new contents")
+        project.settings.gitPrivateKey = nil
+        project.storage.gitKeysDir = nil
         project.settings.gitOrigin = remote.path
         defer { if let cache = project.getCommitsDiffsCache() { try? manager.removeItem(at: cache) } }
         try project.initRepository()

@@ -22,10 +22,12 @@ final class Settings {
     var gitPrivateKey: Data?
     var gitPublicKey: Data?
     var gitPrivateKeyPassphrase: String?
+    var gitCACertificates: String?
 }
 final class Storage {
+    var gitKeysDir: URL?
     func getProjectBy(url: URL) -> Project? { nil }
-    func getGitKeysDir() -> URL? { nil }
+    func getGitKeysDir() -> URL? { gitKeysDir }
     func refreshMetadataLibraries() {}
 }
 final class MetadataStore {

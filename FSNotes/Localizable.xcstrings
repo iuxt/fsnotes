@@ -1,6 +1,214 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+  "Trust SSH Server?": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "信任 SSH 服务器？"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "信任 SSH 伺服器？"
+        }
+      }
+    }
+  },
+  "This is your first connection to this SSH server. Check its fingerprints before allowing the connection. FSNotes will remember the approved host keys.": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "这是首次连接此 SSH 服务器。请核对指纹后点击“允许”，FSNotes 会记住你认可的主机密钥。"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "這是首次連線此 SSH 伺服器。請核對指紋後點選「允許」，FSNotes 會記住你認可的主機金鑰。"
+        }
+      }
+    }
+  },
+  "Allow": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "允许"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "允許"
+        }
+      }
+    }
+  },
+  "Unable to read the SSH server's host keys.": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "无法读取 SSH 服务器的主机密钥。"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "無法讀取 SSH 伺服器的主機金鑰。"
+        }
+      }
+    }
+  },
+  "Unable to read FSNotes' saved SSH host keys.": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "无法读取 FSNotes 保存的 SSH 主机密钥。"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "無法讀取 FSNotes 儲存的 SSH 主機金鑰。"
+        }
+      }
+    }
+  },
+  "SSH server trust was cancelled. Sync stopped.": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "已取消信任 SSH 服务器，同步已停止。"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "已取消信任 SSH 伺服器，同步已停止。"
+        }
+      }
+    }
+  },
+  "The SSH server's host key has changed. Sync stopped to protect your connection.": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "SSH 服务器的主机密钥已变化。为保护连接安全，同步已停止。"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "SSH 伺服器的主機金鑰已變更。為保護連線安全，同步已停止。"
+        }
+      }
+    }
+  },
+  "CA Certificates": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "CA 证书"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "CA 憑證"
+        }
+      }
+    }
+  },
+  "Paste PEM CA certificates for this library's Git LFS server. Leave empty to use default certificate verification.": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "粘贴此笔记库 Git LFS 服务器的 PEM 格式 CA 证书。留空则使用默认的证书验证。"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "貼上此筆記庫 Git LFS 伺服器的 PEM 格式 CA 憑證。留空則使用預設的憑證驗證。"
+        }
+      }
+    }
+  },
+  "CA certificates in PEM format": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "PEM 格式 CA 证书"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "PEM 格式 CA 憑證"
+        }
+      }
+    }
+  },
+  "Invalid CA Certificate": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "无效的 CA 证书"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "無效的 CA 憑證"
+        }
+      }
+    }
+  },
+  "Default certificate verification": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "默认的证书验证"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "預設的憑證驗證"
+        }
+      }
+    }
+  },
+  "Custom CA certificates configured": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "已配置自定义 CA 证书"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "已設定自訂 CA 憑證"
+        }
+      }
+    }
+  },
   "Sync": {
     "localizations": {
       "zh-Hans": {

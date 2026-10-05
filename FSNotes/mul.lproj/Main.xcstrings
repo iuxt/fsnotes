@@ -1,6 +1,54 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+  "caG-pf-cel.title": {
+    "comment": "CA certificates settings button",
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "CA Certificates…"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "CA 证书…"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "CA 憑證…"
+        }
+      }
+    }
+  },
+  "caG-pr-cel.title": {
+    "comment": "CA certificates settings button",
+    "extractionState": "manual",
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "CA Certificates…"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "CA 证书…"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "CA 憑證…"
+        }
+      }
+    }
+  },
     "0f7-Za-V0B.title" : {
       "comment" : "Class = \"NSTextFieldCell\"; title = \"Copyright © 2017-2024 Oleksandr Hlushchenko.\\nAll rights reserved.\"; ObjectID = \"0f7-Za-V0B\"; Note = \"#bc-ignore!\";",
       "extractionState" : "extracted_with_value",

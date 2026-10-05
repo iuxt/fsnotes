@@ -23,6 +23,7 @@ public class ProjectSettings: NSObject, NSSecureCoding {
     public var gitPrivateKey: Data?
     public var gitPublicKey: Data?
     public var gitPrivateKeyPassphrase: String?
+    public var gitCACertificates: String?
     public var notesPreview = [String]()
     public var notesAPI: [String: String]?
 
@@ -64,6 +65,8 @@ public class ProjectSettings: NSObject, NSSecureCoding {
             gitPrivateKeyPassphrase = value
         }
 
+        gitCACertificates = aDecoder.decodeObject(of: NSString.self, forKey: "gitCACertificates") as? String
+
         if let value = aDecoder.decodeObject(of: [NSArray.self, NSString.self], forKey: "notesPreview") as? [String] {
             notesPreview = value
         }
@@ -101,6 +104,10 @@ public class ProjectSettings: NSObject, NSSecureCoding {
         
         if let gitPrivateKeyPassphrase = gitPrivateKeyPassphrase {
             aCoder.encode(gitPrivateKeyPassphrase, forKey: "gitPrivateKeyPassphrase")
+        }
+
+        if let gitCACertificates = gitCACertificates {
+            aCoder.encode(gitCACertificates, forKey: "gitCACertificates")
         }
 
         aCoder.encode(notesPreview, forKey: "notesPreview")

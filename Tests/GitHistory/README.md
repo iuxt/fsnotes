@@ -28,6 +28,17 @@ The runner embeds the LFS client beside its executables and runs them with the
 system-only PATH used by Finder, so transfers also verify bundled helper discovery.
 It repeats the LFS tests inside a signed sandboxed app, using the production helper
 embedding script and entitlements, to verify image push/pull under App Sandbox.
+Custom CA coverage includes PEM bundles and CRLF paste normalization, malformed
+certificate and private-key rejection, secure settings persistence and clearing,
+real Git HTTPS hostname matching for SSH and HTTPS remotes, unchanged CA settings
+for other hosts, and temporary certificate cleanup after successful and failed LFS
+commands inside the sandbox.
+SSH trust tests run against an isolated loopback OpenSSH server with authentication
+disabled. They verify first-connection approval, cancellation without saving keys,
+saved trust across later calls, separate trust for each SSH port, SHA-256 fingerprint
+accuracy, shell quoting, and real rejection of unknown or changed host keys. The
+same handshake checks run inside the signed app sandbox without reading the user's
+SSH configuration or known_hosts. No real credentials or external SSH servers are used.
 
 The sync executable compiles the production Project Git adapter and all repository
 wrappers. It checks an empty remote's first push, no-change sync, pull before local
@@ -35,3 +46,5 @@ commit with unrelated local edits, final remote content, and stopping on conflic
 uncommitted edits without changing HEAD, deleting local edits or pushing.
 Only UI and settings are scaffolded. Its temporary history cache uses a unique name
 and is removed on exit; existing application caches are untouched.
+It also verifies that imported and rewritten SSH private keys have mode 0600 and
+retain the expected contents, so OpenSSH can use keys installed by the app.

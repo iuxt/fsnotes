@@ -117,7 +117,10 @@ extension Project {
 
         if let key = settings.gitPrivateKey {
             do {
-                try key.write(to: url)
+                try key.write(to: url, options: .atomic)
+                // OpenSSH refuses private keys readable by other users. Apply
+                // this after every import/rewrite, including atomic replacement.
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
 
                 if let publicKey = settings.gitPublicKey {
                     let publicKeyUrl = url.appendingPathExtension("pub")
@@ -203,7 +206,8 @@ extension Project {
 
         let handler = getAuthHandler()
         let localBranch = try repository.currentBranch()
-        try GitLFS.transfer(["push", "origin", localBranch.shortName], in: url, sshKey: getSSHKeyUrl())
+        try GitLFS.transfer(["push", "origin", localBranch.shortName], in: url, sshKey: getSSHKeyUrl(),
+                            caCertificates: settings.gitCACertificates, origin: getGitOrigin())
         try repository.remotes.get(remoteName: "origin").push(local: localBranch, authentication: handler)
 
         if let progress = progress {
@@ -226,7 +230,8 @@ extension Project {
         try remoteBranch.pull(signature: sign, authentication: authHandler, project: self)
 
         try metadataStore?.refresh()
-        try GitLFS.transfer(["pull", "origin"], in: url, sshKey: getSSHKeyUrl())
+        try GitLFS.transfer(["pull", "origin"], in: url, sshKey: getSSHKeyUrl(),
+                            caCertificates: settings.gitCACertificates, origin: getGitOrigin())
         DispatchQueue.main.async { self.storage.refreshMetadataLibraries() }
 
         if let progress = progress {
@@ -377,7 +382,8 @@ extension Project {
         do {
             if let repo = try cloneRepository(), let local = getLocalBranch(repository: repo) {
                 try repo.head().checkout(branch: local, type: .force)
-                try GitLFS.transfer(["pull", "origin"], in: url, sshKey: getSSHKeyUrl())
+                try GitLFS.transfer(["pull", "origin"], in: url, sshKey: getSSHKeyUrl(),
+                                    caCertificates: settings.gitCACertificates, origin: getGitOrigin())
                 try metadataStore?.refresh()
                 DispatchQueue.main.async { self.storage.refreshMetadataLibraries() }
                 cacheHistory(progress: progress)

@@ -26,6 +26,55 @@ class SettingsViewController: NSViewController, NSTextFieldDelegate {
     @IBOutlet var cloneButton: NSButton!
     @IBOutlet var passphrase: NSSecureTextField!
     @IBOutlet var progressIndicator: NSProgressIndicator!
+    @IBOutlet var caCertificateButton: NSButton!
+
+    @IBAction func editCACertificates(_ sender: Any) {
+        guard let project = gitProject else { return }
+        let alert = NSAlert()
+        alert.messageText = NSLocalizedString("CA Certificates", comment: "")
+        alert.informativeText = NSLocalizedString("Paste PEM CA certificates for this library's Git LFS server. Leave empty to use default certificate verification.", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("Save", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
+
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 520, height: 220))
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .bezelBorder
+        let textView = NSTextView(frame: scrollView.contentView.bounds)
+        textView.isRichText = false
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        textView.textContainerInset = NSSize(width: 6, height: 6)
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.containerSize = NSSize(width: scrollView.contentSize.width, height: CGFloat.greatestFiniteMagnitude)
+        textView.string = project.settings.gitCACertificates ?? ""
+        textView.setAccessibilityLabel(NSLocalizedString("CA certificates in PEM format", comment: ""))
+        scrollView.documentView = textView
+        alert.accessoryView = scrollView
+        alert.window.initialFirstResponder = textView
+
+        while alert.runModal() == .alertFirstButtonReturn {
+            do {
+                let pem = try GitLFS.normalizedCACertificates(textView.string)
+                project.settings.gitCACertificates = pem.isEmpty ? nil : pem
+                project.saveSettings()
+                updateButtons()
+                return
+            } catch {
+                let errorAlert = NSAlert()
+                errorAlert.alertStyle = .warning
+                errorAlert.messageText = NSLocalizedString("Invalid CA Certificate", comment: "")
+                errorAlert.informativeText = error.localizedDescription
+                errorAlert.runModal()
+            }
+        }
+    }
 
     @IBAction func removeRepository(_ sender: Any) {
         gitProject?.removeRepository(progress: progress)
@@ -136,6 +185,11 @@ class SettingsViewController: NSViewController, NSTextFieldDelegate {
 
     public func updateButtons(isActive: Bool? = nil) {
         guard let project = gitProject else { return }
+
+        caCertificateButton.isEnabled = !(isActive ?? project.isActiveGit)
+        caCertificateButton.toolTip = project.settings.gitCACertificates == nil
+            ? NSLocalizedString("Default certificate verification", comment: "")
+            : NSLocalizedString("Custom CA certificates configured", comment: "")
 
         progressIndicator.isHidden = !project.isActiveGit
         cloneButton.title = project.getRepositoryState().title

@@ -3,6 +3,8 @@
 import Foundation
 import Cgit2
 
+enum UserDefaultsManagement { static var firstLineAsTitle = false }
+
 public enum ReferenceType { case test }
 public class RepositoryManager {}
 public class Branch {}

@@ -2667,8 +2667,21 @@ Olena Hlushcneko</string>
                                     <progressIndicator wantsLayer="YES" ambiguous="YES" maxValue="100" indeterminate="YES" controlSize="small" style="spinning" translatesAutoresizingMaskIntoConstraints="NO" id="zhQ-Wh-naA">
                                         <rect key="frame" x="93" y="10" width="16" height="16"/>
                                     </progressIndicator>
+                                    <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="caG-pr-btn">
+                                        <rect key="frame" x="349" y="89" width="106" height="32"/>
+                                        <buttonCell key="cell" type="push" title="CA Certificates…" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="caG-pr-cel">
+                                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                            <font key="font" metaFont="system"/>
+                                        </buttonCell>
+                                        <connections>
+                                            <action selector="editCACertificates:" target="JOV-dV-hyG" id="caG-pr-act"/>
+                                        </connections>
+                                    </button>
                                 </subviews>
                                 <constraints>
+                                    <constraint firstItem="caG-pr-btn" firstAttribute="leading" secondItem="TTV-op-DRY" secondAttribute="trailing" constant="12" id="caG-pr-ldg"/>
+                                    <constraint firstItem="caG-pr-btn" firstAttribute="centerY" secondItem="TTV-op-DRY" secondAttribute="centerY" id="caG-pr-ctr"/>
+                                    <constraint firstItem="0l4-ai-Rvk" firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="caG-pr-btn" secondAttribute="trailing" constant="15" id="caG-pr-trl"/>
                                     <constraint firstItem="qPm-BY-8GE" firstAttribute="centerY" secondItem="DBd-jE-0Oa" secondAttribute="centerY" id="4fk-1D-jC6"/>
                                     <constraint firstItem="HFW-4A-pjo" firstAttribute="centerY" secondItem="YZl-XE-oZw" secondAttribute="centerY" id="7od-Zb-rJk"/>
                                     <constraint firstItem="RHj-at-082" firstAttribute="leading" secondItem="vdD-ho-NJq" secondAttribute="trailing" constant="12" symbolic="YES" id="94N-MV-1tv"/>
@@ -2762,6 +2775,7 @@ Olena Hlushcneko</string>
                         </constraints>
                     </view>
                     <connections>
+                        <outlet property="caCertificateButton" destination="caG-pr-btn" id="caG-pr-out"/>
                         <outlet property="cloneButton" destination="vdD-ho-NJq" id="ovk-Rc-8NE"/>
                         <outlet property="creationDate" destination="VM6-1W-eJP" id="2gs-eQ-fiQ"/>
                         <outlet property="directionASC" destination="cG6-mW-iPi" id="7o9-GP-Mck"/>
@@ -3064,8 +3078,21 @@ Olena Hlushcneko</string>
                                     <action selector="clonePull:" target="2un-du-hJz" id="uaM-ft-w4H"/>
                                 </connections>
                             </button>
+                            <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="caG-pf-btn">
+                                <rect key="frame" x="324" y="135" width="109" height="24"/>
+                                <buttonCell key="cell" type="push" title="CA Certificates…" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="caG-pf-cel">
+                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                    <font key="font" metaFont="system"/>
+                                </buttonCell>
+                                <connections>
+                                    <action selector="editCACertificates:" target="2un-du-hJz" id="caG-pf-act"/>
+                                </connections>
+                            </button>
                         </subviews>
                         <constraints>
+                            <constraint firstItem="caG-pf-btn" firstAttribute="leading" secondItem="F32-gY-oeO" secondAttribute="trailing" constant="12" id="caG-pf-ldg"/>
+                            <constraint firstItem="caG-pf-btn" firstAttribute="centerY" secondItem="F32-gY-oeO" secondAttribute="centerY" id="caG-pf-ctr"/>
+                            <constraint firstItem="ffx-Mm-mqT" firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="caG-pf-btn" secondAttribute="trailing" constant="15" id="caG-pf-trl"/>
                             <constraint firstItem="6jj-hR-ROP" firstAttribute="top" secondItem="bar-ZF-HRI" secondAttribute="bottom" constant="20" id="0UU-I8-eNo"/>
                             <constraint firstItem="uox-cj-0Ej" firstAttribute="leading" secondItem="ffx-Mm-mqT" secondAttribute="leading" constant="35" id="1BX-FO-0pS"/>
                             <constraint firstAttribute="trailing" secondItem="ey5-Rw-Svp" secondAttribute="trailing" constant="20" symbolic="YES" id="1LF-bc-JMz"/>
@@ -3143,6 +3170,7 @@ Olena Hlushcneko</string>
                         </constraints>
                     </view>
                     <connections>
+                        <outlet property="caCertificateButton" destination="caG-pf-btn" id="caG-pf-out"/>
                         <outlet property="askCommitMessage" destination="uox-cj-0Ej" id="Mrv-uw-66m"/>
                         <outlet property="backupBySchedule" destination="lK7-QU-fN2" id="n8L-r0-7eA"/>
                         <outlet property="backupManually" destination="dRB-iE-HKk" id="bqM-xd-1uX"/>

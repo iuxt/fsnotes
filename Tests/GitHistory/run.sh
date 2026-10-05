@@ -5,7 +5,51 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 git_source="${1:?Pass the libgit2 source directory from the swift-cgit2 package checkout}"
 test_build="$(mktemp -d "${TMPDIR:-/tmp}/fsnotes-git-tests.XXXXXX")"
-trap 'rm -rf "$test_build"' EXIT
+ssh_fixture_pid=""
+cleanup() {
+    if [[ -n "$ssh_fixture_pid" ]]; then kill "$ssh_fixture_pid" 2>/dev/null || true; fi
+    rm -rf "$test_build"
+}
+trap cleanup EXIT
+# A loopback-only SSH server rejects authentication but completes host-key
+# exchange, so both CLI and sandboxed tests can verify actual SSH trust checks.
+ssh-keygen -q -t ed25519 -N '' -f "$test_build/ssh_host_key"
+ssh_fixture_port="$(python3 - <<'PY'
+import socket
+with socket.socket() as sock:
+    sock.bind(('127.0.0.1', 0))
+    print(sock.getsockname()[1])
+PY
+)"
+cat > "$test_build/sshd_config" <<EOF
+Port $ssh_fixture_port
+ListenAddress 127.0.0.1
+HostKey $test_build/ssh_host_key
+PidFile $test_build/sshd.pid
+UsePAM no
+PasswordAuthentication no
+PubkeyAuthentication no
+KbdInteractiveAuthentication no
+# This fixture deliberately fails authentication repeatedly during LFS probes.
+# Do not let OpenSSH's source penalties reject subsequent test handshakes.
+PerSourcePenalties no
+LogLevel ERROR
+EOF
+/usr/sbin/sshd -D -e -f "$test_build/sshd_config" > "$test_build/sshd.log" 2>&1 &
+ssh_fixture_pid=$!
+ssh_fixture_ready=false
+for attempt in {1..20}; do
+    if ssh-keyscan -T 1 -p "$ssh_fixture_port" -t ed25519 127.0.0.1 > /dev/null 2>&1; then
+        ssh_fixture_ready=true
+        break
+    fi
+    sleep 0.1
+done
+if [[ "$ssh_fixture_ready" != true ]]; then
+    cat "$test_build/sshd.log" >&2
+    exit 1
+fi
+export FSNOTES_TEST_SSH_PORT="$ssh_fixture_port"
 # Bundle.main resolves auxiliary tools beside these command-line executables.
 # Exercise the same embedded-client lookup as the app, without a Homebrew PATH.
 cp -L "${GIT_LFS_EXECUTABLE:-$(command -v git-lfs)}" "$test_build/git-lfs"
@@ -20,6 +64,9 @@ mkdir -p "$test_build/Cgit2"
 printf 'module Cgit2 [system] { header "%s/include/git2.h" export * }\n' "$git_source" > "$test_build/Cgit2/module.modulemap"
 git_sources=(
     "$repo_root/FSNotesCore/Business/WorkspaceLocation.swift"
+    "$repo_root/FSNotesCore/Business/ProjectSettings.swift"
+    "$repo_root/FSNotesCore/Business/SortBy.swift"
+    "$repo_root/FSNotesCore/Business/SortDirection.swift"
     "$repo_root/FSNotesCore/Git/repository/Repository.swift"
     "$repo_root/FSNotesCore/Git/repository/Repository+Lookup.swift"
     "$repo_root/FSNotesCore/Git/tree/Tree.swift"
