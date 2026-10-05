@@ -10,75 +10,66 @@ import Cocoa
 
 class PreferencesGitViewController: SettingsViewController {
 
+    override func updateButtons(isActive: Bool? = nil) {
+        super.updateButtons(isActive: isActive)
+        guard let project = gitProject else { return }
+        let title: String
+        switch project.getRepositoryState() {
+        case .initCommit: title = "Create Git History"
+        case .clonePush: title = "Clone & Sync"
+        case .commit: title = "Save Snapshot"
+        case .pullPush: title = "Sync Now"
+        }
+        cloneButton.title = NSLocalizedString(title, comment: "")
+        let busy = isActive ?? project.isActiveGit
+        cloneButton.isEnabled = !busy
+        removeButton.isEnabled = project.hasRepository() && !busy
+    }
+
     @IBOutlet weak var repositoriesPath: NSPathControl!
+    @IBOutlet weak var workspacePathLabel: NSTextField!
+    @IBOutlet weak var repositoryInfoLabel: NSTextField!
     @IBOutlet weak var snapshotsTextField: NSTextField!
     @IBOutlet weak var minutes: NSTextField!
     @IBOutlet weak var backupManually: NSButton!
     @IBOutlet weak var backupBySchedule: NSButton!
     @IBOutlet weak var pullInterval: NSTextField!
-    @IBOutlet weak var separateDotGit: NSButton!
     @IBOutlet weak var askCommitMessage: NSButton!
 
     override func viewWillAppear() {
         super.viewWillAppear()
-        //preferredContentSize = NSSize(width: 460, height: 579)
 
-        loadGit(project: Storage.shared().getDefault()!)
+        if let project = Storage.shared().getDefault() { loadGit(project: project) }
+        workspacePathLabel.stringValue = NSLocalizedString("Workspace Folder", comment: "")
+        repositoryInfoLabel.stringValue = NSLocalizedString("Git history: .git/", comment: "")
+        origin.placeholderString = "git@github.com:you/notes.git"
+        repositoriesPath.isEditable = false
+        repositoriesPath.url = UserDefaultsManagement.storageUrl
+        repositoriesPath.toolTip = NSLocalizedString("One folder for your notes and their history.", comment: "")
 
-        repositoriesPath.url = UserDefaultsManagement.gitStorage
         snapshotsTextField.stringValue = String(UserDefaultsManagement.snapshotsInterval)
         minutes.stringValue = String(UserDefaultsManagement.snapshotsIntervalMinutes)
         backupManually.state = UserDefaultsManagement.backupManually ? .on : .off
         backupBySchedule.state = UserDefaultsManagement.backupManually ? .off : .on
         pullInterval.stringValue = String(UserDefaultsManagement.pullInterval)
-        separateDotGit.state = UserDefaultsManagement.separateRepo ? .on : .off
         askCommitMessage.state = UserDefaultsManagement.askCommitMessage ? .on : .off
+        updateScheduleFields()
     }
 
     @IBAction func changeGitStorage(_ sender: NSButton) {
-        let openPanel = NSOpenPanel()
-        openPanel.directoryURL = UserDefaultsManagement.gitStorage
-        openPanel.allowsMultipleSelection = false
-        openPanel.canChooseDirectories = true
-        openPanel.canCreateDirectories = true
-        openPanel.canChooseFiles = false
-        openPanel.begin { (result) -> Void in
-            if result == .OK {
-                guard let url = openPanel.url?.standardized,
-                    url != UserDefaultsManagement.storageUrl else {
-                        let alert = NSAlert()
-                        alert.alertStyle = .critical
-                        alert.informativeText = NSLocalizedString("Path not available", comment: "")
-                        alert.messageText = NSLocalizedString("Default storage path should not be equal to Git path.", comment: "")
-                        alert.runModal()
-                        return
-                }
-
-                let bookmarksManager = SandboxBookmark.sharedInstance()
-                
-                if let currentURL = UserDefaultsManagement.gitStorage {
-                    bookmarksManager.remove(url: currentURL)
-                }
-                
-                bookmarksManager.store(url: url)
-                bookmarksManager.save()
-
-                UserDefaultsManagement.gitStorage = url
-                self.repositoriesPath.url = url
-            }
-        }
+        guard let url = WorkspaceDirectory.choose(switching: true),
+              url != UserDefaultsManagement.storageUrl?.resolvingSymlinksInPath() else { return }
+        (NSApp.delegate as? AppDelegate)?.switchWorkspace(to: url)
     }
 
     @IBAction func showFinder(_ sender: Any) {
-        guard let storage = UserDefaultsManagement.gitStorage else { return }
-        
-        NSWorkspace.shared.activateFileViewerSelecting([storage])
+        guard let project = gitProject else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([project.url])
     }
 
     @IBAction func showTerminal(_ sender: Any) {
-        guard let storage = UserDefaultsManagement.gitStorage else { return }
-        
-        NSWorkspace.shared.openFile(storage.path, withApplication: "Terminal.app")
+        guard let project = gitProject else { return }
+        NSWorkspace.shared.openFile(project.url.path, withApplication: "Terminal.app")
     }
 
     @IBAction func backupMethod(_ sender: NSButton) {
@@ -93,52 +84,49 @@ class PreferencesGitViewController: SettingsViewController {
         guard let vc = ViewController.shared() else { return }
         if backupBySchedule.state == .on {
             vc.schedulePull()
+            vc.scheduleSnapshots()
         } else {
             vc.stopPull()
+            vc.snapshotsTimer.invalidate()
         }
+        updateScheduleFields()
     }
 
     @IBAction func changeSnapshotIntervalByHours(_ sender: NSTextField) {
-        if sender.stringValue == "0" || sender.stringValue.trim() == "" {
-            sender.stringValue = "1"
-        }
-        
-        if let interval = Int(sender.stringValue) {
-            UserDefaultsManagement.snapshotsInterval = interval
-        }
+        let interval = max(1, Int(sender.stringValue) ?? 1)
+        sender.integerValue = interval
+        UserDefaultsManagement.snapshotsInterval = interval
 
         guard let vc = ViewController.shared() else { return }
         vc.scheduleSnapshots()
     }
 
     @IBAction func changeSnapshotsIntervalByMinutes(_ sender: NSTextField) {
-        if let interval = Int(sender.stringValue) {
-            UserDefaultsManagement.snapshotsIntervalMinutes = interval
-        }
+        let interval = min(59, max(0, Int(sender.stringValue) ?? 0))
+        sender.integerValue = interval
+        UserDefaultsManagement.snapshotsIntervalMinutes = interval
 
         guard let vc = ViewController.shared() else { return }
         vc.scheduleSnapshots()
     }
 
     @IBAction func pullInterval(_ sender: NSTextField) {
-        if var interval = Int(sender.stringValue) {
-            if interval < 10 {
-                interval = 10
-                pullInterval.stringValue = String(10)
-            }
-            
-            UserDefaultsManagement.pullInterval = interval
-        }
+        let interval = max(10, Int(sender.stringValue) ?? 10)
+        sender.integerValue = interval
+        UserDefaultsManagement.pullInterval = interval
 
         guard let vc = ViewController.shared() else { return }
         vc.schedulePull()
     }
     
-    @IBAction func separateRepo(_ sender: NSButton) {
-        UserDefaultsManagement.separateRepo = sender.state == .on
-    }
-    
     @IBAction func askCommitMessage(_ sender: NSButton) {
         UserDefaultsManagement.askCommitMessage = sender.state == .on
     }
+    private func updateScheduleFields() {
+        let enabled = !UserDefaultsManagement.backupManually
+        snapshotsTextField.isEnabled = enabled
+        minutes.isEnabled = enabled
+        pullInterval.isEnabled = enabled
+    }
+
 }

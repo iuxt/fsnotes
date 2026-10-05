@@ -127,7 +127,6 @@ public class UserDefaultsManagement {
         static let PullInterval = "pullInterval"
         static let SaveInKeychain = "saveInKeychain"
         static let SearchHighlight = "searchHighlighting"
-        static let SeparateRepo = "separateRepo"
         static let SftpHost = "sftpHost"
         static let SftpPort = "sftpPort"
         static let SftpPath = "sftpPath"
@@ -286,6 +285,9 @@ public class UserDefaultsManagement {
     
     static var customStoragePath: String? {
         get {
+#if os(macOS)
+            return shared?.string(forKey: Constants.StoragePathKey)
+#else
             if let storagePath = shared?.object(forKey: Constants.StoragePathKey) as? String {
                 if FileManager.default.isWritableFile(atPath: storagePath) {
                     storageType = .custom
@@ -296,6 +298,7 @@ public class UserDefaultsManagement {
             }
             
             return nil
+#endif
         }
         
         set {
@@ -305,6 +308,9 @@ public class UserDefaultsManagement {
     
     static var storagePath: String? {
         get {
+#if os(macOS)
+            return customStoragePath
+#else
             if let customStoragePath = self.customStoragePath {
                 return customStoragePath
             }
@@ -320,6 +326,7 @@ public class UserDefaultsManagement {
             }
 
             return nil
+#endif
         }
     }
 
@@ -898,7 +905,11 @@ public class UserDefaultsManagement {
                 return result
             }
 
+#if os(macOS)
+            return "md"
+#else
             return "markdown"
+#endif
         }
         set {
             shared?.set(newValue, forKey: Constants.NoteExtension)
@@ -1043,6 +1054,7 @@ public class UserDefaultsManagement {
         }
     }
 
+    #if os(iOS)
     static var gitStorage: URL? {
         get {
             if let repositories = shared?.url(forKey: Constants.GitStorage) {
@@ -1070,6 +1082,8 @@ public class UserDefaultsManagement {
         }
     }
     
+    #endif
+
     static var gitUsername: String? {
         get {
             if let result = shared?.object(forKey: Constants.GitUsername) as? String {
@@ -1662,18 +1676,6 @@ public class UserDefaultsManagement {
         }
         set {
             shared?.set(newValue, forKey: Constants.TrashKey)
-        }
-    }
-    
-    static var separateRepo: Bool {
-        get {
-            if let result = shared?.object(forKey: Constants.SeparateRepo) as? Bool {
-                return result
-            }
-            return false
-        }
-        set {
-            shared?.set(newValue, forKey: Constants.SeparateRepo)
         }
     }
     

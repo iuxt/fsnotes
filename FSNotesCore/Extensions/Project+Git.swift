@@ -19,14 +19,7 @@ extension Project {
 
 #if os(OSX)
     public func getRepositoryUrl() -> URL {
-        if UserDefaultsManagement.separateRepo && !isCloudProject() {
-            return url.appendingPathComponent(".git", isDirectory: true)
-        }
-
-        let key = String(url.path.md5.prefix(4))
-        let repoURL = UserDefaultsManagement.gitStorage!.appendingPathComponent(key + " - " + label + ".git")
-
-        return repoURL
+        return WorkspaceLocation.repositoryURL(for: url)
     }
 #else
     public func getRepositoryUrl() -> URL {
@@ -64,6 +57,10 @@ extension Project {
 
     public func initBareRepository() throws {
         let repositoryManager = RepositoryManager()
+#if os(macOS)
+        // Initialize in place so Git infers a relative, portable worktree.
+        _ = try repositoryManager.initRepository(at: url, signature: Signature(name: "FSNotes App", email: "support@fsnot.es"))
+#else
         let repoURL = getRepositoryUrl()
 
         // Prepare temporary dir
@@ -83,8 +80,9 @@ extension Project {
         let dotGit = tempURL.appendingPathComponent(".git")
 
         if FileManager.default.directoryExists(atUrl: dotGit) {
-            try? FileManager.default.moveItem(at: dotGit, to: repoURL)
+            try FileManager.default.moveItem(at: dotGit, to: repoURL)
         }
+#endif
     }
 
     public func cloneRepository() throws -> Repository? {
@@ -92,10 +90,8 @@ extension Project {
         let repoURL = getRepositoryUrl()
 
         // Prepare temporary dir
-        guard let tempURL = UserDefaultsManagement.gitStorage?.appendingPathComponent("tmp") else { return nil }
-
-        try? FileManager.default.removeItem(at: tempURL)
-        try? FileManager.default.createDirectory(at: tempURL, withIntermediateDirectories: true)
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("FSNotes-clone-" + UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
 
         // Clone
         if let originString = getGitOrigin(), let origin = URL(string: originString) {
@@ -108,7 +104,7 @@ extension Project {
             let dotGit = tempURL.appendingPathComponent(".git")
 
             if FileManager.default.directoryExists(atUrl: dotGit) {
-                try? FileManager.default.moveItem(at: dotGit, to: repoURL)
+                try FileManager.default.moveItem(at: dotGit, to: repoURL)
 
                 return try repositoryManager.openRepository(at: repoURL)
             }
@@ -124,21 +120,6 @@ extension Project {
         let repoURL = getRepositoryUrl()
 
         return try repositoryManager.openRepository(at: repoURL)
-    }
-
-    public func useSeparateRepo() -> Bool {
-        return UserDefaultsManagement.separateRepo && !isCloudProject()
-    }
-
-    public func isCloudProject() -> Bool {
-        guard let storagePath = UserDefaultsManagement.storagePath,
-              let documentsProject = UserDefaultsManagement.iCloudDocumentsContainer else { return false }
-
-        if storagePath == documentsProject.path, url.path.contains(storagePath) {
-            return true
-        }
-
-        return false
     }
 
     public func getAuthHandler() -> SshKeyHandler? {
@@ -305,7 +286,7 @@ extension Project {
     #if os(iOS)
         return UserDefaultsManagement.iCloudDrive
     #else
-        return !UserDefaultsManagement.separateRepo || isCloudProject()
+        return false
     #endif
     }
 

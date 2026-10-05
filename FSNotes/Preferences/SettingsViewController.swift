@@ -19,13 +19,13 @@ class SettingsViewController: NSViewController, NSTextFieldDelegate {
         origin.delegate = self
     }
 
-    @IBOutlet weak var origin: NSTextField!
-    @IBOutlet weak var keyStatus: NSTextField!
-    @IBOutlet weak var logTextField: NSTextField!
-    @IBOutlet weak var removeButton: NSButton!
-    @IBOutlet weak var cloneButton: NSButton!
-    @IBOutlet weak var passphrase: NSSecureTextField!
-    @IBOutlet weak var progressIndicator: NSProgressIndicator!
+    @IBOutlet var origin: NSTextField!
+    @IBOutlet var keyStatus: NSTextField!
+    @IBOutlet var logTextField: NSTextField!
+    @IBOutlet var removeButton: NSButton!
+    @IBOutlet var cloneButton: NSButton!
+    @IBOutlet var passphrase: NSSecureTextField!
+    @IBOutlet var progressIndicator: NSProgressIndicator!
 
     @IBAction func removeRepository(_ sender: Any) {
         gitProject?.removeRepository(progress: progress)

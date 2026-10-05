@@ -850,6 +850,10 @@
 		D7FB716C2BE7F66500808E56 /* EditorViewController+QuickLook.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7FB716B2BE7F66500808E56 /* EditorViewController+QuickLook.swift */; };
 		D7FDA4F7236DBC6900C3B4AA /* Sidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7FDA4F6236DBC6900C3B4AA /* Sidebar.swift */; };
 		D7FFD09C1FF677ED0064CBA6 /* NotesTextProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F95F391FF2759300E2A447 /* NotesTextProcessor.swift */; };
+		CC830F33567341A4807F2D1D /* WorkspaceLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE97FFF7F8F8482BBD302E3F /* WorkspaceLocation.swift */; };
+		AD4A792954A44828BF8E3890 /* WorkspaceLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE97FFF7F8F8482BBD302E3F /* WorkspaceLocation.swift */; };
+		30B2215769104B79BD31C667 /* PreferencesLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA79C77547354AB682C4F724 /* PreferencesLayout.swift */; };
+		1D9E163D53F4483ABBCD99EE /* PreferencesLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA79C77547354AB682C4F724 /* PreferencesLayout.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1286,6 +1290,8 @@
 		D7FDA4F6236DBC6900C3B4AA /* Sidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sidebar.swift; sourceTree = "<group>"; };
 		3D69841FB99E457CA9E2F58F /* MetadataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataStore.swift; sourceTree = "<group>"; };
 		F91856B2481C4F8182350F53 /* MetadataLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataLibrary.swift; sourceTree = "<group>"; };
+		FE97FFF7F8F8482BBD302E3F /* WorkspaceLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceLocation.swift; sourceTree = "<group>"; };
+		AA79C77547354AB682C4F724 /* PreferencesLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesLayout.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1540,6 +1546,7 @@
 				D7B6E599207912E300FE0E20 /* Project.swift */,
 				F91856B2481C4F8182350F53 /* MetadataLibrary.swift */,
 				3D69841FB99E457CA9E2F58F /* MetadataStore.swift */,
+				FE97FFF7F8F8482BBD302E3F /* WorkspaceLocation.swift */,
 				11F2D4F32F1042F4002E4E47 /* Project+Date.swift */,
 				D79FE8A01F77D04A00113CFD /* Note.swift */,
 				113A319F2EEE2D3A009B50B0 /* Note+Preview.swift */,
@@ -1718,6 +1725,7 @@
 			isa = PBXGroup;
 			children = (
 				D7F5C0EE223ED0570038F172 /* PreferencesGeneralViewController.swift */,
+				AA79C77547354AB682C4F724 /* PreferencesLayout.swift */,
 				D7F5C0F1223ED0C00038F172 /* PreferencesUserInterfaceViewController.swift */,
 				D7F5C0F4223ED5620038F172 /* PreferencesEditorViewController.swift */,
 				D7F5C0F7223ED57D0038F172 /* PreferencesSecurityViewController.swift */,
@@ -2749,6 +2757,7 @@
 				D7B4AC5E2471253100F3888A /* NoteMeta.swift in Sources */,
 				A9947EC81CC94420BC2D6A6E /* MetadataLibrary.swift in Sources */,
 				801A222ADA944ABD896678B6 /* MetadataStore.swift in Sources */,
+				CC830F33567341A4807F2D1D /* WorkspaceLocation.swift in Sources */,
 				11BD8F932EDDEC3D000673A7 /* GitHubDark.swift in Sources */,
 				11D6C0C72EE2256B006017F0 /* Python.swift in Sources */,
 				D730BD27222BF30700E69C93 /* KeychainConfiguration.swift in Sources */,
@@ -2796,6 +2805,7 @@
 				D74DFBAD21661BA400F67D64 /* Date+.swift in Sources */,
 				113685602EC7A6A50033767F /* Platform.swift in Sources */,
 				D7F5C0EF223ED0570038F172 /* PreferencesGeneralViewController.swift in Sources */,
+				30B2215769104B79BD31C667 /* PreferencesLayout.swift in Sources */,
 				11BD8F982EDDF32E000673A7 /* SolarizedLight.swift in Sources */,
 				D7D372F7207BB09500AFBD9F /* SidebarOutlineView.swift in Sources */,
 				D7CCEDB92C6BA2F300A3BB83 /* ClickableTextField.swift in Sources */,
@@ -2989,6 +2999,7 @@
 				D7B4AC5F2471253100F3888A /* NoteMeta.swift in Sources */,
 				C664BA3AA631450A8E50DD1F /* MetadataLibrary.swift in Sources */,
 				C3ED48295CBF43D8A2538F71 /* MetadataStore.swift in Sources */,
+				AD4A792954A44828BF8E3890 /* WorkspaceLocation.swift in Sources */,
 				11BD8F922EDDEC3D000673A7 /* GitHubDark.swift in Sources */,
 				11D6C0C82EE2256B006017F0 /* Python.swift in Sources */,
 				D730BD28222BF30700E69C93 /* KeychainConfiguration.swift in Sources */,
@@ -3036,6 +3047,7 @@
 				D74DFBAC21661BA300F67D64 /* Date+.swift in Sources */,
 				1136855C2EC7A6A50033767F /* Platform.swift in Sources */,
 				D7F5C0F0223ED0570038F172 /* PreferencesGeneralViewController.swift in Sources */,
+				1D9E163D53F4483ABBCD99EE /* PreferencesLayout.swift in Sources */,
 				11BD8F962EDDF32E000673A7 /* SolarizedLight.swift in Sources */,
 				D7470D082170E890006B2A92 /* NSTextStorage++.swift in Sources */,
 				D7CCEDBA2C6BA2F300A3BB83 /* ClickableTextField.swift in Sources */,

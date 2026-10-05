@@ -13,6 +13,7 @@ cmake --build "$test_build/libgit2" -j 6 >> "$test_build/build.log" 2>&1
 mkdir -p "$test_build/Cgit2"
 printf 'module Cgit2 [system] { header "%s/include/git2.h" export * }\n' "$git_source" > "$test_build/Cgit2/module.modulemap"
 swiftc -I "$test_build/Cgit2" -I "$git_source/include" \
+    "$repo_root/FSNotesCore/Business/WorkspaceLocation.swift" \
     "$repo_root/FSNotesCore/Git/repository/Repository.swift" \
     "$repo_root/FSNotesCore/Git/repository/Repository+Lookup.swift" \
     "$repo_root/FSNotesCore/Git/tree/Tree.swift" \

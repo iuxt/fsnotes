@@ -14,6 +14,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var prefsWindowController: PrefsWindowController?
     var aboutWindowController: AboutWindowController?
     var statusItem: NSStatusItem?
+    private var isSwitchingWorkspace = false
 
     public var urls: [URL]? = nil
     public var url: URL? = nil
@@ -33,7 +34,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     public static var gitProgress: GitProgress?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
-        checkStorageChanges()
+        // Restore sandbox access before checking the chosen workspace. Storage must
+        // not initialize until the user has selected an accessible directory.
+        SandboxBookmark.sharedInstance().load()
+        if let url = UserDefaultsManagement.storageUrl, (try? WorkspaceLocation.validate(url)) != nil {
+            UserDefaultsManagement.storageType = .custom
+        } else {
+            guard let url = WorkspaceDirectory.choose() else { exit(EXIT_SUCCESS) }
+            do { try WorkspaceDirectory.save(url) }
+            catch { NSAlert(error: error).runModal(); exit(EXIT_FAILURE) }
+        }
         loadDockIcon()
         
         if UserDefaultsManagement.showInMenuBar {
@@ -69,11 +79,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         #endif
 
-        if UserDefaultsManagement.storagePath == nil {
-            self.requestStorageDirectory()
-            return
-        }
-
         let storyboard = NSStoryboard(name: "Main", bundle: nil)
         
         guard let mainWC = storyboard.instantiateController(withIdentifier: "MainWindowController") as? MainWindowController else {
@@ -95,7 +100,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         UserDefaultsManagement.crashedLastTime = false
         
-        AppDelegate.saveWindowsState()
+        if !isSwitchingWorkspace { AppDelegate.saveWindowsState() }
         
         Storage.shared().saveUploadPaths()
         
@@ -175,52 +180,50 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     
-    private func restartApp() {
-        guard let resourcePath = Bundle.main.resourcePath else { return }
-        
-        let url = URL(fileURLWithPath: resourcePath)
-        let path = url.deletingLastPathComponent().deletingLastPathComponent().absoluteString
-        let task = Process()
-        
-        task.launchPath = "/usr/bin/open"
-        task.arguments = [path]
-        task.launch()
-        
-        exit(0)
-    }
-    
-    private func requestStorageDirectory() {
-        var directoryURL: URL? = nil
-        if let path = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).first {
-            directoryURL = URL(fileURLWithPath: path)
-        }
-        
-        let panel = NSOpenPanel()
-        panel.directoryURL = directoryURL
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.canCreateDirectories = true
-        panel.message = "Please select default storage directory"
-        panel.begin { (result) -> Void in
-            if result == .OK {
-                guard let url = panel.url else {
-                    return
+    func switchWorkspace(to url: URL) {
+        // Stop producers before draining their queues and changing the root path.
+        guard !isSwitchingWorkspace else { return }
+        let previousPath = UserDefaultsManagement.customStoragePath
+        let previousType = UserDefaultsManagement.storageType
+        let previousBookmarks = SandboxBookmark.sharedInstance().bookmarks
+        let controller = ViewController.shared()
+        controller?.stopPull()
+        controller?.snapshotsTimer.invalidate()
+        prefsWindowController?.window?.title = NSLocalizedString("Switching Workspace…", comment: "")
+        isSwitchingWorkspace = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            ViewController.gitQueue.waitUntilAllOperationsAreFinished()
+            Storage.shared().plainWriter.waitUntilAllOperationsAreFinished()
+            Storage.shared().ciphertextWriter.waitUntilAllOperationsAreFinished()
+            DispatchQueue.main.async {
+                do {
+                    try WorkspaceDirectory.save(url)
+                    // A new workspace must not restore windows pointing into the old one.
+                    if let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+                        try? FileManager.default.removeItem(at: support.appendingPathComponent("editors.settings"))
+                    }
+                    let task = Process()
+                    task.executableURL = URL(fileURLWithPath: "/bin/sh")
+                    // Arguments carry the app path without interpolating shell source.
+                    task.arguments = ["-c", "while kill -0 \"$1\" 2>/dev/null; do sleep 0.1; done; /usr/bin/open -n \"$2\"", "fsnotes-restart", String(ProcessInfo.processInfo.processIdentifier), Bundle.main.bundlePath]
+                    try task.run()
+                    NSApp.terminate(nil)
+                } catch {
+                    self.isSwitchingWorkspace = false
+                    UserDefaultsManagement.customStoragePath = previousPath
+                    UserDefaultsManagement.storageType = previousType
+                    let bookmarks = SandboxBookmark.sharedInstance()
+                    bookmarks.bookmarks = previousBookmarks
+                    bookmarks.save()
+                    self.prefsWindowController?.window?.title = NSLocalizedString("Settings", comment: "")
+                    controller?.schedulePull()
+                    controller?.scheduleSnapshots()
+                    NSAlert(error: error).runModal()
                 }
-                
-                let bookmarks = SandboxBookmark.sharedInstance()
-                bookmarks.save(url: url)
-
-                UserDefaultsManagement.storageType = .custom
-                UserDefaultsManagement.customStoragePath = url.path
-                
-                self.restartApp()
-            } else {
-                exit(EXIT_SUCCESS)
             }
         }
     }
-    
+
     func constructMenu() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
 
@@ -316,7 +319,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @IBAction func openPreferences(_ sender: Any?) {
         if prefsWindowController == nil {
             let storyboard = NSStoryboard(name: "Main", bundle: nil)
-            
             prefsWindowController = storyboard.instantiateController(withIdentifier: "Preferences") as? PrefsWindowController
         }
         
@@ -390,73 +392,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         appDockTile.display()
-    }
-
-    private func checkStorageChanges() {
-        if Storage.shared().shouldMovePrompt,
-            let local = UserDefaultsManagement.localDocumentsContainer,
-            let iCloudDrive = UserDefaultsManagement.iCloudDocumentsContainer
-        {
-            let message = NSLocalizedString("We are detect that you are install FSNotes from Mac App Store with default storage in iCloud Drive, do you want to move old database in iCloud Drive?", comment: "")
-
-            promptToMoveDatabase(from: local, to: iCloudDrive, messageText: message)
-        }
-    }
-
-    public func promptToMoveDatabase(from currentURL: URL, to url : URL, messageText: String) {
-        let alert = NSAlert()
-        alert.messageText = messageText
-        alert.informativeText =
-            NSLocalizedString("Otherwise, the database of your notes will be available at: ", comment: "") + currentURL.path
-
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: NSLocalizedString("No", comment: ""))
-        alert.addButton(withTitle: NSLocalizedString("Yes", comment: ""))
-
-        if alert.runModal() == .alertSecondButtonReturn {
-            move(from: currentURL, to: url)
-
-            let localTrash = currentURL.appendingPathComponent("Trash", isDirectory: true)
-            let cloudTrash = url.appendingPathComponent("Trash", isDirectory: true)
-
-            move(from: localTrash, to: cloudTrash)
-        }
-    }
-
-    private func move(from currentURL: URL, to url: URL) {
-        if let list = try? FileManager.default.contentsOfDirectory(at: currentURL, includingPropertiesForKeys: nil, options: .init()) {
-
-            if !FileManager.default.fileExists(atPath: currentURL.path) {
-                return
-            }
-
-            if !FileManager.default.fileExists(atPath: url.path) {
-                try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
-            }
-
-            for item in list {
-                let fileName = item.lastPathComponent
-
-                do {
-                    let dst = url.appendingPathComponent(fileName)
-                    try FileManager.default.moveItem(at: item, to: dst)
-                } catch {
-
-                    if ["Trash", "Welcome"].contains(fileName) {
-                        continue
-                    }
-
-                    let exist = NSAlert()
-                    var message = NSLocalizedString("We can not move \"{DST_PATH}\" because this item already exist in selected destination.", comment: "")
-
-                    message = message.replacingOccurrences(of: "{DST_PATH}", with: item.path)
-
-                    exist.messageText = message
-                    exist.addButton(withTitle: NSLocalizedString("OK", comment: ""))
-                    exist.runModal()
-                }
-            }
-        }
     }
 
     func application(_ application: NSApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([NSUserActivityRestoring]) -> Void) -> Bool {

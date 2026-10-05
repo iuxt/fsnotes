@@ -75,6 +75,22 @@ private final class Fixture {
         try fixture.write("empty.md", "")
         let first = try fixture.commit("Initial")
         let initialCommit = try repository.commitLookup(sha: first)
+        // The selected library and its .git directory remain portable as one folder.
+        try expect(try WorkspaceLocation.validate(fixture.url) == fixture.url.resolvingSymlinksInPath(), "Workspace validation")
+        try expectFailure("A note file cannot be a workspace") { _ = try WorkspaceLocation.validate(fixture.url.appendingPathComponent("empty.md")) }
+        try expectFailure("A missing folder cannot silently fall back to Documents") { _ = try WorkspaceLocation.validate(fixture.url.appendingPathComponent("missing")) }
+        try expectFailure("Git internals cannot be selected as a library") { _ = try WorkspaceLocation.validate(WorkspaceLocation.repositoryURL(for: fixture.url)) }
+        let moved = FileManager.default.temporaryDirectory.appendingPathComponent("工作目录 " + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: moved) }
+        try FileManager.default.copyItem(at: fixture.url, to: moved)
+        let movedRepository = try fixture.open(WorkspaceLocation.repositoryURL(for: moved))
+        let worktree = String(cString: git_repository_workdir(movedRepository.pointer.pointee))
+        try expect(URL(fileURLWithPath: worktree).resolvingSymlinksInPath() == moved.resolvingSymlinksInPath(), "Moved .git infers the new workspace without an absolute worktree")
+        try expect(String(data: movedRepository.fileContent(commit: movedRepository.commitLookup(sha: first), path: target), encoding: .utf8) == "initial \(target)", "History travels with the notes")
+        try "changed after move".write(to: moved.appendingPathComponent(target), atomically: true, encoding: .utf8)
+        try movedRepository.checkout(commit: movedRepository.commitLookup(sha: first), path: target)
+        try expect(try String(contentsOf: moved.appendingPathComponent(target), encoding: .utf8) == "initial \(target)", "Restore writes into the moved workspace")
+        try expect(try fixture.read(target) == "initial \(target)", "Moved workspace never writes back to its original location")
         try expect(initialCommit.summary == "Initial", "Subject-only commit summary")
         try expect(initialCommit.body.isEmpty, "Subject-only commits must have an empty body without crashing")
         for path in [target, unicode, bundle] { try fixture.write(path, "second \(path)") }

@@ -921,7 +921,7 @@ CA
                             </customView>
                             <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="81L-hB-Mc1">
                                 <rect key="frame" x="33" y="526" width="426" height="16"/>
-                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Default Storage:" id="fmS-eE-nne">
+                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Workspace Folder:" id="fmS-eE-nne">
                                     <font key="font" metaFont="system"/>
                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1242,6 +1242,7 @@ CA
                         <outlet property="activateShortcut" destination="b4Q-10-yq8" id="dFf-dH-P0o"/>
                         <outlet property="automaticConflictsResolution" destination="187-a6-mAR" id="VAS-8V-m6d"/>
                         <outlet property="defaultExtension" destination="Qf2-ns-Osr" id="jAT-C4-8fh"/>
+                        <outlet property="workspacePathLabel" destination="81L-hB-Mc1" id="workspace-general-label"/>
                         <outlet property="defaultStoragePath" destination="dkg-Hb-c1w" id="ly3-HH-jj3"/>
                         <outlet property="externalEditorApp" destination="7Hz-R4-h7D" id="2xL-OW-e8B"/>
                         <outlet property="fileContainer" destination="P8W-WS-MSI" id="bSq-48-iHc"/>
@@ -3202,7 +3203,7 @@ Olena Hlushcneko</string>
                             </textField>
                             <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="N8Z-se-hEF">
                                 <rect key="frame" x="33" y="557" width="83" height="16"/>
-                                <textFieldCell key="cell" lineBreakMode="clipping" title="Repositories:" id="ASf-hd-2fT">
+                                <textFieldCell key="cell" lineBreakMode="clipping" title="Workspace Folder:" id="ASf-hd-2fT">
                                     <font key="font" usesAppearanceFont="YES"/>
                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3278,16 +3279,14 @@ Olena Hlushcneko</string>
                             <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="bar-ZF-HRI">
                                 <rect key="frame" x="20" y="209" width="428" height="5"/>
                             </box>
-                            <button tag="1" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="sW2-Jy-o1S">
-                                <rect key="frame" x="35" y="516" width="311" height="16"/>
-                                <buttonCell key="cell" type="check" title="Separate .git in project dir (except iCloud Drive)" bezelStyle="regularSquare" imagePosition="left" inset="2" id="dop-ho-N26">
-                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                            <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="sW2-Jy-o1S">
+                                <rect key="frame" x="35" y="424" width="398" height="16"/>
+                                <textFieldCell key="cell" lineBreakMode="clipping" title="Git history: .git/" id="workspace-git-info">
                                     <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <connections>
-                                    <action selector="separateRepo:" target="2un-du-hJz" id="J2y-eK-kWD"/>
-                                </connections>
-                            </button>
+                                    <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
+                                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                </textFieldCell>
+                            </textField>
                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="uox-cj-0Ej">
                                 <rect key="frame" x="35" y="394" width="232" height="16"/>
                                 <buttonCell key="cell" type="check" title="Ask commit message on note save" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="VJs-0B-jGe">
@@ -3475,8 +3474,9 @@ Olena Hlushcneko</string>
                         <outlet property="progressIndicator" destination="qiU-dD-B9z" id="2en-pJ-daI"/>
                         <outlet property="pullInterval" destination="mzn-Yp-WXt" id="13K-4H-Vae"/>
                         <outlet property="removeButton" destination="FjG-Kz-Df1" id="9zU-Up-2Ai"/>
+                        <outlet property="workspacePathLabel" destination="N8Z-se-hEF" id="workspace-git-label"/>
+                        <outlet property="repositoryInfoLabel" destination="sW2-Jy-o1S" id="workspace-git-info-label"/>
                         <outlet property="repositoriesPath" destination="Su7-am-ZzF" id="4AZ-hI-VCx"/>
-                        <outlet property="separateDotGit" destination="sW2-Jy-o1S" id="pdc-Qj-1Ig"/>
                         <outlet property="snapshotsTextField" destination="Xp9-26-JdA" id="MSe-y8-wYR"/>
                     </connections>
                 </viewController>

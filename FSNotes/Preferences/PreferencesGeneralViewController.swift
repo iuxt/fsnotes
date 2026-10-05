@@ -21,6 +21,7 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
     @IBOutlet var activateShortcut: ShortcutRecorderView!
     @IBOutlet weak var quickNote: ShortcutRecorderView!
     @IBOutlet weak var defaultStoragePath: NSPathControl!
+    @IBOutlet weak var workspacePathLabel: NSTextField!
     @IBOutlet weak var searchFocusOnESC: NSButton!
     @IBOutlet weak var defaultExtension: NSPopUpButton!
     @IBOutlet weak var fileContainer: NSPopUpButton!
@@ -32,10 +33,12 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
     
     //MARK: global variables
 
-    let storage = Storage.shared()
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        workspacePathLabel.stringValue = NSLocalizedString("Workspace Folder", comment: "")
+        defaultStoragePath.isEditable = false
+        defaultStoragePath.toolTip = NSLocalizedString("One folder for your notes and their history.", comment: "")
         initShortcuts()
     }
 
@@ -73,34 +76,9 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
     }
 
     @IBAction func changeDefaultStorage(_ sender: Any) {
-        let openPanel = NSOpenPanel()
-        openPanel.directoryURL = UserDefaultsManagement.storageUrl
-        openPanel.canChooseDirectories = true
-        openPanel.canCreateDirectories = true
-        openPanel.canChooseFiles = false
-        openPanel.begin { (result) -> Void in
-            if result == .OK {
-                guard let url = openPanel.url else { return }
-                guard let currentURL = UserDefaultsManagement.storageUrl else { return }
-
-                let bookmarksManager = SandboxBookmark.sharedInstance()
-                bookmarksManager.remove(url: currentURL)
-                bookmarksManager.store(url: url)
-                bookmarksManager.save()
-
-                UserDefaultsManagement.storageType = .custom
-                UserDefaultsManagement.customStoragePath = url.path
-
-                self.defaultStoragePath.stringValue = url.path
-
-                if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
-                    let message = NSLocalizedString("Do you want to move current notes in the new destination?", comment: "");
-                    appDelegate.promptToMoveDatabase(from: currentURL, to: url, messageText: message)
-                }
-
-                self.restart()
-            }
-        }
+        guard let url = WorkspaceDirectory.choose(switching: true),
+              url != UserDefaultsManagement.storageUrl?.resolvingSymlinksInPath() else { return }
+        (NSApp.delegate as? AppDelegate)?.switchWorkspace(to: url)
     }
 
     @IBAction func externalEditor(_ sender: Any) {
@@ -154,16 +132,6 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
 
             window.hidesOnDeactivate = UserDefaultsManagement.hideOnDeactivate
         }
-    }
-
-    func restart() {
-        let url = URL(fileURLWithPath: Bundle.main.resourcePath!)
-        let path = url.deletingLastPathComponent().deletingLastPathComponent().absoluteString
-        let task = Process()
-        task.launchPath = "/usr/bin/open"
-        task.arguments = [path]
-        task.launch()
-        exit(0)
     }
 
     func initShortcuts() {

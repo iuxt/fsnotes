@@ -20,7 +20,7 @@ class PrefsViewController: NSTabViewController  {
     @IBOutlet weak var advancedTabViewItem: NSTabViewItem!
 
     override func viewDidLoad() {
-        self.title = NSLocalizedString("Settings", comment: "") 
+        self.title = NSLocalizedString("Settings", comment: "")
         super.viewDidLoad()
 
         if #available(macOS 11.0, *) {
@@ -60,7 +60,7 @@ class PrefsViewController: NSTabViewController  {
                 toolbarItem.label = "\(tabViewItem.label)    "
             }
         }
-        
+
         return toolbarItem
     }
 }

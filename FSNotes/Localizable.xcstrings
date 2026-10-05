@@ -1,6 +1,136 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+  "Workspace Folder": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "工作目录位置"
+        }
+      }
+    }
+  },
+  "One folder for your notes and their history.": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "笔记和版本历史，统一存放在一个目录。"
+        }
+      }
+    }
+  },
+  "Choose Workspace Folder": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "选择工作目录"
+        }
+      }
+    }
+  },
+  "Use This Folder": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "使用此目录"
+        }
+      }
+    }
+  },
+  "Choose a readable and writable folder for your workspace.": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "请选择一个可读写的文件夹作为工作目录。"
+        }
+      }
+    }
+  },
+  "Choose a folder for your notes, attachments and Git history. You can change it later in Settings.": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "选择一个文件夹，统一存放笔记、附件和 Git 历史。之后可在设置中修改。"
+        }
+      }
+    }
+  },
+  "Switch to the selected workspace after restarting. Files in the current workspace stay where they are.": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "重启后打开所选工作目录，当前目录中的文件保留在原位置。"
+        }
+      }
+    }
+  },
+  "Switching Workspace…": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "正在切换工作目录…"
+        }
+      }
+    }
+  },
+  "Create Git History": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "创建 Git 历史"
+        }
+      }
+    }
+  },
+  "Clone & Sync": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "克隆并同步"
+        }
+      }
+    }
+  },
+  "Save Snapshot": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "保存快照"
+        }
+      }
+    }
+  },
+  "Sync Now": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "立即同步"
+        }
+      }
+    }
+  },
+  "Git history: .git/": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Git 历史保存在 .git/ 中"
+        }
+      }
+    }
+  },
     "Search versions": {
       "localizations": {
         "zh-Hans": {

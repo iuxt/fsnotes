@@ -54,6 +54,7 @@ class PreferencesAdvancedViewController: NSViewController {
             LanguageType(rawValue: 17)
         ]
 
+        languagePopUp.removeAllItems()
         for language in languages {
             if let lang = language?.description, let id = language?.rawValue {
                 languagePopUp.addItem(withTitle: lang)

@@ -51,8 +51,6 @@ class Storage {
         "etp" // Encrypted Text Pack
     ]
 
-    public var shouldMovePrompt = false
-
     private var trashURL = URL(string: String())
 
     private let lastNewsDate = "2026-01-10"
@@ -90,16 +88,10 @@ class Storage {
         let bookmarksManager = SandboxBookmark.sharedInstance()
         bookmarksManager.load()
 
-        let storageType = UserDefaultsManagement.storageType
         guard let url = getRoot() else { return }
 
         removeCachesIfCrashed()
 
-#if os(OSX)
-        if storageType == .local && UserDefaultsManagement.storageType == .iCloudDrive {
-            shouldMovePrompt = true
-        }
-#endif
 
         let name = getDefaultName(url: url)
         let project =
@@ -422,12 +414,14 @@ class Storage {
         
         for url in bookmarks {
             if url.pathExtension == "css" 
-                || projectExist(url: url)
-                || UserDefaultsManagement.gitStorage == url {
+                || projectExist(url: url) {
                 continue
             }
             
 
+            #if os(iOS)
+            if UserDefaultsManagement.gitStorage == url { continue }
+            #endif
             let project = Project(storage: self, url: url, isBookmark: true)
             insertProject(project: project)
         }
