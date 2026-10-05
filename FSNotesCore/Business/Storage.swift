@@ -34,6 +34,8 @@ class Storage {
             _noteList = newValue
         }
     }
+    var metadataStores = [String: MetadataStore]()
+    var metadataErrors = [String]()
     public var projects = [Project]()
     private var imageFolders = [URL]()
     public var tags = [String]()
@@ -112,6 +114,9 @@ class Storage {
 
         assignTrash(by: project.url)
         assignBookmarks()
+        for project in projects.filter({ $0.isDefault || $0.isBookmark }) {
+            openMetadataLibrary(for: project)
+        }
     }
 
     public func loadInboxAndTrash() {
@@ -127,6 +132,8 @@ class Storage {
                 _ = project.loadNotes()
             }
         }
+
+        for project in projects where project.metadataFolderID != nil || (project.metadataStore != nil && !project.isDefault && !project.isBookmark) { _ = project.loadNotes() }
 
         // Cached
         if let urls = getCachedTree() {
@@ -291,6 +298,9 @@ class Storage {
         projectsLock.lock()
         defer { projectsLock.unlock() }
 
+        if projects.contains(where: { $0.metadataUnavailable && url.path.hasPrefix($0.url.path + "/") }) { return nil }
+        if !bookmark && metadataStores.values.contains(where: { url.standardizedFileURL.path.hasPrefix($0.root.path + "/") }) { return nil }
+
         if projectExist(url: url)
             || url.lastPathComponent == "i"
             || url.lastPathComponent == "files"
@@ -308,6 +318,13 @@ class Storage {
         }
         
         let project = Project(storage: self, url: url, isBookmark: bookmark)
+        if bookmark {
+            insertProject(project: project)
+            openMetadataLibrary(for: project)
+            let inserted = [project] + projects.filter { project.metadataStore != nil && $0.metadataStore === project.metadataStore && $0.metadataFolderID != nil }
+            for item in inserted { _ = item.loadNotes(cacheOnly: cacheOnly) }
+            return inserted
+        }
         var insert = [project]
         
         let results = project.getProjectsFSAndMemoryDiff()
@@ -462,13 +479,20 @@ class Storage {
         let projects = getProjects()
         
         for project in projects {
-            pathList.append(NSString(string: project.url.path).expandingTildeInPath)
+            if project.metadataFolderID == nil {
+                pathList.append(NSString(string: project.url.path).expandingTildeInPath)
+            }
+            if let store = project.metadataStore, !pathList.contains(store.notesURL.path) { pathList.append(store.notesURL.path) }
         }
         
         return pathList
     }
     
     public func getProjectByNote(url: URL) -> Project? {
+        if let store = metadataStore(for: url) {
+            guard let entry = store.entry(at: url) else { return nil }
+            return project(for: entry, in: store)
+        }
         let projectURL = url.deletingLastPathComponent()
         
         return
@@ -480,14 +504,12 @@ class Storage {
     }
 
     public func getProjectBy(url: URL) -> Project? {
-        return
-            projects.first(where: {
-                return (
-                    $0.url == url
-                )
-            })
+        let standardized = url.standardizedFileURL
+        if let direct = projects.first(where: { $0.url.standardizedFileURL == standardized }) { return direct }
+        let resolved = standardized.resolvingSymlinksInPath()
+        return projects.first { $0.url.standardizedFileURL.resolvingSymlinksInPath() == resolved }
     }
-        
+
     public func sortNotes(noteList: [Note], operation: BlockOperation? = nil) -> [Note] {
         var noteList = noteList
         
@@ -595,6 +617,10 @@ class Storage {
         noteListLock.lock()
         defer { noteListLock.unlock() }
 
+        if let existing = _noteList.first(where: { $0.url.standardizedFileURL == note.url.standardizedFileURL }) {
+            existing.applyMetadata()
+            return
+        }
         if !_noteList.contains(where: { $0.name == note.name && $0.project == note.project }) {
            _noteList.append(note)
         } else {
@@ -684,7 +710,13 @@ class Storage {
     }
     
     func getBy(titleOrName: String) -> Note? {
-        return getBy(fileName: titleOrName) ?? getBy(title: titleOrName)
+        if UUID(uuidString: titleOrName) != nil, let note = noteList.first(where: { !$0.isTrash() && $0.url.deletingPathExtension().lastPathComponent.caseInsensitiveCompare(titleOrName) == .orderedSame }) { return note }
+        if let direct = getBy(fileName: titleOrName) ?? getBy(title: titleOrName) { return direct }
+        return noteList.first { note in
+            guard !note.isTrash(), let entry = note.metadataEntry else { return false }
+            return entry.aliases?.contains(where: { $0.caseInsensitiveCompare(titleOrName) == .orderedSame }) == true
+                || entry.legacyPath.map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent.caseInsensitiveCompare(titleOrName) == .orderedSame } == true
+        }
     }
     
     func getBy(startWith: String) -> [Note]? {
@@ -696,7 +728,7 @@ class Storage {
 
     func getByUrl(endsWith: String) -> Note? {
         for note in noteList {
-            if note.url.path.hasSuffix(endsWith) {
+            if note.url.path.hasSuffix(endsWith) || note.metadataEntry?.legacyPath?.hasSuffix(endsWith) == true {
                 return note
             }
         }
@@ -1047,6 +1079,30 @@ class Storage {
     }
 
     public func checkWelcome() {
+        if let root = getDefault(), root.metadataStore != nil {
+            guard UserDefaultsManagement.showWelcome else { return }
+            do {
+                #if os(OSX)
+                guard let bundle = Bundle.main.resourceURL?.appendingPathComponent("Welcome.bundle") else { return }
+                let project = try root.child.first(where: { $0.label == "Welcome" }) ?? createMetadataFolder(in: root, name: "Welcome")
+                guard let destination = project else { return }
+                let existing = try root.metadataStore!.allEntries().filter { $0.folderID == destination.metadataFolderID }
+                if existing.isEmpty {
+                    for file in try FileManager.default.contentsOfDirectory(at: bundle, includingPropertiesForKeys: nil) where file.pathExtension == "textbundle" {
+                        _ = try importMetadataFile(file, to: destination)
+                    }
+                }
+                welcomeProject = destination
+                welcomeNote = destination.getNotes().first { $0.fileName == "1. Introduction" }
+                #else
+                guard noteList.isEmpty, let source = Bundle.main.resourceURL?.appendingPathComponent("Meet FSNotes 7.textbundle") else { return }
+                _ = try importMetadataFile(source, to: root)
+                #endif
+                UserDefaultsManagement.showWelcome = false
+            } catch { NSLog("%@", error.localizedDescription) }
+            return
+        }
+        if getDefault()?.metadataUnavailable == true { return }
         #if os(OSX)
             guard let storageUrl = getDefault()?.url else { return }
             guard UserDefaultsManagement.showWelcome else { return }
@@ -1190,6 +1246,9 @@ class Storage {
     }
     
     private func getAllSubUrls(for rootUrl: URL) -> [URL] {
+        if let store = metadataStores[rootUrl.path] {
+            return projects.filter { $0.metadataStore === store && $0.metadataFolderID != nil }.map { $0.url }
+        }
         let trash = trashURL
         
         var projectURLs = [URL]()
@@ -1211,19 +1270,13 @@ class Storage {
         var insert = [Project]()
         var remove = [Project]()
         
-        if let defaultProject = getDefault() {
-            let defaultResults = defaultProject.getProjectsFSAndMemoryDiff()
-            remove.append(contentsOf: defaultResults.0)
-            insert.append(contentsOf: defaultResults.1)
-        }
-        
-        let externalProjects = projects.filter({ $0.isBookmark })
-        for project in externalProjects {
-            let results = project.getProjectsFSAndMemoryDiff()
+        let roots = projects.filter { $0.isDefault || $0.isBookmark || ($0.metadataStore != nil && $0.metadataFolderID == nil) }
+        for root in roots {
+            let results = root.getProjectsFSAndMemoryDiff()
             remove.append(contentsOf: results.0)
             insert.append(contentsOf: results.1)
         }
-        
+
         for insertItem in insert {
             insertProject(project: insertItem)
         }
@@ -1249,6 +1302,13 @@ class Storage {
     }
 
     public func importNote(url: URL) -> Note? {
+        if let root = projects.first(where: { $0.metadataStore != nil && $0.metadataFolderID == nil && $0.url.standardizedFileURL.resolvingSymlinksInPath() == url.deletingLastPathComponent().standardizedFileURL.resolvingSymlinksInPath() }), let store = root.metadataStore, url.deletingLastPathComponent() != store.notesURL {
+            do {
+                let destination = try importMetadataFile(url, to: root)
+                try FileManager.default.removeItem(at: url)
+                return getBy(url: destination)
+            } catch { NSLog("%@", error.localizedDescription); return nil }
+        }
         if !FileManager.default.fileExists(atPath: url.path) {
             return nil
         }
@@ -1309,6 +1369,7 @@ class Storage {
     }
 
     public func findParent(url: URL) -> Project? {
+        if let managed = getProjectBy(url: url), managed.metadataStore != nil { return managed.parent }
         let parentURL = url.deletingLastPathComponent()
 
         if let foundParent = projects.first(where: { $0.url == parentURL}) {
@@ -1431,21 +1492,44 @@ class Storage {
     }
 
     public func loadProjectRelations() {
+        var foldersByStore = [ObjectIdentifier: [String: MetadataStore.Folder]]()
+        for store in metadataStores.values {
+            if let folders = try? store.allFolders() {
+                foldersByStore[ObjectIdentifier(store)] = Dictionary(uniqueKeysWithValues: folders.map { ($0.id, $0) })
+            }
+        }
+        var projectsByPath = [String: Project]()
         for project in projects {
+            projectsByPath[project.url.standardizedFileURL.path] = project
+            if let store = project.metadataStore, project.metadataFolderID == nil { projectsByPath[store.root.path] = project }
+        }
+        for project in projects {
+            if let store = project.metadataStore, foldersByStore[ObjectIdentifier(store)] != nil { project.child.removeAll() }
+        }
+        for project in projects {
+            if let store = project.metadataStore {
+                guard let folders = foldersByStore[ObjectIdentifier(store)] else { continue }
+                if let id = project.metadataFolderID, let folder = folders[id] {
+                    project.parent = projectsByPath[(folder.parentID.map(store.folderURL) ?? store.root).path]
+                }
+                if let parent = project.parent, !parent.child.contains(where: { $0 === project }) { parent.child.append(project) }
+                continue
+            }
             if let parent = getProjectBy(url: project.url.deletingLastPathComponent()) {
                 if project.isTrash { continue }
-                
                 project.parent = parent
-                
-                if parent.child.filter({ $0.url == project.url }).count == 0 {
-                    parent.child.append(project)
-                }
-                
-                parent.child = parent.child.sorted(by: { $0.settings.priority < $1.settings.priority })
+                if !parent.child.contains(where: { $0.url == project.url }) { parent.child.append(project) }
+                parent.child.sort { $0.settings.priority < $1.settings.priority }
+            }
+        }
+        for project in projects where project.metadataStore != nil {
+            project.child.sort { first, second in
+                if first.settings.priority != second.settings.priority { return first.settings.priority < second.settings.priority }
+                return first.label.localizedStandardCompare(second.label) == .orderedAscending
             }
         }
     }
-    
+
     public func saveCachedTree() {
         guard let cacheDir = getCacheDir() else { return }
         
@@ -1585,9 +1669,11 @@ class Storage {
     
     public func addNote(url: URL) -> Note {
         let projectURL = url.deletingLastPathComponent()
-        var project: Project?
+        var project: Project? = getProjectByNote(url: url)
         
-        if let unwrappedProject = getProjectBy(url: projectURL) {
+        if let managed = project {
+            project = managed
+        } else if let unwrappedProject = getProjectBy(url: projectURL) {
             project = unwrappedProject
         } else {
             project = Project(storage: self, url: projectURL)

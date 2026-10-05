@@ -1221,7 +1221,9 @@ class EditorViewController: UIViewController,
 
         guard let note = note else { return }
 
-        if let note = Storage.instance?.getBy(title: query, exclude: note) {
+        if let target = Storage.instance?.getBy(titleOrName: query) {
+            fill(note: target)
+        } else if let note = Storage.instance?.getBy(title: query, exclude: note) {
             fill(note: note)
         } else if let note = Storage.instance?.getBy(fileName: query, exclude: note) {
             fill(note: note)

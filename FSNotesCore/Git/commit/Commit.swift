@@ -27,7 +27,9 @@ public class Commit : Object {
     
     /// Commit body
     lazy public var body : String = {
-        git_string_converter(git_commit_body(self.pointer.pointee))
+        // libgit2 returns nil when the message contains only a summary.
+        guard let body = git_commit_body(self.pointer.pointee) else { return "" }
+        return git_string_converter(body)
     } ()
     
     /// Commit author

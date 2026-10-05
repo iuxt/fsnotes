@@ -114,6 +114,13 @@ public class Note: NSObject  {
         super.init()
 
         self.parseURL()
+        if let store = project.metadataStore {
+            do {
+                let displayName = name.isEmpty && [.date, .altDate].contains(UserDefaultsManagement.naming) ? UserDefaultsManagement.naming.getName() : name
+                _ = try store.register(id: url.deletingPathExtension().lastPathComponent, name: displayName, folderID: project.metadataFolderID, ext: ext)
+                applyMetadata()
+            } catch { NSLog("%@", error.localizedDescription) }
+        }
     }
 
     init(meta: NoteMeta, project: Project) {
@@ -279,6 +286,7 @@ public class Note: NSObject  {
 
 
     public func uiLoad() {
+        if metadataStore != nil { load(tags: true); return }
         if let size = fileSize(atPath: self.url.path), size > 100000 {
             loadFileName()
             
@@ -436,7 +444,42 @@ public class Note: NSObject  {
     }
     
     func move(to: URL, project: Project? = nil, forceRewrite: Bool = false) -> Bool {
+        if metadataStore != nil {
+            let destination = project ?? self.project.storage.getProjectBy(url: to.deletingLastPathComponent())
+            if let destination = destination {
+                if destination.isTrash {
+                    _ = removeMetadataFile(completely: false)
+                    return metadataEntry?.trashed == true
+                }
+                do {
+                    if try moveMetadata(to: destination) { return true }
+                    // A move between repositories retains the UUID; Git histories remain in their repositories.
+                    if destination.metadataStore != nil {
+                        let oldStore = metadataStore
+                        let oldID = metadataEntry?.id
+                        let moved = try self.project.storage.importMetadataFile(url, to: destination, name: fileName, id: oldID)
+                        try FileManager.default.removeItem(at: url)
+                        if let id = oldID { try oldStore?.delete(id: id) }
+                        if let duplicate = self.project.storage.getBy(url: moved), duplicate !== self { self.project.storage.removeBy(note: duplicate) }
+                        overwrite(url: moved)
+                        forceLoad()
+                        return true
+                    }
+                } catch { NSLog("%@", error.localizedDescription) }
+            }
+            return false
+        }
         let sharedStorage = Storage.shared()
+        if let destination = project ?? sharedStorage.getProjectBy(url: to.deletingLastPathComponent()), destination.metadataStore != nil {
+            do {
+                let imported = try sharedStorage.importMetadataFile(url, to: destination, name: fileName)
+                try FileManager.default.removeItem(at: url)
+                if let duplicate = sharedStorage.getBy(url: imported), duplicate !== self { sharedStorage.removeBy(note: duplicate) }
+                overwrite(url: imported)
+                forceLoad()
+                return true
+            } catch { NSLog("%@", error.localizedDescription); return false }
+        }
 
         do {
             var destination = to
@@ -515,6 +558,7 @@ public class Note: NSObject  {
     #if os(iOS)
     // Return URL moved in
     func removeFile(completely: Bool = false) -> Array<URL>? {
+        if metadataStore != nil { return removeMetadataFile(completely: completely) }
         if FileManager.default.fileExists(atPath: url.path) {
             if isTrash() || completely || isEmpty() {
                 try? FileManager.default.removeItem(at: url)
@@ -572,6 +616,7 @@ public class Note: NSObject  {
 
     #if os(OSX)
     func removeFile(completely: Bool = false) -> Array<URL>? {
+        if metadataStore != nil { return removeMetadataFile(completely: completely) }
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
 
         if isTrash() || completely {
@@ -634,7 +679,7 @@ public class Note: NSObject  {
 
     public func move(from imageURL: URL, imagePath: String, to project: Project, copy: Bool = false) {
         let dstPrefix = getAttachPrefix(url: imageURL)
-        let dest = project.url.appendingPathComponent(dstPrefix, isDirectory: true)
+        let dest = project.noteStorageURL.appendingPathComponent(dstPrefix, isDirectory: true)
 
         if !FileManager.default.fileExists(atPath: dest.path) {
             try? FileManager.default.createDirectory(at: dest, withIntermediateDirectories: false, attributes: nil)
@@ -679,6 +724,7 @@ public class Note: NSObject  {
     }
 
     public func moveImages(to project: Project) {
+        if metadataStore != nil && project.metadataStore != nil { return }
         if type == .Markdown && container == .none {
             let imagesMeta = content.getImagesAndFiles()
             for imageMeta in imagesMeta {
@@ -957,9 +1003,11 @@ public class Note: NSObject  {
         if loadProject {
             self.loadProject()
         }
+        applyMetadata()
     }
 
     private func loadTitle() {
+        if let entry = metadataEntry { title = entry.name; return }
         if !project.settings.isFirstLineAsTitle() {
             title = url
                 .deletingPathExtension()
@@ -971,6 +1019,7 @@ public class Note: NSObject  {
     }
 
     private func loadFileName() {
+        if let entry = metadataEntry { fileName = entry.name; return }
         fileName = url.deletingPathExtension().lastPathComponent
             .replacingOccurrences(of: ":", with: "")
             .replacingOccurrences(of: "/", with: "")
@@ -1046,6 +1095,7 @@ public class Note: NSObject  {
         writeLock.lock()
         defer { writeLock.unlock() }
 
+        if project.metadataUnavailable || (project.metadataStore != nil && metadataEntry == nil) { return false }
         let url = getURL()
         let attributes = getFileAttributes()
         
@@ -1238,6 +1288,7 @@ public class Note: NSObject  {
     }
         
     func getTitleWithoutLabel() -> String {
+        if let entry = metadataEntry { return entry.name }
         let title = url.deletingPathExtension().pathComponents.last!
             .replacingOccurrences(of: ":", with: "")
             .replacingOccurrences(of: "/", with: "")
@@ -1254,7 +1305,7 @@ public class Note: NSObject  {
     }
     
     public func contains<S: StringProtocol>(terms: [S]) -> Bool {
-        return name.localizedStandardContains(terms) || content.string.localizedStandardContains(terms)
+        return fileName.localizedStandardContains(terms) || content.string.localizedStandardContains(terms)
     }
 
     public func loadTags() {
@@ -1412,6 +1463,15 @@ public class Note: NSObject  {
     #endif
 
     public func loadPreviewInfo() {
+        if let entry = metadataEntry {
+            title = entry.name
+            fileName = entry.name
+            if isLoadedFromCache && !isLoaded && isParsed { return }
+            preview = getPreviewLabel()
+            imageUrl = getImagesFromContent()
+            isParsed = true
+            return
+        }
         guard !isParsed || title.isEmpty && (imageUrl?.isEmpty ?? true) else { return }
         
         defer {
@@ -1560,7 +1620,7 @@ public class Note: NSObject  {
             
             let fileName = "text.\(ext)"
 
-            let uniqueURL = NameHelper.getUniqueFileName(name: name, project: project, ext: flatExtension)
+            let uniqueURL = metadataStore != nil ? url.deletingPathExtension().appendingPathExtension(flatExtension) : NameHelper.getUniqueFileName(name: name, project: project, ext: flatExtension)
             let flatURL = url.appendingPathComponent(fileName)
 
             url = uniqueURL
@@ -1568,6 +1628,7 @@ public class Note: NSObject  {
             container = .none
 
             try? FileManager.default.moveItem(at: flatURL, to: uniqueURL)
+            try? metadataStore?.changeExtension(id: uniqueURL.deletingPathExtension().lastPathComponent, to: flatExtension)
 
             moveFilesAssetsToFlat(src: textBundleURL, project: project)
 
@@ -1618,11 +1679,11 @@ public class Note: NSObject  {
                 prefix = "i/"
             }
 
-            dst = project.url.appendingPathComponent(prefix + fileName)
+            dst = project.noteStorageURL.appendingPathComponent(prefix + fileName)
 
             guard let moveTo = dst else { continue }
 
-            let dstDir = project.url.appendingPathComponent(prefix)
+            let dstDir = project.noteStorageURL.appendingPathComponent(prefix)
             let moveFrom = src.appendingPathComponent("assets/" + fileName)
 
             do {
@@ -1762,7 +1823,7 @@ public class Note: NSObject  {
             let textPackURL = getTempTextPackURL()
             try decryptedData.write(to: textPackURL)
 
-            let newURL = project.url.appendingPathComponent(name + ".textbundle", isDirectory: false)
+            let newURL = project.noteStorageURL.appendingPathComponent(name + ".textbundle", isDirectory: false)
             url = newURL
             container = .textBundleV2
 
@@ -1777,6 +1838,7 @@ public class Note: NSObject  {
             try FileManager.default.removeItem(at: textPackURL)
             try FileManager.default.removeItem(at: originalSrc)
 
+            try metadataStore?.changeExtension(id: name, to: "textbundle")
             self.decryptedTemporarySrc = nil
             self.password = nil
 
@@ -1800,7 +1862,7 @@ public class Note: NSObject  {
 
         do {
             let name = url.deletingPathExtension().lastPathComponent
-            let newURL = project.url.appendingPathComponent(name).appendingPathExtension("textbundle")
+            let newURL = project.noteStorageURL.appendingPathComponent(name).appendingPathExtension("textbundle")
 
             url = newURL
             container = .textBundleV2
@@ -1808,6 +1870,7 @@ public class Note: NSObject  {
             try FileManager.default.removeItem(at: originalSrc)
             try FileManager.default.moveItem(at: decSrcUrl, to: newURL)
 
+            try metadataStore?.changeExtension(id: name, to: "textbundle")
             self.decryptedTemporarySrc = nil
 
             load()
@@ -1848,7 +1911,7 @@ public class Note: NSObject  {
             }
 
             let encryptedURL = 
-                self.project.url
+                self.project.noteStorageURL
                 .appendingPathComponent(fileName)
                 .appendingPathExtension("etp")
 
@@ -1860,6 +1923,7 @@ public class Note: NSObject  {
             parseURL()
 
             try encrypted.write(to: encryptedURL)
+            try metadataStore?.changeExtension(id: fileName, to: "etp")
 
             try FileManager.default.removeItem(at: originalSrc)
             try FileManager.default.removeItem(at: textPackURL)
@@ -1993,6 +2057,10 @@ public class Note: NSObject  {
     }
 
     public func rename(to name: String) {
+        if metadataStore != nil {
+            do { try renameMetadata(to: name) } catch { NSLog("%@", error.localizedDescription) }
+            return
+        }
         var name = name
         var i = 1
 
@@ -2096,12 +2164,13 @@ public class Note: NSObject  {
             let tempUrl = convertFlatToTextBundle()
             
             let name = url.deletingPathExtension().lastPathComponent
-            let uniqueURL = NameHelper.getUniqueFileName(name: name, project: project, ext: "textbundle")
+            let uniqueURL = metadataStore != nil ? url.deletingPathExtension().appendingPathExtension("textbundle") : NameHelper.getUniqueFileName(name: name, project: project, ext: "textbundle")
 
             do {
                 let oldUrl = url
                 url = uniqueURL
                 try FileManager.default.moveItem(at: tempUrl, to: uniqueURL)
+                try metadataStore?.changeExtension(id: name, to: "textbundle")
                 try FileManager.default.removeItem(at: oldUrl)
             } catch {/*_*/}
         } else {
@@ -2116,6 +2185,12 @@ public class Note: NSObject  {
     }
 
     public func getAutoRenameTitle() -> String? {
+        if metadataStore != nil {
+            guard [.autoRename, .autoRenameNew].contains(UserDefaultsManagement.naming), !isEncrypted() else { return nil }
+            if UserDefaultsManagement.naming == .autoRenameNew && isOlderThan30Seconds(from: creationDate) { return nil }
+            let proposed = (content.string.hasPrefix("---") ? loadYaml(components: content.string.components(separatedBy: .newlines))?.0 : getNonEmptyLines().first)?.trim().trunc(length: 64) ?? ""
+            return proposed.isEmpty || proposed == fileName ? nil : proposed
+        }
         if UserDefaultsManagement.naming != .autoRename && UserDefaultsManagement.naming != .autoRenameNew {
             return nil
         }
@@ -2158,6 +2233,7 @@ public class Note: NSObject  {
     }
 
     public func getRelatedPath() -> String {
+        if let store = metadataStore { return store.root.path.md5 + "/" + url.deletingPathExtension().lastPathComponent }
         return project.getNestedPath() + "/" + name
     }
     

@@ -1,6 +1,126 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Search versions": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索历史版本"
+          }
+        }
+      }
+    },
+    "Open Commit…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开指定 Commit…"
+          }
+        }
+      }
+    },
+    "Show differences": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示差异"
+          }
+        }
+      }
+    },
+    "Compare with the current note": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "与当前笔记比较"
+          }
+        }
+      }
+    },
+    "Copy version": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制"
+          }
+        }
+      }
+    },
+    "Restore this version": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复此版本"
+          }
+        }
+      }
+    },
+    "Version content": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本内容"
+          }
+        }
+      }
+    },
+    "%d versions": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d 个版本"
+          }
+        }
+      }
+    },
+    "No matching versions": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有匹配的版本"
+          }
+        }
+      }
+    },
+    "Loading version…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在加载版本…"
+          }
+        }
+      }
+    },
+    "Unable to decode this version": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取此版本的文字内容"
+          }
+        }
+      }
+    },
+    "Saved version → current note · + added · − removed": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "历史版本 → 当前笔记 · + 新增 · − 删除"
+          }
+        }
+      }
+    },
     "Restore from Commit…" : {
       "localizations" : {
         "zh-Hans" : {

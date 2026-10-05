@@ -182,6 +182,7 @@ extension Repository {
 
         // Create tree
         let blob : UnsafeMutablePointer<OpaquePointer?> = UnsafeMutablePointer<OpaquePointer?>.allocate(capacity: 1)
+        blob.initialize(to: nil)
 
         var oid = blob_id.oid
         let error = git_blob_lookup(blob, pointer.pointee, &oid)

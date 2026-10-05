@@ -35,10 +35,11 @@ extension Note {
     }
 
     public func hasGitRepository() -> Bool {
-        return project.getGitProject() != nil
+        return getGitProject() != nil
     }
 
     public func getGitProject() -> Project? {
+        if let store = metadataStore { return project.storage.getProjectBy(url: store.root)?.getGitProject() }
         return project.getGitProject()
     }
 
@@ -128,7 +129,16 @@ extension Note {
 
     public func gitHistory() throws -> [Commit] {
         guard let project = getGitProject() else { return [] }
-        return try project.getRepository().fileHistory(path: getGitPath(history: true))
+        let repository = try project.getRepository()
+        let currentPath = getGitPath(history: true)
+        var commits = try repository.fileHistory(path: currentPath)
+        if let legacy = legacyGitPath() {
+            let older = try repository.fileHistory(path: legacy)
+            for commit in older where try commit.tree().entry(byPath: currentPath) == nil {
+                if !commits.contains(where: { $0.oid.sha() == commit.oid.sha() }) { commits.append(commit) }
+            }
+        }
+        return commits.sorted { $0.date > $1.date }
     }
 
     public func restoreGitCommit(_ commit: Commit) throws {
@@ -137,7 +147,50 @@ extension Note {
         }
         let repository = try project.getRepository()
         let commit = try repository.commitLookup(oid: commit.oid)
-        try repository.checkout(commit: commit, path: getGitPath(history: true))
+        let current = getGitPath(history: true)
+        if try commit.tree().entry(byPath: current) != nil {
+            try repository.checkout(commit: commit, path: current)
+        } else if let legacy = legacyGitPath(), let store = metadataStore {
+            let data = try repository.fileContent(commit: commit, path: legacy)
+            let destination = getContentFileURL() ?? url
+            let values = try destination.resourceValues(forKeys: [.isSymbolicLinkKey])
+            guard values.isSymbolicLink != true else { throw MetadataStore.Failure.invalid("cannot restore through a symbolic link") }
+            var restored = data
+            if let text = String(data: data, encoding: .utf8) {
+                let source = project.url.appendingPathComponent(legacy)
+                var mapping = [String: URL]()
+                for entry in try store.allEntries() {
+                    if let old = entry.legacyPath { mapping[store.root.appendingPathComponent(old).standardizedFileURL.path] = store.fileURL(entry) }
+                }
+                restored = Data(MetadataStore.relocateLinks(text, source: source, destination: destination, notes: mapping).utf8)
+            }
+            try restored.write(to: destination, options: .atomic)
+        } else {
+            throw GitError.notFound(ref: current)
+        }
+    }
+
+    public func gitContent(at commit: Commit) throws -> Data {
+        guard let project = getGitProject(), getGitPathPrefix() != nil else {
+            throw GitError.notFound(ref: name)
+        }
+        let repository = try project.getRepository()
+        let commit = try repository.commitLookup(oid: commit.oid)
+        let current = getGitPath(history: true)
+        if try commit.tree().entry(byPath: current) != nil { return try repository.fileContent(commit: commit, path: current) }
+        if let legacy = legacyGitPath() { return try repository.fileContent(commit: commit, path: legacy) }
+        throw GitError.notFound(ref: current)
+    }
+
+    private func legacyGitPath() -> String? {
+        guard let store = metadataStore, let entry = store.entry(at: url), let legacy = entry.legacyPath,
+              let gitRoot = getGitProject()?.url.standardizedFileURL else { return nil }
+        let source = store.root.appendingPathComponent(legacy).standardizedFileURL
+        let prefix = gitRoot.path + "/"
+        guard source.path.hasPrefix(prefix) else { return nil }
+        var path = String(source.path.dropFirst(prefix.count))
+        if source.pathExtension == "textbundle", let content = getContentFileURL() { path += "/" + content.lastPathComponent }
+        return path
     }
 
     public func checkout(commit: Commit) {

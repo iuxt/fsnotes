@@ -8,12 +8,6 @@
 
 import Cocoa
 
-/// Bind history actions to the note whose menu was opened, even if selection changes.
-private struct GitRevisionSelection {
-    let note: Note
-    let commit: Commit
-}
-
 private var gitRestoringNotes = Set<ObjectIdentifier>()
 
 extension EditorViewController {
@@ -93,80 +87,21 @@ extension EditorViewController {
         })
     }
 
-    @IBAction func checkoutRevision(_ sender: NSMenuItem) {
-        guard let selection = sender.representedObject as? GitRevisionSelection else { return }
-        confirmGitRestore(note: selection.note, commit: selection.commit)
+    @objc func showNoteHistory(_ sender: NSMenuItem) {
+        guard let note = sender.representedObject as? Note else { return }
+        openHistory(for: note)
     }
 
-    func loadGitHistoryMenu(for note: Note, into menu: NSMenu) {
-        menu.removeAllItems()
-        let restore = NSMenuItem(title: NSLocalizedString("Restore from Commit…", comment: "Git history"),
-                                 action: #selector(restoreFromCommit(_:)), keyEquivalent: "")
-        restore.target = self
-        restore.representedObject = note
-        menu.addItem(restore)
-        menu.addItem(.separator())
-        let loading = NSMenuItem(title: NSLocalizedString("Loading history…", comment: "Git history"), action: nil, keyEquivalent: "")
-        menu.addItem(loading)
-
-        ViewController.gitQueue.addOperation {
-            do {
-                let commits = try note.gitHistory()
-                DispatchQueue.main.async {
-                    guard menu.items.contains(loading) else { return }
-                    menu.removeItem(loading)
-                    if commits.isEmpty {
-                        menu.addItem(NSMenuItem(title: NSLocalizedString("No saved revisions", comment: "Git history"), action: nil, keyEquivalent: ""))
-                    }
-                    for commit in commits {
-                        let sha = String((commit.oid.sha() ?? "").prefix(8))
-                        let item = NSMenuItem(title: "\(commit.getDate()) · \(sha) · \(commit.summary)",
-                                              action: #selector(self.checkoutRevision(_:)), keyEquivalent: "")
-                        item.target = self
-                        item.representedObject = GitRevisionSelection(note: note, commit: commit)
-                        item.toolTip = "\(commit.oid.sha() ?? "")\n\(commit.author.name)\n\(commit.summary)\n\(commit.body)"
-                        menu.addItem(item)
-                    }
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    guard menu.items.contains(loading) else { return }
-                    loading.title = NSLocalizedString("Unable to load history", comment: "Git history")
-                    loading.toolTip = (error as? GitError)?.associatedValue() ?? error.localizedDescription
-                }
-            }
+    func openHistory(for note: Note) {
+        guard note.hasGitRepository(), !note.isEncrypted() else { return }
+        NoteHistoryWindowController.open(note: note) { commit, window, completion in
+            self.confirmGitRestore(note: note, commit: commit, in: window, completion: completion)
         }
     }
 
-    @IBAction private func restoreFromCommit(_ sender: NSMenuItem) {
-        guard let note = sender.representedObject as? Note, let window = view.window else { return }
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 380, height: 24))
-        field.placeholderString = NSLocalizedString("Full or abbreviated commit ID", comment: "Git history")
-        let alert = NSAlert()
-        alert.messageText = NSLocalizedString("Restore from Commit…", comment: "Git history")
-        alert.informativeText = note.name
-        alert.accessoryView = field
-        alert.addButton(withTitle: NSLocalizedString("Continue", comment: "Git history"))
-        alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
-        alert.beginSheetModal(for: window) { response in
-            guard response == .alertFirstButtonReturn else { return }
-            let sha = field.stringValue
-            ViewController.gitQueue.addOperation {
-                do {
-                    guard let project = note.getGitProject() else { throw GitError.notFound(ref: note.name) }
-                    let commit = try project.getRepository().commitLookup(sha: sha)
-                    DispatchQueue.main.async { self.confirmGitRestore(note: note, commit: commit) }
-                } catch {
-                    DispatchQueue.main.async { self.showGitHistoryError(error) }
-                }
-            }
-        }
-        window.makeFirstResponder(field)
-    }
-
-    private func confirmGitRestore(note: Note, commit: Commit) {
+    private func confirmGitRestore(note: Note, commit: Commit, in window: NSWindow, completion: @escaping (Bool) -> Void) {
         let identity = ObjectIdentifier(note)
-        guard let window = view.window, !gitRestoringNotes.contains(identity) else { return }
+        guard !gitRestoringNotes.contains(identity) else { completion(false); return }
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = String(format: NSLocalizedString("Restore “%@”?", comment: "Git history"), note.name)
@@ -175,7 +110,7 @@ extension EditorViewController {
         alert.addButton(withTitle: NSLocalizedString("Restore", comment: "Git history"))
         alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
         alert.beginSheetModal(for: window) { response in
-            guard response == .alertFirstButtonReturn, !gitRestoringNotes.contains(identity) else { return }
+            guard response == .alertFirstButtonReturn, !gitRestoringNotes.contains(identity) else { completion(false); return }
             gitRestoringNotes.insert(identity)
             ViewController.shared()?.tagsScannerQueue.removeAll { $0 === note }
             let editors = AppDelegate.getEditTextViews().filter { $0.note == note }
@@ -208,21 +143,22 @@ extension EditorViewController {
                         gitRestoringNotes.remove(identity)
                         self.reloadAllOpenedWindows(note: note)
                         ViewController.shared()?.notesTableView.reloadRow(note: note)
+                        completion(true)
                     }
                 } catch {
                     DispatchQueue.main.async {
                         for (editor, editable) in zip(editors, editability) { editor.isEditable = editable }
                         note.isBlocked = false
                         gitRestoringNotes.remove(identity)
-                        self.showGitHistoryError(error)
+                        self.showGitHistoryError(error, in: window)
+                        completion(false)
                     }
                 }
             }
         }
     }
 
-    private func showGitHistoryError(_ error: Error) {
-        guard let window = view.window else { return }
+    private func showGitHistoryError(_ error: Error, in window: NSWindow) {
         let alert = NSAlert()
         alert.alertStyle = .critical
         alert.messageText = NSLocalizedString("Git error", comment: "")

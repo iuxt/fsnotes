@@ -12,6 +12,9 @@ import CoreServices
 public class Project: NSObject {
     var storage: Storage
 
+    var metadataUnavailable = false
+    var metadataStore: MetadataStore?
+    var metadataFolderID: String?
     var url: URL
 
     public var label: String
@@ -269,6 +272,8 @@ public class Project: NSObject {
 
     public func fetchNotes() -> [Note] {
         var notes = [Note]()
+        if metadataStore != nil { return metadataNotes() }
+        if isTrash { notes.append(contentsOf: metadataNotes()) }
         let documents = fetchAllDocuments(at: url)
 
         for document in documents {
@@ -295,7 +300,17 @@ public class Project: NSObject {
     public func loadNotes(cacheOnly: Bool = false) -> [Note] {
         var notes = [Note]()
 
-        if let metas = loadCache() {
+        if metadataStore != nil || isTrash {
+            notes = fetchNotes()
+            if let cached = loadCache() {
+                let byURL = Dictionary(cached.map { ($0.url.standardizedFileURL.path, $0) }, uniquingKeysWith: { first, _ in first })
+                notes = notes.map { note in
+                    guard let meta = byURL[note.url.standardizedFileURL.path], meta.modificationDate == note.getFileModifiedDate() else { return note }
+                    return Note(meta: meta, project: self)
+                }
+                isNeededCacheValidation = true
+            }
+        } else if let metas = loadCache() {
             for noteMeta in metas {
                 let note = Note(meta: noteMeta, project: self)
                 notes.append(note)
@@ -358,12 +373,18 @@ public class Project: NSObject {
     }
 
     func fileExist(fileName: String, ext: String) -> Bool {        
+        if let store = metadataStore {
+            return (try? store.allEntries().contains { !$0.trashed && $0.folderID == metadataFolderID && $0.name.caseInsensitiveCompare(fileName) == .orderedSame }) ?? false
+        }
         let fileURL = url.appendingPathComponent(fileName + "." + ext)
 
         return FileManager.default.fileExists(atPath: fileURL.path)
     }
 
     func fileExistCaseInsensitive(fileName: String, ext: String) -> Bool {
+        if let store = metadataStore {
+            return (try? store.allEntries().contains { !$0.trashed && $0.folderID == metadataFolderID && $0.name.caseInsensitiveCompare(fileName) == .orderedSame }) ?? false
+        }
         let fileURL = url.appendingPathComponent(fileName + "." + ext)
 
         if let note = storage.getBy(url: fileURL) {
@@ -544,6 +565,13 @@ public class Project: NSObject {
     }
 
     public func checkFSAndMemoryDiff() -> ([Note], [Note], [Note]) {
+        do {
+            if isTrash { for store in storage.metadataStores.values { try store.refresh(force: false) } }
+            else { try metadataStore?.refresh(force: false) }
+        } catch {
+            NSLog("%@", error.localizedDescription)
+            return ([], [], [])
+        }
         var foundRemoved = [Note]()
         var foundAdded = [Note]()
         var foundChanged = [Note]()
@@ -623,6 +651,7 @@ public class Project: NSObject {
     }
     
     public func getChildProjectsByURL() -> [Project] {
+        if metadataStore != nil { return getChildProjects() ?? [] }
         return storage
             .projects
             .filter({ $0.url.path.startsWith(string: url.path) && $0.url.path != url.path })
@@ -775,6 +804,7 @@ public class Project: NSObject {
     }
     
     public func getProjectsFSAndMemoryDiff() -> ([Project], [Project]) {
+        if metadataStore != nil { return metadataProjectDiff() }
         var foundRemoved = [Project]()
         var foundAdded = [Project]()
 

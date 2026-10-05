@@ -289,6 +289,19 @@ class SidebarOutlineView: NSOutlineView,
             var isDirectory = ObjCBool(true)
             if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue && !url.path.contains(".textbundle") {
 
+                if project.metadataStore != nil {
+                    do {
+                        if let imported = try self.storage.importMetadataDirectory(url, to: project) {
+                            self.reloadSidebar()
+                            self.focus(on: imported)
+                        }
+                    } catch {
+                        let alert = NSAlert()
+                        alert.messageText = error.localizedDescription
+                        alert.runModal()
+                    }
+                    continue
+                }
                 let dirName = url.lastPathComponent
                 let dirDst = project.url.appendingPathComponent(dirName)
 
@@ -649,7 +662,7 @@ class SidebarOutlineView: NSOutlineView,
         
         guard let projects = getSelectedProjects() else { return }
 
-        let urls = projects.map { $0.url }
+        let urls = projects.map { $0.metadataStore?.root ?? $0.url }
         
         if urls.count > 0 {
             NSWorkspace.shared.activateFileViewerSelecting(urls)
@@ -786,8 +799,14 @@ class SidebarOutlineView: NSOutlineView,
                             }
                         }
                         
-                        self.removeRows(projects: [project])
-                        try FileManager.default.removeItem(at: project.url)
+                        if project.metadataFolderID != nil {
+                            try self.storage.deleteMetadataFolder(project)
+                            self.reloadSidebar()
+                            vc.updateTable()
+                        } else {
+                            self.removeRows(projects: [project])
+                            try FileManager.default.removeItem(at: project.url)
+                        }
                         
                         self.storage.cleanCachedTree(url: project.url)
                     } catch {
@@ -1964,6 +1983,10 @@ class SidebarOutlineView: NSOutlineView,
     public func getOrCreateProject(name: String) -> Project? {
         guard let project = Storage.shared().getDefault() else { return nil }
         
+        if project.metadataStore != nil, let existing = project.child.first(where: { $0.label == name }) {
+            self.focus(on: existing)
+            return existing
+        }
         let url = project.url.appendingPathComponent(name, isDirectory: true)
         if let exist = Storage.shared().getProjectBy(url: url) {
             DispatchQueue.main.async {
@@ -1982,6 +2005,12 @@ class SidebarOutlineView: NSOutlineView,
         var insertedProject: Project?
         
         do {
+            if let inserted = try storage.createMetadataFolder(in: project, name: name) {
+                vc.fsManager?.reloadObservedFolders()
+                self.insertRows(projects: [inserted])
+                self.focus(on: inserted)
+                return inserted
+            }
             let projectURL = project.url.appendingPathComponent(name, isDirectory: true)
             try FileManager.default.createDirectory(at: projectURL, withIntermediateDirectories: false, attributes: nil)
             

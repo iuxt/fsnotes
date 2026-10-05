@@ -272,7 +272,7 @@ public extension String {
         }
         
         if let note = note, normalizedPath.hasPrefix("./") {
-            normalizedPath = note.project.url.path + normalizedPath.dropFirst()
+            normalizedPath = note.getURL().deletingLastPathComponent().path + normalizedPath.dropFirst()
             return URL(fileURLWithPath: normalizedPath)
         }
         

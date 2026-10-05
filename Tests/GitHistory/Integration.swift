@@ -72,9 +72,16 @@ private final class Fixture {
         for path in [target, unicode, bundle, "nested/a.md", "other.md", "note.textbundle/assets/image.txt"] {
             try fixture.write(path, "initial \(path)")
         }
+        try fixture.write("empty.md", "")
         let first = try fixture.commit("Initial")
+        let initialCommit = try repository.commitLookup(sha: first)
+        try expect(initialCommit.summary == "Initial", "Subject-only commit summary")
+        try expect(initialCommit.body.isEmpty, "Subject-only commits must have an empty body without crashing")
         for path in [target, unicode, bundle] { try fixture.write(path, "second \(path)") }
-        let second = try fixture.commit("Change notes")
+        let second = try fixture.commit("Change notes\n\n正文 📝\nSecond paragraph.")
+        let detailedCommit = try repository.commitLookup(sha: second)
+        try expect(detailedCommit.summary == "Change notes", "Commit summary must exclude the body")
+        try expect(detailedCommit.body == "正文 📝\nSecond paragraph.", "Commit body must preserve Unicode and line breaks")
         try fixture.write("other.md", "unrelated commit")
         try fixture.commit("Unrelated")
         for path in [target, unicode, bundle] {
@@ -101,6 +108,18 @@ private final class Fixture {
         let indexURL = fixture.url.appendingPathComponent(".git/index")
         let indexBefore = try Data(contentsOf: indexURL)
         let headBefore = try fixture.git(["rev-parse", "HEAD"])
+        // Browsing saved versions must never check them out or flush current edits.
+        for path in [target, unicode, bundle] {
+            let data = try repository.fileContent(commit: commit, path: path)
+            try expect(String(data: data, encoding: .utf8) == "initial \(path)", "Preview must read the saved blob")
+        }
+        try expect(try repository.fileContent(commit: commit, path: "empty.md").isEmpty, "Empty files must be previewable")
+        try expect(try fixture.read(target) == "unsaved target", "Preview must preserve working edits")
+        try expect(try Data(contentsOf: indexURL) == indexBefore, "Preview must preserve the index")
+        try expect(try fixture.git(["rev-parse", "HEAD"]) == headBefore, "Preview must preserve HEAD")
+        for path in ["missing.md", "nested", "../other.md", "/other.md", ""] {
+            try expectFailure("Unsafe or missing preview path must fail") { _ = try repository.fileContent(commit: commit, path: path) }
+        }
         for path in [target, unicode, bundle] { try repository.checkout(commit: commit, path: path) }
         try expect(try fixture.read(target) == "initial \(target)", "Target restored")
         try expect(try fixture.read(unicode) == "initial \(unicode)", "Unicode path restored")
@@ -130,6 +149,7 @@ private final class Fixture {
         try "gitdir: \(externalGit.path)\n".write(to: fixture.url.appendingPathComponent(".git"), atomically: true, encoding: .utf8)
         try fixture.git(["config", "core.worktree", fixture.url.path])
         let externalRepository = try fixture.open(externalGit)
+        try expect(String(data: externalRepository.fileContent(commit: externalRepository.commitLookup(sha: first), path: target), encoding: .utf8) == "initial \(target)", "Separated repository preview")
         try externalRepository.checkout(commit: externalRepository.commitLookup(sha: first), path: target)
         try expect(try fixture.read(target) == "initial \(target)", "Separated repository restore")
 
@@ -149,10 +169,25 @@ private final class Fixture {
         try expect(mergeHistory.compactMap { $0.oid.sha() } == [merge, feature, branchRoot], "History must compare real parents, including merged branches")
         try FileManager.default.createSymbolicLink(atPath: branches.url.appendingPathComponent("link.md").path, withDestinationPath: "note.md")
         let linkCommit = try branches.commit("Symbolic link")
+        try expectFailure("Symbolic links must not preview another file") {
+            _ = try branchRepository.fileContent(commit: branchRepository.commitLookup(sha: linkCommit), path: "link.md")
+        }
         try expectFailure("Symbolic links must not restore another file") {
             try branchRepository.checkout(commit: branchRepository.commitLookup(sha: linkCommit), path: "link.md")
         }
         try expect(try branches.read("note.md") == "feature", "Rejected symlink leaves its target intact")
-        print("PASS: history, initial commit, unrelated changes, SHA lookup, literal/Unicode paths, single-file restore, unchanged index/HEAD, failed restore, deletion/recreation, separated repository, merges, symlinks")
+        for (saved, current) in [("", ""), ("", "新增 📝"), ("deleted", ""), ("same\n", "same\n"),
+                                 ("a\nb\nc", "a\nnew\nc"), ("a\na\nb\n", "a\nb\na"),
+                                 ("old\nmiddle\nend", "first\nmiddle\nlast")] {
+            let lines = HistoryDiff.lines(from: saved, to: current)
+            try expect(lines.filter { $0.kind != .added }.map { $0.text }.joined(separator: "\n") == saved,
+                       "Diff must preserve every saved line, including duplicates and trailing newlines")
+            try expect(lines.filter { $0.kind != .removed }.map { $0.text }.joined(separator: "\n") == current,
+                       "Diff must represent every current line")
+        }
+        let replacement = HistoryDiff.lines(from: "old", to: "new")
+        try expect(replacement.count == 2 && replacement[0].kind == .removed && replacement[1].kind == .added,
+                   "Diff direction must be saved version to current note")
+        print("PASS: read-only and empty previews, line differences, commit messages, history, initial commit, unrelated changes, SHA lookup, literal/Unicode paths, single-file restore, unchanged index/HEAD, failed restore, deletion/recreation, separated repository, merges, symlinks")
     }
 }

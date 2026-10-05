@@ -134,7 +134,16 @@ public class Repository {
         }
     }
     
-    public func checkout(commit: Commit, path: String) throws {
+    /// Read a saved file without touching the working tree, index, or HEAD.
+    public func fileContent(commit: Commit, path: String) throws -> Data {
+        let (_, entry) = try fileEntry(commit: commit, path: path)
+        guard let id = git_tree_entry_id(entry.pointer.pointee) else {
+            throw GitError.notFound(ref: path)
+        }
+        return try blobLookup(oid: OID(withGitOid: id.pointee)).rawContent
+    }
+
+    private func fileEntry(commit: Commit, path: String) throws -> (Tree, TreeEntry) {
         guard !path.isEmpty, !path.hasPrefix("/"), !path.split(separator: "/").contains("..") else {
             throw GitError.invalidSpec(spec: path)
         }
@@ -146,6 +155,11 @@ public class Repository {
               git_tree_entry_filemode(entry.pointer.pointee) != GIT_FILEMODE_LINK else {
             throw GitError.invalidSpec(spec: path)
         }
+        return (tree, entry)
+    }
+
+    public func checkout(commit: Commit, path: String) throws {
+        let (tree, _) = try fileEntry(commit: commit, path: path)
 
         // Keep the C strings and array alive throughout checkout. Treat the path
         // literally (including brackets and '*') and leave HEAD and the index intact.

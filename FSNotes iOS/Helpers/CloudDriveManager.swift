@@ -62,6 +62,24 @@ class CloudDriveManager {
     @objc func handleMetadataQueryUpdates(notification: NSNotification) {
         guard let metadataQuery = notification.object as? NSMetadataQuery else { return }
         metadataQuery.disableUpdates()
+        let keys = [NSMetadataQueryUpdateChangedItemsKey, NSMetadataQueryUpdateAddedItemsKey, NSMetadataQueryUpdateRemovedItemsKey]
+        let items = keys.flatMap { notification.userInfo?[$0] as? [NSMetadataItem] ?? [] }
+        if items.contains(where: { item in
+            guard let url = item.value(forAttribute: NSMetadataItemURLKey) as? URL else { return false }
+            return self.storage.projects.contains { root in
+                if root.metadataUnavailable && url.path.hasPrefix(root.url.path + "/") { return true }
+                return root.metadataStore != nil && root.metadataFolderID == nil && url.lastPathComponent == "metadata.json"
+                    && root.url.standardizedFileURL.resolvingSymlinksInPath() == url.deletingLastPathComponent().standardizedFileURL.resolvingSymlinksInPath()
+            }
+        }) {
+            OperationQueue.main.addOperation {
+                for root in self.storage.projects where root.metadataUnavailable { self.storage.openMetadataLibrary(for: root) }
+                self.storage.refreshMetadataLibraries()
+                self.delegate.sidebarTableView.reloadSidebar()
+                self.delegate.reloadNotesTable()
+                self.delegate.editorViewController?.updateTitle()
+            }
+        }
 
         let changed = change(notification: notification)
         let added = added(notification: notification)

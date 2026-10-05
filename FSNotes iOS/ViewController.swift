@@ -492,7 +492,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
                 // find://
                 if let restore = self.restoreFindID {
                     self.restoreFindID = nil
-                    if let note = Storage.shared().getBy(title: restore) {
+                    if let note = Storage.shared().getBy(titleOrName: restore) {
                         OperationQueue.main.addOperation {
                             self.notesTable.hideLoader()
                             UIApplication.getEVC().load(note: note)
@@ -760,6 +760,8 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
     }
     
     public func checkExternal() {
+        storage.refreshMetadataLibraries()
+        sidebarTableView.reloadSidebar()
         let projects = Storage.shared().projects.filter({ $0.isBookmark })
         
         guard projects.count > 0 else { return }

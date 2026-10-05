@@ -2,6 +2,8 @@
 # Build and install the macOS app. Run from any directory: /path/to/fsnotes/build.sh
 set -euo pipefail
 
+osascript -e 'quit app "FSnotes"'
+
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 build_dir="${FSNOTES_BUILD_DIR:-$project_dir/.build}"
 install_dir="${FSNOTES_INSTALL_DIR:-/Applications}"
@@ -112,3 +114,6 @@ fi
 run_install /bin/mv "$stage_dir/FSNotes.app" "$destination"
 install_done=true
 printf '已安装／更新：%s\n可运行：open "%s"\n' "$destination" "$destination"
+
+open "/Applications/FSNotes.app"
+

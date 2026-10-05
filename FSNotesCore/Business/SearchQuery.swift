@@ -89,7 +89,7 @@ class SearchQuery {
     }
 
     private func isMatched(note: Note, terms: [Substring]) -> Bool {
-        let name = note.name as NSString
+        let name = note.fileName as NSString
         let content = note.content.mutableString
         let options: NSString.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
 

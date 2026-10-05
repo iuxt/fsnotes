@@ -164,7 +164,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
         guard let urls = note.attachments, urls.count > 0  else { return html }
 
         var htmlString = html
-        var imagesStorage = note.project.url
+        var imagesStorage = note.getURL().deletingLastPathComponent()
 
         if note.isTextBundle() {
             imagesStorage = note.getURL()
@@ -326,7 +326,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
         
         var htmlString = renderMarkdownHTML(markdown: markdownString)!
         
-        var imagesStorage = note.project.url
+        var imagesStorage = note.getURL().deletingLastPathComponent()
         if note.isTextBundle() {
             imagesStorage = note.getURL()
         }

@@ -33,7 +33,8 @@ public class Blob {
     }
 
     lazy public var rawContent: Data = {
-        Data(bytes: git_blob_rawcontent(self.blob.pointee),
-             count: Int(git_blob_rawsize(self.blob.pointee)))
+        let count = Int(git_blob_rawsize(self.blob.pointee))
+        guard count > 0, let bytes = git_blob_rawcontent(self.blob.pointee) else { return Data() }
+        return Data(bytes: bytes, count: count)
     }()
 }

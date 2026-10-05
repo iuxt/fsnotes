@@ -111,7 +111,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         if url.host == "find" {
             if let id = url["id"]?.removingPercentEncoding {
-                note = storage.getBy(title: id)
+                note = storage.getBy(titleOrName: id)
                 if !vc.isLoadedDB, note == nil {
                     vc.restoreFindID = id
                     return
@@ -129,6 +129,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 return
             }
 
+            defer { url.stopAccessingSecurityScopedResource() }
+            if inbox.metadataStore != nil {
+                do {
+                    let destination = try storage.importMetadataFile(url, to: inbox)
+                    if let note = storage.getBy(url: destination) { vc.notesTable.insertRows(notes: [note]); vc.updateNotesCounter() }
+                } catch { NSLog("%@", error.localizedDescription) }
+                return
+            }
             let dst = NameHelper.getUniqueFileName(name: "", project: inbox, ext: url.pathExtension)
 
             do {

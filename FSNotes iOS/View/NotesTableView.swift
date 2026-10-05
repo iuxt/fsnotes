@@ -715,6 +715,11 @@ class NotesTableView: UITableView,
     }
 
     public func rename(note: Note, to name: String) {
+        if note.metadataStore != nil {
+            do { try note.renameMetadata(to: name); reloadRows(notes: [note]) }
+            catch { NSLog("%@", error.localizedDescription) }
+            return
+        }
 
         guard name.count > 0, name.trim().count > 0 else { return }
 
@@ -962,6 +967,13 @@ class NotesTableView: UITableView,
     public func duplicateAction(notes: [Note]) {
         var dupes = [Note]()
         for note in notes {
+            if note.metadataStore != nil {
+                do {
+                    let url = try Storage.shared().importMetadataFile(note.url, to: note.project, name: note.fileName + " Copy")
+                    if let copy = Storage.shared().getBy(url: url) { insertRows(notes: [copy]) }
+                } catch { NSLog("%@", error.localizedDescription) }
+                continue
+            }
             let src = note.url
             let dst = NameHelper.generateCopy(file: note.url)
 

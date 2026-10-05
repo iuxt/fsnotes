@@ -32,6 +32,27 @@ class FileSystemEventManager {
                 return
             }
 
+            if url.lastPathComponent == "metadata.json", self.storage.projects.contains(where: { $0.metadataFolderID == nil && ($0.metadataStore != nil || $0.metadataUnavailable) && $0.url.appendingPathComponent("metadata.json").standardizedFileURL == url.standardizedFileURL }) {
+                OperationQueue.main.addOperation {
+                    for root in self.storage.projects where root.metadataUnavailable { self.storage.openMetadataLibrary(for: root) }
+                    self.storage.refreshMetadataLibraries()
+                    self.delegate.sidebarOutlineView.reloadSidebar()
+                    self.delegate.updateTable()
+                }
+                return
+            }
+
+            if self.storage.projects.contains(where: { $0.metadataUnavailable && url.path.hasPrefix($0.url.path + "/") }) {
+                OperationQueue.main.addOperation {
+                    for root in self.storage.projects where root.metadataUnavailable { self.storage.openMetadataLibrary(for: root) }
+                    self.storage.refreshMetadataLibraries()
+                    self.delegate.sidebarOutlineView.reloadSidebar()
+                    self.delegate.updateTable()
+                }
+                return
+            }
+            if self.storage.metadataStores.values.contains(where: { $0.notesURL.standardizedFileURL == url.standardizedFileURL }) { return }
+
             if !event.path.contains(".textbundle") && (
                 event.dirRemoved
                 || event.dirCreated

@@ -25,6 +25,7 @@ swiftc -I "$test_build/Cgit2" -I "$git_source/include" \
     "$repo_root/FSNotesCore/Git/commons/Errors.swift" \
     "$repo_root/FSNotesCore/Git/commons/Signature.swift" \
     "$repo_root/FSNotesCore/Git/commons/Strings.swift" \
+    "$repo_root/FSNotes/HistoryDiff.swift" \
     "$repo_root/Tests/GitHistory/Support.swift" \
     "$repo_root/Tests/GitHistory/Integration.swift" \
     "$test_build/libgit2/libgit2.a" -lz -liconv -framework Security \

@@ -48,7 +48,7 @@ class MoveViewController: UITableViewController {
 
                     vc.sidebarTableView.removeTags(in: [note])
                     
-                    guard note.move(to: dstURL) else {
+                    guard note.move(to: dstURL, project: project) else {
                         let alert = UIAlertController(title: "Oops 👮‍♂️", message: NSLocalizedString("File with this name already exist", comment: ""), preferredStyle: UIAlertController.Style.alert)
                         alert.addAction(UIAlertAction(title: "OK", style: UIAlertAction.Style.default, handler: nil))
                         self.present(alert, animated: true, completion: nil)
@@ -59,8 +59,10 @@ class MoveViewController: UITableViewController {
 
                     note.moveHistory(src: note.url, dst: dstURL)
 
-                    note.url = dstURL
-                    note.parseURL()
+                    if note.metadataStore == nil {
+                        note.url = dstURL
+                        note.parseURL()
+                    }
                     note.project = project
 
                     self.notesTableView.removeRows(notes: [note])
@@ -130,6 +132,16 @@ class MoveViewController: UITableViewController {
                 return
             }
 
+            if let root = Storage.shared().getDefault(), root.metadataStore != nil {
+                do {
+                    if let project = try Storage.shared().createMetadataFolder(in: root, name: name) {
+                        UIApplication.getVC().sidebarTableView.insertRows(projects: [project])
+                        self.projects = Storage.shared().getProjects()
+                        self.tableView.reloadData()
+                    }
+                } catch { NSLog("%@", error.localizedDescription) }
+                return
+            }
             guard let newDir = UserDefaultsManagement.storageUrl?.appendingPathComponent(name) else { return }
 
             do {

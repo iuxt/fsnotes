@@ -439,6 +439,11 @@ extension ViewController: UIDocumentPickerDelegate {
         guard let projectURL = selectedProject?.url else { return }
 
         for url in urls {
+            if let project = selectedProject, project.metadataStore != nil {
+                do { _ = try storage.importMetadataFile(url, to: project) }
+                catch { NSLog("%@", error.localizedDescription) }
+                continue
+            }
             let dstURL = projectURL.appendingPathComponent(url.lastPathComponent)
             try? FileManager.default.copyItem(at: url, to: dstURL)
         }
@@ -598,6 +603,17 @@ extension ViewController: UIDocumentPickerDelegate {
                 return
             }
 
+            if selectedProject.metadataStore != nil {
+                do {
+                    if let project = try self.storage.createMetadataFolder(in: selectedProject, name: name) {
+                        let sidebar = UIApplication.getVC().sidebarTableView!
+                        selectedProject.isExpanded = true
+                        sidebar.insertRows(projects: [project])
+                        sidebar.select(project: project)
+                    }
+                } catch { NSLog("%@", error.localizedDescription) }
+                return
+            }
             let newDir = selectedProject.url.appendingPathComponent(name, isDirectory: true)
 
             do {
@@ -649,9 +665,13 @@ extension ViewController: UIDocumentPickerDelegate {
 
         alert.addAction(UIAlertAction(title: "OK", style: .default, handler: { (action: UIAlertAction!) in
             OperationQueue.main.addOperation {
+                if selectedProject.metadataFolderID != nil {
+                    do { try self.storage.deleteMetadataFolder(selectedProject) }
+                    catch { NSLog("%@", error.localizedDescription); return }
+                }
                 mvc.sidebarTableView.removeRows(projects: [selectedProject])
 
-                if !selectedProject.isBookmark {
+                if !selectedProject.isBookmark && selectedProject.metadataFolderID == nil {
                     try? FileManager.default.removeItem(at: selectedProject.url)
                 }
 
@@ -684,7 +704,7 @@ extension ViewController: UIDocumentPickerDelegate {
         alertController.addTextField(configurationHandler: {
             [] (textField: UITextField) in
             textField.placeholder = NSLocalizedString("Enter folder name", comment: "")
-            textField.text = selectedProject.url.lastPathComponent
+            textField.text = selectedProject.label
         })
 
         let confirmAction = UIAlertAction(title: "OK", style: .default) { (_) in
@@ -693,6 +713,11 @@ extension ViewController: UIDocumentPickerDelegate {
                     return
                 }
 
+                if selectedProject.metadataFolderID != nil {
+                    do { try selectedProject.renameMetadataFolder(to: name); mvc.sidebarTableView.reloadData() }
+                    catch { NSLog("%@", error.localizedDescription) }
+                    return
+                }
                 let newDir = selectedProject.url
                     .deletingLastPathComponent()
                     .appendingPathComponent(name, isDirectory: true)

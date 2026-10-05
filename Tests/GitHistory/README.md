@@ -15,4 +15,5 @@ and installs nothing. Coverage includes empty repositories, initial commits,
 file-specific history, merged branches, full and abbreviated commit lookup, invalid
 IDs, literal and Unicode paths, staged and unstaged edits, unchanged index and HEAD,
 deleted/recreated files, TextBundle content with preserved assets, symbolic links,
-and separated Git storage.
+separated Git storage, subject-only commit messages, Unicode commit bodies,
+read-only and empty-file previews, and line differences with duplicate/Unicode lines.

@@ -20,6 +20,18 @@ class SidebarCellView: NSTableCellView {
 
         guard let project = cell?.objectValue as? Project else { return }
         
+        if project.metadataFolderID != nil {
+            do {
+                try project.renameMetadataFolder(to: sender.stringValue)
+                ViewController.shared()?.sidebarOutlineView.reloadSidebar()
+            } catch {
+                sender.stringValue = project.label
+                let alert = NSAlert()
+                alert.messageText = error.localizedDescription
+                alert.runModal()
+            }
+            return
+        }
         let src = project.url
         let dst = project.url.deletingLastPathComponent().appendingPathComponent(sender.stringValue, isDirectory: true)
 

@@ -123,6 +123,16 @@ class ProjectsViewController: UITableViewController, UIDocumentPickerDelegate {
                 return
             }
 
+            if let root = Storage.shared().getDefault(), root.metadataStore != nil {
+                do {
+                    if let project = try Storage.shared().createMetadataFolder(in: root, name: name) {
+                        UIApplication.getVC().sidebarTableView.insertRows(projects: [project])
+                        self.projects = Storage.shared().getProjects()
+                        self.tableView.reloadData()
+                    }
+                } catch { NSLog("%@", error.localizedDescription) }
+                return
+            }
             guard let newDir = UserDefaultsManagement.storageUrl?.appendingPathComponent(name, isDirectory: true) else { return }
 
             do {

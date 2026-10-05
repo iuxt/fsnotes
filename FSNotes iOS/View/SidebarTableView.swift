@@ -439,7 +439,7 @@ class SidebarTableView: UITableView,
                 _ = note.lock()
             }
 
-            guard note.move(to: dstURL) else {
+            guard note.move(to: dstURL, project: project) else {
                 let alert = UIAlertController(title: "Oops 👮‍♂️", message: "File with this name already exist", preferredStyle: UIAlertController.Style.alert)
                 alert.addAction(UIAlertAction(title: "OK", style: UIAlertAction.Style.default, handler: nil))
                 vc.present(alert, animated: true, completion: nil)
@@ -450,8 +450,10 @@ class SidebarTableView: UITableView,
 
             note.moveHistory(src: note.url, dst: dstURL)
 
-            note.url = dstURL
-            note.parseURL()
+            if note.metadataStore == nil {
+                note.url = dstURL
+                note.parseURL()
+            }
             note.project = project
 
             // resets tags in sidebar

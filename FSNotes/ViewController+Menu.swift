@@ -373,13 +373,11 @@ extension ViewController {
 
         let title = NSLocalizedString("History", comment: "")
         let historyMenu = noteMenu.item(withTitle: title)
-        historyMenu?.submenu?.removeAllItems()
-        historyMenu?.isEnabled = false
+        historyMenu?.submenu = nil
+        historyMenu?.target = vc
+        historyMenu?.action = #selector(vc.showNoteHistory(_:))
+        historyMenu?.representedObject = note
         historyMenu?.isHidden = !note.hasGitRepository() || note.isEncrypted()
-
-        guard notes.count == 1, note.hasGitRepository(), !note.isEncrypted(),
-              let submenu = historyMenu?.submenu else { return }
-        vc.loadGitHistoryMenu(for: note, into: submenu)
-        historyMenu?.isEnabled = true
+        historyMenu?.isEnabled = notes.count == 1 && note.hasGitRepository() && !note.isEncrypted()
     }
 }

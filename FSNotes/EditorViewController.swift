@@ -585,7 +585,8 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
         
         if let title = note.title.addingPercentEncoding(withAllowedCharacters: .alphanumerics) {
 
-            let name = "fsnotes://find?id=\(title)"
+            let identifier = note.metadataEntry?.id ?? title
+            let name = "fsnotes://find?id=\(identifier)"
             let pasteboard = NSPasteboard.general
             pasteboard.declareTypes([NSPasteboard.PasteboardType.string], owner: nil)
             pasteboard.setString(name, forType: NSPasteboard.PasteboardType.string)
@@ -704,35 +705,23 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
     }
     
     @IBAction func historyMenu(_ sender: Any) {
-        guard let cvc = NSApplication.shared.keyWindow?.contentViewController,
-              let vc = ViewController.shared(),
-              let note = getSelectedNotes()?.first, note.hasGitRepository(), !note.isEncrypted() else { return }
-
-        let moveMenu = NSMenu()
-        moveMenu.identifier = NSUserInterfaceItemIdentifier("fileMenu.history")
-        loadGitHistoryMenu(for: note, into: moveMenu)
-
-        let general = moveMenu.item(at: 0)
-
-        // Main window
-        if cvc.isKind(of: ViewController.self),
-           vc.notesTableView.selectedRow >= 0 {
-            let view = vc.notesTableView.rect(ofRow: vc.notesTableView.selectedRow)
-            let x = vc.splitView.subviews[0].frame.width + 5
-            moveMenu.popUp(positioning: general, at: NSPoint(x: x, y: view.origin.y + 8), in: vc.notesTableView)
-            return
-        }
-
-        // Opened in new window
-        if cvc.isKind(of: NoteViewController.self) {
-            moveMenu.popUp(positioning: general, at: NSPoint(x: view.frame.width + 10, y: view.frame.height - 5), in: view)
-        }
+        guard let note = getSelectedNotes()?.first else { return }
+        openHistory(for: note)
     }
-    
+
     @IBAction func duplicate(_ sender: Any) {
         guard let notes = getSelectedNotes() else { return }
         
         for note in notes {
+            if note.metadataStore != nil {
+                do {
+                    let destination = try Storage.shared().importMetadataFile(note.url, to: note.project, name: note.fileName + " Copy")
+                    if let copied = Storage.shared().getBy(url: destination) {
+                        ViewController.shared()?.notesTableView.insertRows(notes: [copied])
+                    }
+                } catch { NSLog("%@", error.localizedDescription) }
+                continue
+            }
             let src = note.url
             let dst = NameHelper.generateCopy(file: note.url)
 

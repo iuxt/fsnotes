@@ -153,6 +153,14 @@ class ViewController: EditorViewController,
         }
 
         isPreLoaded = true
+        if !storage.metadataErrors.isEmpty {
+            DispatchQueue.main.async {
+                let alert = NSAlert()
+                alert.messageText = "FSNotes metadata"
+                alert.informativeText = self.storage.metadataErrors.joined(separator: "\n")
+                alert.runModal()
+            }
+        }
 
         if #available(macOS 12.0, *) {
             let image = NSImage(systemSymbolName: "square.and.pencil", accessibilityDescription: nil)
@@ -1011,6 +1019,19 @@ class ViewController: EditorViewController,
         guard let note = notesTableView.getNoteFromSelectedRow() else { return }
 
         let value = sender.stringValue
+        if note.metadataStore != nil {
+            do {
+                try note.renameMetadata(to: value)
+                sender.stringValue = note.fileName
+                notesTableView.reloadData()
+            } catch {
+                sender.stringValue = note.fileName
+                let alert = NSAlert()
+                alert.messageText = error.localizedDescription
+                alert.runModal()
+            }
+            return
+        }
         let url = note.url
         
         let newName = sender.stringValue + "." + note.url.pathExtension
@@ -1897,6 +1918,15 @@ class ViewController: EditorViewController,
     }
 
     public func copy(project: Project, url: URL) -> URL {
+        if project.metadataStore != nil {
+            do { return try storage.importMetadataFile(url, to: project) }
+            catch {
+                let alert = NSAlert()
+                alert.messageText = error.localizedDescription
+                alert.runModal()
+                return url
+            }
+        }
         let fileName = url.lastPathComponent
         let destination = project.url.appendingPathComponent(fileName)
 

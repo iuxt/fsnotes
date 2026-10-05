@@ -48,6 +48,9 @@ extension Project {
     }
 
     public func getGitProject() -> Project? {
+        if metadataFolderID != nil, let store = metadataStore {
+            return storage.getProjectBy(url: store.root)?.getGitProject()
+        }
         if hasRepository() {
             return self
         }
@@ -193,6 +196,8 @@ extension Project {
     }
 
     public func commit(message: String? = nil, progress: GitProgress? = nil) throws {
+        guard !metadataUnavailable else { throw MetadataStore.Failure.invalid("library migration or metadata loading failed") }
+        try metadataStore?.refresh()
         let repository = try getRepository()
         let lastCommit = try? repository.head().targetCommit()
 
@@ -287,6 +292,9 @@ extension Project {
             try remoteBranch.pull(signature: sign, authentication: authHandler, project: self)
             try push()
         }
+
+        try metadataStore?.refresh()
+        DispatchQueue.main.async { self.storage.refreshMetadataLibraries() }
 
         if let progress = progress {
             progress.log(message: "\(label) – successful git pull 👌")
@@ -435,6 +443,8 @@ extension Project {
         do {
             if let repo = try cloneRepository(), let local = getLocalBranch(repository: repo) {
                 try repo.head().checkout(branch: local, type: .force)
+                try metadataStore?.refresh()
+                DispatchQueue.main.async { self.storage.refreshMetadataLibraries() }
                 cacheHistory(progress: progress)
             } else {
                 do {

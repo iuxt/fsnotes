@@ -11,6 +11,9 @@ import Foundation
 class NameHelper {
     public static func getUniqueFileName(name: String, postfix: Int = 1, project: Project, ext: String) -> URL {
 
+        if let store = project.metadataStore {
+            return store.notesURL.appendingPathComponent(UUID().uuidString.lowercased() + "." + ext)
+        }
         var defaultName = UUID().uuidString
         if let naming = SettingsFilesNaming(rawValue: UserDefaultsManagement.naming.rawValue) {
             defaultName = naming.getName()
