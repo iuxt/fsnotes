@@ -186,13 +186,9 @@ class NotesTableView: UITableView,
         // Delete
         let deleteAction = UIContextualAction(style: .destructive, title: NSLocalizedString("Delete", comment: "Table row action")) { [weak self] _, _, completion in
             guard let self = self else { return }
+            guard note.remove() else { completion(false); return }
             self.viewDelegate?.sidebarTableView.removeTags(in: [note])
-            let isTrashed = note.isTrash()
-            note.remove()
             self.removeRows(notes: [note])
-            if note.isEmpty() || isTrashed {
-                vc.storage.removeBy(note: note)
-            }
             completion(true)
         }
         deleteAction.image = UIImage(systemName: "trash")
@@ -225,7 +221,7 @@ class NotesTableView: UITableView,
         pinAction.image = note.isPinned ? UIImage(systemName: "pin.slash") : UIImage(systemName: "pin")
         pinAction.backgroundColor = UIColor(red: 0.24, green: 0.59, blue: 0.94, alpha: 1.0)
 
-        let config = UISwipeActionsConfiguration(actions: [deleteAction, pinAction])
+        let config = UISwipeActionsConfiguration(actions: note.isTrash() ? [pinAction] : [deleteAction, pinAction])
         config.performsFirstActionWithFullSwipe = true
         return config
     }
@@ -329,7 +325,9 @@ class NotesTableView: UITableView,
         var actions = [UIAction]()
 
         let deleteTitle = NSLocalizedString("Delete", comment: "")
-        actions.append(UIAction(title: deleteTitle, image: UIImage(systemName: "trash"), identifier: UIAction.Identifier("delete"), attributes: .destructive, handler: handler))
+        if !note.isTrash() {
+            actions.append(UIAction(title: deleteTitle, image: UIImage(systemName: "trash"), identifier: UIAction.Identifier("delete"), attributes: .destructive, handler: handler))
+        }
 
         let calendarTitle = NSLocalizedString("Change Creation Date", comment: "")
         let calendarImage = UIImage(systemName: "calendar")
@@ -778,10 +776,9 @@ class NotesTableView: UITableView,
     public func removeAction(notes: [Note]) {
         guard let vc = viewDelegate else { return }
 
+        let notes = notes.filter { !$0.isTrash() && $0.remove() }
+        guard !notes.isEmpty else { return }
         vc.sidebarTableView.removeTags(in: notes)
-        for note in notes {
-            note.remove()
-        }
         removeRows(notes: notes)
 
         allowsMultipleSelectionDuringEditing = false

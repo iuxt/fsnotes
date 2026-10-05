@@ -68,7 +68,7 @@ class SidebarOutlineView: NSOutlineView,
         delegate = self
         dataSource = self
         registerForDraggedTypes([
-            NSPasteboard.PasteboardType(kUTTypeFileURL as String),
+            .fileURL,
             NSPasteboard.note,
             NSPasteboard.project
         ])

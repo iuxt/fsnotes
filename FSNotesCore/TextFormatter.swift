@@ -1064,9 +1064,7 @@ public class TextFormatter {
 
     #if os(OSX)
     private func getDefaultColor() -> NSColor {
-        var color = NSColor(named: "mainText")!
-        
-        return color
+        return NSColor(named: "mainText")!
     }
     #endif
     

@@ -26,8 +26,6 @@ class PreferencesGitViewController: SettingsViewController {
         removeButton.isEnabled = project.hasRepository() && !busy
     }
 
-    @IBOutlet weak var repositoriesPath: NSPathControl!
-    @IBOutlet weak var workspacePathLabel: NSTextField!
     @IBOutlet weak var repositoryInfoLabel: NSTextField!
     @IBOutlet weak var snapshotsTextField: NSTextField!
     @IBOutlet weak var minutes: NSTextField!
@@ -40,12 +38,8 @@ class PreferencesGitViewController: SettingsViewController {
         super.viewWillAppear()
 
         if let project = Storage.shared().getDefault() { loadGit(project: project) }
-        workspacePathLabel.stringValue = NSLocalizedString("Workspace Folder", comment: "")
         repositoryInfoLabel.stringValue = NSLocalizedString("Git history: .git/", comment: "")
         origin.placeholderString = "git@github.com:you/notes.git"
-        repositoriesPath.isEditable = false
-        repositoriesPath.url = UserDefaultsManagement.storageUrl
-        repositoriesPath.toolTip = NSLocalizedString("One folder for your notes and their history.", comment: "")
 
         snapshotsTextField.stringValue = String(UserDefaultsManagement.snapshotsInterval)
         minutes.stringValue = String(UserDefaultsManagement.snapshotsIntervalMinutes)
@@ -56,20 +50,15 @@ class PreferencesGitViewController: SettingsViewController {
         updateScheduleFields()
     }
 
-    @IBAction func changeGitStorage(_ sender: NSButton) {
-        guard let url = WorkspaceDirectory.choose(switching: true),
-              url != UserDefaultsManagement.storageUrl?.resolvingSymlinksInPath() else { return }
-        (NSApp.delegate as? AppDelegate)?.switchWorkspace(to: url)
-    }
-
     @IBAction func showFinder(_ sender: Any) {
         guard let project = gitProject else { return }
         NSWorkspace.shared.activateFileViewerSelecting([project.url])
     }
 
     @IBAction func showTerminal(_ sender: Any) {
-        guard let project = gitProject else { return }
-        NSWorkspace.shared.openFile(project.url.path, withApplication: "Terminal.app")
+        guard let project = gitProject,
+              let terminalURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else { return }
+        NSWorkspace.shared.open([project.url], withApplicationAt: terminalURL, configuration: NSWorkspace.OpenConfiguration())
     }
 
     @IBAction func backupMethod(_ sender: NSButton) {

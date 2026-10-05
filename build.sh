@@ -64,7 +64,7 @@ if ! xcodebuild \
     -project "$project_dir/FSNotes.xcodeproj" \
     -scheme FSNotes \
     -configuration "$configuration" \
-    -destination 'platform=macOS' \
+    -destination "platform=macOS,arch=$(uname -m)" \
     -derivedDataPath "$build_dir" \
     -quiet \
     CODE_SIGN_STYLE=Manual \

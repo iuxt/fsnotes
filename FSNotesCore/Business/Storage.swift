@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import CoreServices
+import UniformTypeIdentifiers
 
 #if os(OSX)
 import Cocoa
@@ -417,11 +417,7 @@ class Storage {
                 || projectExist(url: url) {
                 continue
             }
-            
 
-            #if os(iOS)
-            if UserDefaultsManagement.gitStorage == url { continue }
-            #endif
             let project = Project(storage: self, url: url, isBookmark: true)
             insertProject(project: project)
         }
@@ -597,14 +593,9 @@ class Storage {
     public func isValidUTI(url: URL) -> Bool {
         guard url.fileSize < 100000000 else { return false }
 
-        guard let typeIdentifier = (try? url.resourceValues(forKeys: [.typeIdentifierKey]))?.typeIdentifier else { return false }
+        guard let type = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType else { return false }
 
-        let type = typeIdentifier as CFString
-        if type == kUTTypeFolder {
-            return false
-        }
-
-        return UTTypeConformsTo(type, kUTTypeText)
+        return type.conforms(to: .text)
     }
     
     func add(_ note: Note) {
@@ -803,28 +794,24 @@ class Storage {
 #endif
     }
     
-    func removeNotes(notes: [Note], fsRemove: Bool = true, completely: Bool = false, completion: @escaping ([URL: URL]?) -> ()) {
+    func removeNotes(notes: [Note], fsRemove: Bool = true, completion: @escaping ([URL: URL]?) -> ()) {
     #if !SHARE_EXT
         guard notes.count > 0 else {
             completion(nil)
             return
         }
         
-        for note in notes {
-            note.removeCacheForPreviewImages()
-            removeBy(note: note)
-        }
-        
         var removed = [URL: URL]()
-        
-        if fsRemove {
-            for note in notes {
-                if let trashURLs = note.removeFile(completely: completely) {
-                    removed[trashURLs[0]] = trashURLs[1]
-                }
+        for note in notes {
+            if fsRemove {
+                guard !note.isTrash(), let trashURLs = note.removeFile() else { continue }
+                removed[trashURLs[0]] = trashURLs[1]
+            } else {
+                removeBy(note: note)
             }
+            note.removeCacheForPreviewImages()
         }
-        
+
         if removed.count > 0 {
             completion(removed)
         } else {
@@ -902,20 +889,6 @@ class Storage {
             noteList.filter {
                 $0.isTrash()
             }
-    }
-
-    private func cleanTrash() {
-        if #available(iOS 11.0, *) {
-            guard let trash = try? FileManager.default.url(for: .trashDirectory, in: .allDomainsMask, appropriateFor: UserDefaultsManagement.storageUrl, create: false) else { return }
-
-            do {
-                let fileURLs = try FileManager.default.contentsOfDirectory(at: trash, includingPropertiesForKeys: nil, options: [])
-
-                for fileURL in fileURLs {
-                    try FileManager.default.removeItem(at: fileURL)
-                }
-            } catch  { print(error) }
-        }
     }
 
     public func saveCloudPins() {
@@ -1032,25 +1005,6 @@ class Storage {
 
             insertProject(project: project)
         }
-    }
-
-    public func trashItem(url: URL) -> URL? {
-        guard let trashURL = Storage.shared().getDefaultTrash()?.url else { return nil }
-
-        let fileName = url.deletingPathExtension().lastPathComponent
-        let fileExtension = url.pathExtension
-
-        var destination = trashURL.appendingPathComponent(url.lastPathComponent)
-
-        var i = 0
-
-        while FileManager.default.fileExists(atPath: destination.path) {
-            let nextName = "\(fileName)_\(i).\(fileExtension)"
-            destination = trashURL.appendingPathComponent(nextName)
-            i += 1
-        }
-
-        return destination
     }
 
     public func getCache(key: String) -> Data? {
@@ -1680,5 +1634,3 @@ class Storage {
         return note
     }
 }
-
-extension String: Error {}

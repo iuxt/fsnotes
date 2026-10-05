@@ -401,8 +401,7 @@ class SidebarTableView: UITableView,
                     guard let project = sidebarItem.project else { break }
                     self.move(note: note, in: project)
                 case .Trash:
-                    note.remove()
-                    vc.notesTable.removeRows(notes: [note])
+                    if note.remove() { vc.notesTable.removeRows(notes: [note]) }
                 default:
                     break
                 }

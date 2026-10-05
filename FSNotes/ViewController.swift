@@ -11,6 +11,7 @@ import Carbon.HIToolbox
 import Foundation
 import Shout
 import UserNotifications
+import UniformTypeIdentifiers
 import WebKit
 
 class ViewController: EditorViewController,
@@ -1168,15 +1169,6 @@ class ViewController: EditorViewController,
         vc.editor.updateTextContainerInset()
     }
     
-    @IBAction func emptyTrash(_ sender: NSMenuItem) {
-        let notes = storage.getAllTrash()
-        for note in notes {
-            _ = note.removeFile()
-        }
-        
-        NSSound(named: "Pop")?.play()
-    }
-        
     @IBAction func lockAll(_ sender: Any) {
         let projects = storage.getProjects().filter({ $0.isEncrypted && !$0.isLocked() })
         sidebarOutlineView.lock(projects: projects)
@@ -1256,38 +1248,6 @@ class ViewController: EditorViewController,
         rowUpdaterTimer = Timer.scheduledTimer(timeInterval: 1.2, target: self, selector: #selector(updateTableViews), userInfo: nil, repeats: false)
     }
 
-    public func removeForever() {
-        guard let vc = ViewController.shared() else { return }
-        guard let notes = vc.notesTableView.getSelectedNotes() else { return }
-        guard let window = MainWindowController.shared() else { return }
-
-        vc.alert = NSAlert()
-
-        guard let alert = vc.alert else { return }
-
-        alert.messageText = String(format: NSLocalizedString("Are you sure you want to irretrievably delete %d note(s)?", comment: ""), notes.count)
-
-        alert.informativeText = NSLocalizedString("This action cannot be undone.", comment: "")
-        alert.addButton(withTitle: NSLocalizedString("Remove note(s)", comment: ""))
-        alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
-        alert.beginSheetModal(for: window) { (returnCode: NSApplication.ModalResponse) -> Void in
-            if returnCode == NSApplication.ModalResponse.alertFirstButtonReturn {
-                let selectedRow = vc.notesTableView.selectedRowIndexes.min()
-                vc.editor.clear()
-                vc.storage.removeNotes(notes: notes, completely: true) { _ in
-                    DispatchQueue.main.async {
-                        vc.notesTableView.removeRows(notes: notes)
-                        if let i = selectedRow, i > -1 {
-                            vc.notesTableView.selectRow(i)
-                        }
-                    }
-                }
-            }
-
-            vc.alert = nil
-        }
-    }
-    
     @objc private func updateTableViews() {
         let editors = AppDelegate.getEditTextViews()
         
@@ -1713,18 +1673,30 @@ class ViewController: EditorViewController,
     }
 
     func external(selectedNotes: [Note]) {
-        if selectedNotes.count == 0 {
-            return
-        }
-        
-        for note in selectedNotes {
-            var path = note.url.path
-            if note.isTextBundle() && !note.isUnlocked(), let url = note.getContentFileURL() {
-                path = url.path
-            }
+        guard !selectedNotes.isEmpty else { return }
 
-            NSWorkspace.shared.openFile(path, withApplication: UserDefaultsManagement.externalEditor)
+        let urls = selectedNotes.map { note in
+            if note.isTextBundle() && !note.isUnlocked(), let url = note.getContentFileURL() {
+                return url
+            }
+            return note.url
         }
+
+        let editor = UserDefaultsManagement.externalEditor
+        let applicationURL: URL?
+        if editor.hasPrefix("/") {
+            applicationURL = URL(fileURLWithPath: editor)
+        } else {
+            let editorName = (editor as NSString).deletingPathExtension
+            let applications = urls.flatMap { NSWorkspace.shared.urlsForApplications(toOpen: $0) }
+                + NSWorkspace.shared.urlsForApplications(toOpen: UTType.plainText)
+            applicationURL = applications.first {
+                $0.deletingPathExtension().lastPathComponent.caseInsensitiveCompare(editorName) == .orderedSame
+            }
+        }
+
+        guard let applicationURL = applicationURL else { return }
+        NSWorkspace.shared.open(urls, withApplicationAt: applicationURL, configuration: NSWorkspace.OpenConfiguration())
     }
     
     private func loadBookmarks(data: Data?) {

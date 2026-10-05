@@ -14,5 +14,6 @@ missing-manifest protection, and interrupted migration before/after publication.
 
 The second executable compiles the production MetadataLibrary adapter with minimal
 UI/model scaffolding and exercises actual file import, attachment copying, whole
-directory links, rename, move, duplication, trash, deletion and snapshot recovery.
+directory links, rename, move, duplication, persistent trash (including repeated deletion, empty notes and bundles),
+case-insensitive title collisions, restoration, reopening and snapshot recovery.
 It does not replace the macOS/iOS application build checks or a live UI smoke test.

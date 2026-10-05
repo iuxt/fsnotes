@@ -76,15 +76,6 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
         
         if let title = menuItem.menu?.identifier?.rawValue {
             switch title {
-            case "fsnotesMenu":
-                if menuItem.identifier?.rawValue == "fsnotes.emptyBin" {
-                    menuItem.keyEquivalentModifierMask = UserDefaultsManagement.focusInEditorOnNoteSelect
-                    ? [.command, .option, .shift]
-                    : [.command, .shift]
-                    
-                    menuItem.title = NSLocalizedString("Empty Bin", comment: "")
-                    return true
-                }
             case "fileMenu":
                 return vc.processFileMenuItems(menuItem, menuId: title)
             case "shareMenu":
@@ -456,7 +447,7 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
                 guard name.count > 0 else { return }
                 
                 OperationQueue.main.addOperation {
-                    vc.sidebarOutlineView.createProject(in: project, with: name)
+                    _ = vc.sidebarOutlineView.createProject(in: project, with: name)
                 }
             }
 
@@ -844,42 +835,28 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
         }
     }
     
-    public func removeNotes(notes: [Note], forceRemove: Bool = false, rows: IndexSet? = nil) {
+    public func removeNotes(notes: [Note], rows: IndexSet? = nil) {
         guard let vc = ViewController.shared() else { return }
         
-        let si = vc.getSidebarItem()
-        if si?.isTrash() == true || forceRemove {
-            vc.removeForever()
-            
-            // Call from window, close it!
-            if let cvc = NSApplication.shared.keyWindow?.contentViewController,
-               cvc.isKind(of: NoteViewController.self) {
-                DispatchQueue.main.async {
-                    self.view.window?.close()
-                }
-            }
-            
-            return
-        }
-        
+        let notes = notes.filter { !$0.isTrash() }
+        guard !notes.isEmpty else { return }
+
         let currentNote = vc.editor.note
         let shouldClearEditor = currentNote != nil && notes.contains(where: { $0 === currentNote })
         UserDataService.instance.searchTrigger = true
-        vc.notesTableView.removeRows(notes: notes)
-        
-        // Delete sharing
-        for note in notes {
-            vc.deleteAPI(note: note)
-        }
-        
-        // Delete tags
-        for note in notes {
-            let tags = note.tags
-            note.tags.removeAll()
-            vc.sidebarOutlineView.removeTags(tags)
-        }
-        
         vc.storage.removeNotes(notes: notes) { urlMapping in
+            guard let urlMapping = urlMapping else {
+                UserDataService.instance.searchTrigger = false
+                return
+            }
+            let trashedNotes = notes.filter { urlMapping[$0.url] != nil }
+            vc.notesTableView.removeRows(notes: trashedNotes)
+            for note in trashedNotes {
+                vc.deleteAPI(note: note)
+                let tags = note.tags
+                note.tags.removeAll()
+                vc.sidebarOutlineView.removeTags(tags)
+            }
             if let md = AppDelegate.mainWindowController {
                 let undoManager = md.notesListUndoManager
                 if let ntv = vc.notesTableView {
@@ -896,11 +873,10 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
                         vc.notesTableView.selectRow(qty - 1)
                     }
                 }
-                
-                UserDataService.instance.searchTrigger = false
             }
-            
-            if shouldClearEditor {
+            UserDataService.instance.searchTrigger = false
+
+            if shouldClearEditor && trashedNotes.contains(where: { $0 === currentNote }) {
                 vc.editor.clear()
             }
         }

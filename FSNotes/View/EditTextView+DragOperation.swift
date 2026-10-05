@@ -10,7 +10,19 @@ import Cocoa
 
 extension EditTextView
 {
+    static func unarchiveAttributedText(from data: Data) -> NSAttributedString? {
+        guard let unarchiver = try? NSKeyedUnarchiver(forReadingFrom: data) else { return nil }
+        // AppKit's NSTextAttachmentCell does not support NSSecureCoding.
+        unarchiver.requiresSecureCoding = false
+        defer { unarchiver.finishDecoding() }
+
+        return unarchiver.decodeObject(of: NSAttributedString.self, forKey: NSKeyedArchiveRootObjectKey)
+    }
+
     public func handleAttributedText(_ pasteboard: NSPasteboard, note: Note, storage: NSTextStorage, replacementRange: NSRange) -> Bool {
+
+        guard let data = pasteboard.data(forType: NSPasteboard.attributed),
+              let attributedString = Self.unarchiveAttributedText(from: data) else { return false }
 
         let locationDiff = selectedRange().location > replacementRange.location
             ? replacementRange.location
@@ -21,9 +33,6 @@ extension EditTextView
 
         // drag
         insertText("", replacementRange: removeRange)
-
-        guard let data = pasteboard.data(forType: NSPasteboard.attributed),
-              let attributedString = try? NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(data) as? NSAttributedString else { return false }
 
         // drop
         insertText(attributedString, replacementRange: insertRange)

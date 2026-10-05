@@ -277,15 +277,10 @@ extension Note {
         applyMetadata()
     }
 
-    func removeMetadataFile(completely: Bool) -> [URL]? {
+    /// Trash is a persistent metadata state; bodies and attachments stay in place.
+    func removeMetadataFile() -> [URL]? {
         guard let store = metadataStore, let entry = store.entry(at: url) else { return nil }
         do {
-            if completely || entry.trashed {
-                // Remove the file first; a crash leaves a harmless missing-file record.
-                try FileManager.default.removeItem(at: url)
-                try store.delete(id: entry.id)
-                return nil
-            }
             try store.trashNote(id: entry.id)
             applyMetadata()
             return [url, url]
@@ -293,5 +288,12 @@ extension Note {
             NSLog("%@", error.localizedDescription)
             return nil
         }
+    }
+
+    @discardableResult func restoreMetadataFile() throws -> Bool {
+        guard let store = metadataStore, let entry = store.entry(at: url), entry.trashed else { return false }
+        try store.moveNote(id: entry.id, folderID: entry.folderID)
+        applyMetadata()
+        return true
     }
 }

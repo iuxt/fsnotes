@@ -170,7 +170,7 @@ class PreferencesWebViewController: NSViewController, NSTextFieldDelegate {
         do {
             let ssh = try SSH(host: host, port: port)
             
-            guard let remoteDir = UserDefaultsManagement.sftpPath else { throw "Please enter remote path" }
+            guard let remoteDir = UserDefaultsManagement.sftpPath else { throw WebUploadError.missingRemotePath }
             
             let remoteJsDir = "\(remoteDir)js/"
             let remoteFontsDir = "\(remoteDir)fonts/"
@@ -281,6 +281,13 @@ class PreferencesWebViewController: NSViewController, NSTextFieldDelegate {
     }
 }
 
-extension String: LocalizedError { // Adds error.localizedDescription to Error instances
-    public var errorDescription: String? { return self }
+private enum WebUploadError: LocalizedError {
+    case missingRemotePath
+
+    var errorDescription: String? {
+        switch self {
+        case .missingRemotePath:
+            return "Please enter remote path"
+        }
+    }
 }

@@ -80,7 +80,6 @@ public class ImagesProcessor {
             prefix = "files/"
         }
 
-        let project = note.project
         let destination = URL(fileURLWithPath: note.getURL().deletingLastPathComponent().path + "/" + prefix)
 
         do {

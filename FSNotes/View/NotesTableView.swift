@@ -37,9 +37,10 @@ class NotesTableView: NSTableView,
             return numberOfRows > 0 && allowsMultipleSelection
         }
         
-        if item.action == #selector(copy(_:)) ||
-            item.action == #selector(delete(_:)) ||
-            item.action == #selector(forceDeleteNote(_:)) {
+        if item.action == #selector(delete(_:)) {
+            return getSelectedNotes()?.contains(where: { !$0.isTrash() }) == true
+        }
+        if item.action == #selector(copy(_:)) {
             return selectedRowIndexes.count > 0
         }
 
@@ -153,14 +154,7 @@ class NotesTableView: NSTableView,
         guard let vc = ViewController.shared(),
               let notes = getSelectedNotes() else { return }
 
-        vc.removeNotes(notes: notes, forceRemove: false, rows: selectedRowIndexes)
-    }
-    
-    @IBAction func forceDeleteNote(_ sender: Any) {
-        guard let vc = ViewController.shared(),
-              let notes = getSelectedNotes() else { return }
-
-        vc.removeNotes(notes: notes, forceRemove: true, rows: selectedRowIndexes)
+        vc.removeNotes(notes: notes, rows: selectedRowIndexes)
     }
     
     public func getNoteList() -> [Note] {
@@ -594,19 +588,23 @@ class NotesTableView: NSTableView,
         
         for (src, dst) in urls {
             do {
-                if let note = storage.getBy(url: src) {
-                    storage.removeBy(note: note)
-                    if let destination = Storage.shared().getProjectByNote(url: dst) {
-                        note.moveImages(to: destination)
-                    }
+                guard let store = storage.metadataStore(for: src),
+                      let entry = store.entry(at: src), entry.trashed,
+                      let project = storage.getDefaultTrash() else { continue }
+                let note = storage.getBy(url: src) ?? Note(url: src, with: project)
+                if try note.restoreMetadataFile() {
+                    if storage.getBy(url: src) == nil { storage.add(note) }
+                    note.load()
+                    invertedMapping[dst] = src
                 }
-                try FileManager.default.moveItem(at: src, to: dst)
-                invertedMapping[dst] = src
             } catch {
                 print(error)
             }
         }
         
+        storage.refreshMetadataLibraries()
+        vc.updateTable()
+
         // Register redo (delete again)
         if let md = AppDelegate.mainWindowController, !invertedMapping.isEmpty {
             let undoManager = md.notesListUndoManager
@@ -616,7 +614,7 @@ class NotesTableView: NSTableView,
                 }
                 
                 if !restoredNotes.isEmpty {
-                    vc.removeNotes(notes: restoredNotes, forceRemove: false, rows: nil)
+                    vc.removeNotes(notes: restoredNotes, rows: nil)
                 }
             }
             undoManager.setActionName(NSLocalizedString("Delete", comment: ""))

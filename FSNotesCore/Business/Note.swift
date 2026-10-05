@@ -448,7 +448,7 @@ public class Note: NSObject  {
             let destination = project ?? self.project.storage.getProjectBy(url: to.deletingLastPathComponent())
             if let destination = destination {
                 if destination.isTrash {
-                    _ = removeMetadataFile(completely: false)
+                    _ = removeMetadataFile()
                     return metadataEntry?.trashed == true
                 }
                 do {
@@ -526,148 +526,19 @@ public class Note: NSObject  {
         return newUrl
     }
 
-    public func remove() {
-        if !isTrash() && !isEmpty() {
-            let src = url
-            if let trashURLs = removeFile() {
-                let dst = trashURLs[0]
-                self.url = dst
-                parseURL()
-
-                #if IOS_APP
-                    moveHistory(src: src, dst: dst)
-                #endif
-            }
-        } else {
-            _ = removeFile()
-
-            if self.isPinned {
-                removePin()
-            }
-
-            #if IOS_APP
-                dropRevisions()
-            #endif
-        }
+    @discardableResult public func remove() -> Bool {
+        guard !isTrash() else { return false }
+        return removeFile() != nil
     }
 
     public func isEmpty() -> Bool {
         return content.length == 0 && !isEncrypted()
     }
 
-    #if os(iOS)
-    // Return URL moved in
-    func removeFile(completely: Bool = false) -> Array<URL>? {
-        if metadataStore != nil { return removeMetadataFile(completely: completely) }
-        if FileManager.default.fileExists(atPath: url.path) {
-            if isTrash() || completely || isEmpty() {
-                try? FileManager.default.removeItem(at: url)
-
-                if type == .Markdown && container == .none {
-                    let urls = content.getImagesAndFiles()
-                    for url in urls {
-                        try? FileManager.default.removeItem(at: url.url)
-                    }
-                }
-
-                return nil
-            }
-
-            guard let trashUrl = getDefaultTrashURL() else {
-                print("Trash not found")
-
-                var resultingItemUrl: NSURL?
-                if #available(iOS 11.0, *) {
-                    if let trash = Storage.shared().getDefaultTrash() {
-                        moveImages(to: trash)
-                    }
-
-                    try? FileManager.default.trashItem(at: url, resultingItemURL: &resultingItemUrl)
-
-                    if let result = resultingItemUrl, let path = result.path {
-                        return [URL(fileURLWithPath: path), url]
-                    }
-                }
-
-                return nil
-            }
-
-            var trashUrlTo = trashUrl.appendingPathComponent(name)
-
-            if FileManager.default.fileExists(atPath: trashUrlTo.path) {
-                let reserveName = "\(Int(Date().timeIntervalSince1970)) \(name)"
-                trashUrlTo = trashUrl.appendingPathComponent(reserveName)
-            }
-
-            print("Note moved in custom Trash folder")
-
-            if let trash = Storage.shared().getDefaultTrash() {
-                moveImages(to: trash)
-            }
-            
-            try? FileManager.default.moveItem(at: url, to: trashUrlTo)
-
-            return [trashUrlTo, url]
-        }
-        
-        return nil
+    // Logical trash retains the physical URL; the mapping is used for undo.
+    func removeFile() -> [URL]? {
+        return removeMetadataFile()
     }
-    #endif
-
-    #if os(OSX)
-    func removeFile(completely: Bool = false) -> Array<URL>? {
-        if metadataStore != nil { return removeMetadataFile(completely: completely) }
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-
-        if isTrash() || completely {
-            do {
-                try FileManager.default.removeItem(at: url)
-            } catch let error as NSError {
-                Swift.print("Remove file error: \(error.localizedDescription)")
-                Swift.print("Error details: \(error.userInfo)")
-            }
-
-            if type == .Markdown && container == .none {
-                let urls = content.getImagesAndFiles()
-                for url in urls {
-                    try? FileManager.default.removeItem(at: url.url)
-                }
-            }
-
-            return nil
-        }
-
-        do {
-            guard let dst = Storage.shared().trashItem(url: url) else {
-                var resultingItemUrl: NSURL?
-                try FileManager.default.trashItem(at: url, resultingItemURL: &resultingItemUrl)
-
-                guard let dst = resultingItemUrl else { return nil }
-
-                let originalURL = url
-
-                overwrite(url: dst as URL)
-
-                return [self.url, originalURL]
-            }
-
-            if let trash = Storage.shared().getDefaultTrash() {
-                moveImages(to: trash)
-            }
-
-            try FileManager.default.moveItem(at: url, to: dst)
-
-            let originalURL = url
-            overwrite(url: dst)
-            return [self.url, originalURL]
-
-        } catch {
-            print("Trash error: \(error)")
-        }
-
-        return nil
-    }
-    #endif
 
     public func getAttachPrefix(url: URL? = nil) -> String {
         if let url = url, !url.isImage {
@@ -744,14 +615,6 @@ public class Note: NSObject  {
         }
     }
     
-    private func getDefaultTrashURL() -> URL? {
-        if let url = Storage.shared().getDefaultTrash()?.url {
-            return url
-        }
-
-        return nil
-    }
-        
     public func getPreviewLabel(with text: String? = nil) -> String {
         var preview: String = ""
         let content = text ?? self.content.string
@@ -1255,9 +1118,12 @@ public class Note: NSObject  {
         let sourceURL = getContentFileURL() ?? url
         
         var attributes: [FileAttributeKey: Any] = [
-            .modificationDate: modifiedLocalAt,
-            .creationDate: creationDate
+            .modificationDate: modifiedLocalAt
         ]
+
+        if let creationDate = creationDate {
+            attributes[.creationDate] = creationDate
+        }
 
         guard let sourceAttributes = try? FileManager.default.attributesOfItem(atPath: sourceURL.path) else {
             return attributes

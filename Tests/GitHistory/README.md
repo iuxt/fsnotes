@@ -15,6 +15,7 @@ and installs nothing. Coverage includes empty repositories, initial commits,
 file-specific history, merged branches, full and abbreviated commit lookup, invalid
 IDs, literal and Unicode paths, staged and unstaged edits, unchanged index and HEAD,
 deleted/recreated files, TextBundle content with preserved assets, symbolic links,
-separated Git storage, subject-only commit messages, Unicode commit bodies,
-workspace folder validation and portable colocated Git history after moving the library,
+subject-only commit messages, Unicode commit bodies,
+workspace folder validation, portable colocated Git history after moving the library,
+cloning through a temporary folder with history restored into the workspace,
 read-only and empty-file previews, and line differences with duplicate/Unicode lines.

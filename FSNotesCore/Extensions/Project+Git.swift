@@ -17,22 +17,9 @@ extension Project {
         return nil
     }
 
-#if os(OSX)
     public func getRepositoryUrl() -> URL {
         return WorkspaceLocation.repositoryURL(for: url)
     }
-#else
-    public func getRepositoryUrl() -> URL {
-        if !UserDefaultsManagement.iCloudDrive {
-            return url.appendingPathComponent(".git")
-        }
-
-        let key = settingsKey.md5.prefix(6)
-        let repoURL = UserDefaultsManagement.gitStorage!.appendingPathComponent(key + " - " + label + ".git")
-
-        return repoURL
-    }
-#endif
 
     public func hasRepository() -> Bool {
         let url = getRepositoryUrl()
@@ -55,34 +42,10 @@ extension Project {
         return nil
     }
 
-    public func initBareRepository() throws {
+    public func initRepository() throws {
         let repositoryManager = RepositoryManager()
-#if os(macOS)
         // Initialize in place so Git infers a relative, portable worktree.
-        _ = try repositoryManager.initRepository(at: url, signature: Signature(name: "FSNotes App", email: "support@fsnot.es"))
-#else
-        let repoURL = getRepositoryUrl()
-
-        // Prepare temporary dir
-        let tempURL = UserDefaultsManagement.gitStorage!.appendingPathComponent("tmp")
-
-        try? FileManager.default.removeItem(at: tempURL)
-        try? FileManager.default.createDirectory(at: tempURL, withIntermediateDirectories: true)
-
-        // Init
-        let signature = Signature(name: "FSNotes App", email: "support@fsnot.es")
-        let repository = try repositoryManager.initRepository(at: tempURL, signature: signature)
-
-        if isUseWorkTree() {
-            repository.setWorkTree(path: url.path)
-        }
-
-        let dotGit = tempURL.appendingPathComponent(".git")
-
-        if FileManager.default.directoryExists(atUrl: dotGit) {
-            try FileManager.default.moveItem(at: dotGit, to: repoURL)
-        }
-#endif
+        _ = try repositoryManager.initRepository(at: url, signature: getSign())
     }
 
     public func cloneRepository() throws -> Repository? {
@@ -95,11 +58,7 @@ extension Project {
 
         // Clone
         if let originString = getGitOrigin(), let origin = URL(string: originString) {
-            let repository = try repositoryManager.cloneRepository(from: origin, at: tempURL, authentication: getAuthHandler())
-
-            if isUseWorkTree() {
-                repository.setWorkTree(path: url.path)
-            }
+            _ = try repositoryManager.cloneRepository(from: origin, at: tempURL, authentication: getAuthHandler())
 
             let dotGit = tempURL.appendingPathComponent(".git")
 
@@ -256,10 +215,6 @@ extension Project {
         let repository = try getRepository()
         repository.addRemoteOrigin(path: origin)
 
-        if isUseWorkTree() {
-            repository.setWorkTree(path: url.path)
-        }
-
         let authHandler = getAuthHandler()
         let sign = getSign()
 
@@ -280,14 +235,6 @@ extension Project {
         if let progress = progress {
             progress.log(message: "\(label) – successful git pull 👌")
         }
-    }
-
-    public func isUseWorkTree() -> Bool {
-    #if os(iOS)
-        return UserDefaultsManagement.iCloudDrive
-    #else
-        return false
-    #endif
     }
 
     public func isGitOriginExist() -> Bool {
@@ -390,7 +337,7 @@ extension Project {
         do {
             switch action {
             case .initCommit:
-                try initBareRepository()
+                try initRepository()
                 try commit(message: nil, progress: progress)
             case .clonePush:
                 removeCommitsCache()

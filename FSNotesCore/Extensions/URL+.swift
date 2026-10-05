@@ -8,11 +8,7 @@
 
 import Foundation
 
-#if os(iOS)
-    import MobileCoreServices
-#else
-    import CoreServices
-#endif
+import UniformTypeIdentifiers
 
 public extension URL {
     /// Get extended attribute.
@@ -145,29 +141,20 @@ public extension URL {
         return (try? resourceValues(forKeys: [.typeIdentifierKey]))?.typeIdentifier
     }
 
-    var fileUTType: CFString? {
-        let unmanagedFileUTI = UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, pathExtension as CFString, nil)
-        return unmanagedFileUTI?.takeRetainedValue()
+    var fileUTType: UTType? {
+        return UTType(filenameExtension: pathExtension)
     }
 
     var isVideo: Bool {
         guard let fileUTI = fileUTType else { return false }
 
-        return UTTypeConformsTo(fileUTI, kUTTypeMovie)
-            || UTTypeConformsTo(fileUTI, kUTTypeVideo)
-            || UTTypeConformsTo(fileUTI, kUTTypeQuickTimeMovie)
-            || UTTypeConformsTo(fileUTI, kUTTypeMPEG)
-            || UTTypeConformsTo(fileUTI, kUTTypeMPEG2Video)
-            || UTTypeConformsTo(fileUTI, kUTTypeMPEG2TransportStream)
-            || UTTypeConformsTo(fileUTI, kUTTypeMPEG4)
-            || UTTypeConformsTo(fileUTI, kUTTypeAppleProtectedMPEG4Video)
-            || UTTypeConformsTo(fileUTI, kUTTypeAVIMovie)
+        return fileUTI.conforms(to: .movie) || fileUTI.conforms(to: .video)
     }
 
     var isImage: Bool {
         guard let fileUTI = fileUTType else { return false }
 
-        return UTTypeConformsTo(fileUTI, kUTTypeImage)
+        return fileUTI.conforms(to: .image)
     }
 
     var isMedia: Bool {
@@ -175,14 +162,7 @@ public extension URL {
     }
 
     var mimeType: String {
-        guard
-            let identifier = UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, pathExtension as CFString, nil)?.takeRetainedValue(),
-            let mimeType = UTTypeCopyPreferredTagWithClass(identifier, kUTTagClassMIMEType)?.takeRetainedValue() as String?
-        else {
-            return "application/octet-stream"
-        }
-
-        return mimeType
+        return fileUTType?.preferredMIMEType ?? "application/octet-stream"
     }
 
     var isWebURL: Bool {

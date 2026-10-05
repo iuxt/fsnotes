@@ -646,7 +646,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
         // RTFD
         if let rtfdData = NSPasteboard.general.data(forType: NSPasteboard.attributed),
-           let attributed = try? NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(rtfdData) as? NSAttributedString {
+           let attributed = Self.unarchiveAttributedText(from: rtfdData) {
 
             let mutable = NSMutableAttributedString(attributedString: attributed)
             mutable.loadTasks()
@@ -699,7 +699,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         var plainText: String?
 
         if let rtfd = NSPasteboard.general.data(forType: NSPasteboard.attributed),
-           let attributedString = try? NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(rtfd) as? NSAttributedString {
+           let attributedString = Self.unarchiveAttributedText(from: rtfd) {
 
             let mutable = NSMutableAttributedString(attributedString: attributedString)
             plainText = mutable.unloadAttachments().string
@@ -1130,7 +1130,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
                 if link.isValidEmail(), let mail = URL(string: "mailto:\(link)") {
                     NSWorkspace.shared.open(mail)
                 } else if let url = URL(string: link) {
-                    _ = try? NSWorkspace.shared.open(url, options: .default, configuration: [:])
+                    NSWorkspace.shared.open(url)
                 }
             }
             return

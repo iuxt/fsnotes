@@ -16,8 +16,6 @@ extension ViewController: UIDocumentPickerDelegate {
         let handler: (_ action: UIAction) -> () = { action in
 
         switch action.identifier.rawValue {
-            case "emptyBin":
-                self.emptyBin()
             case "importNote":
                 self.importNote(selectedProject: project)
             case "viewSettings":
@@ -62,7 +60,7 @@ extension ViewController: UIDocumentPickerDelegate {
         case .All, .Todo:
             popoverActions = [.settingsFolder, .createFolder, .multipleSelection]
         case .Trash:
-            popoverActions = [.settingsFolder, .multipleSelection, .openInFiles, .emptyBin]
+            popoverActions = [.settingsFolder, .multipleSelection, .openInFiles]
         case .Project:
             popoverActions = [.importNote, .settingsFolder, .createFolder, .removeFolder, .renameFolder, .multipleSelection, .openInFiles, .settingsRepository, .encryptFolder]
         case .Tag:
@@ -82,11 +80,6 @@ extension ViewController: UIDocumentPickerDelegate {
         if popoverActions.contains(.removeFolder) {
             let title = NSLocalizedString("Remove Folder", comment: "Main view popover table")
             actions.append(UIAction(title: title, image: UIImage(systemName: "trash"), identifier: UIAction.Identifier("removeFolder"), attributes: .destructive, handler: handler))
-        }
-
-        if popoverActions.contains(.emptyBin) {
-            let title = NSLocalizedString("Empty Bin", comment: "Main view popover table")
-            actions.append(UIAction(title: title, image: UIImage(systemName: "xmark.circle"), identifier: UIAction.Identifier("emptyBin"), handler: handler))
         }
 
         if popoverActions.contains(.importNote) {
@@ -222,7 +215,7 @@ extension ViewController: UIDocumentPickerDelegate {
         case .All, .Todo:
             actions = [.settingsFolder, .multipleSelection]
         case .Trash:
-            actions = [.settingsFolder, .multipleSelection, .openInFiles, .emptyBin]
+            actions = [.settingsFolder, .multipleSelection, .openInFiles]
         case .Project:
             actions = [.importNote, .settingsFolder, .createFolder, .removeFolder, .renameFolder, .multipleSelection, .openInFiles, .settingsRepository, .encryptFolder]
         case .Tag:
@@ -256,18 +249,6 @@ extension ViewController: UIDocumentPickerDelegate {
             actionSheet.addAction(alertAction)
         }
 
-        if actions.contains(.emptyBin) {
-            let title = NSLocalizedString("Empty Bin", comment: "Main view popover table")
-            let alertAction = UIAlertAction(title:title, style: .destructive, handler: { _ in
-                self.emptyBin()
-            })
-            alertAction.setValue(CATextLayerAlignmentMode.left, forKey: "titleTextAlignment")
-            if let image = UIImage(systemName: "xmark.circle")?.resize(maxWidthHeight: 23) {
-                alertAction.setValue(image, forKey: "image")
-            }
-            actionSheet.addAction(alertAction)
-        }
-        
         if actions.contains(.importNote) {
             let title = NSLocalizedString("Import Notes", comment: "Main view popover table")
             let importNote = UIAlertAction(title:title, style: .default, handler: { _ in
@@ -507,8 +488,10 @@ extension ViewController: UIDocumentPickerDelegate {
 
             if #available(iOS 14.0, *) {
                 var items = [UIBarButtonItem]()
-                items.append(UIBarButtonItem(image: deleteImage, style: .plain, target: self, action: #selector(removeNotes)))
-                items.append(UIBarButtonItem.flexibleSpace())
+                if mvc.lastSidebarItem?.type != .Trash {
+                    items.append(UIBarButtonItem(image: deleteImage, style: .plain, target: self, action: #selector(removeNotes)))
+                    items.append(UIBarButtonItem.flexibleSpace())
+                }
                 items.append(UIBarButtonItem(image: calendarImage, style: .plain, target: self, action: #selector(calendarNotes)))
                 items.append(UIBarButtonItem.flexibleSpace())
                 items.append(UIBarButtonItem(image: duplicateImage, style: .plain, target: self, action: #selector(duplicateNotes)))
@@ -848,14 +831,6 @@ extension ViewController: UIDocumentPickerDelegate {
 
         self.dismiss(animated: true, completion: nil)
         UIApplication.getVC().present(controller, animated: true, completion: nil)
-    }
-
-    private func emptyBin() {
-        let notes = storage.getAllTrash()
-
-        storage.removeNotes(notes: notes, fsRemove: true, completely: true) { [self]_ in
-            self.notesTable.removeRows(notes: notes)
-        }
     }
 
     @objc public func unlock() {

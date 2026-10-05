@@ -117,11 +117,7 @@ extension ViewController {
             
         case "\(menuId).delete":
             menuItem.title = NSLocalizedString("Delete", comment: "File Menu")
-            return greaterThanZero && isFirstResponder
-            
-        case "\(menuId).forceDelete":
-            menuItem.title = NSLocalizedString("Force Delete", comment: "File Menu")
-            return greaterThanZero && isFirstResponder
+            return greaterThanZero && isFirstResponder && notes?.contains(where: { !$0.isTrash() }) == true
             
         case "\(menuId).togglePin":
             if let note = notes?.first, note.isPinned {

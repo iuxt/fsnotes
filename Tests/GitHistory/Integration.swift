@@ -91,6 +91,31 @@ private final class Fixture {
         try movedRepository.checkout(commit: movedRepository.commitLookup(sha: first), path: target)
         try expect(try String(contentsOf: moved.appendingPathComponent(target), encoding: .utf8) == "initial \(target)", "Restore writes into the moved workspace")
         try expect(try fixture.read(target) == "initial \(target)", "Moved workspace never writes back to its original location")
+        // Cloning through a temporary folder must infer the destination worktree
+        // after moving .git beside the workspace notes.
+        let cloneTemp = FileManager.default.temporaryDirectory.appendingPathComponent("clone-" + UUID().uuidString)
+        let cloneWorkspace = FileManager.default.temporaryDirectory.appendingPathComponent("克隆工作目录 " + UUID().uuidString)
+        defer {
+            try? FileManager.default.removeItem(at: cloneTemp)
+            try? FileManager.default.removeItem(at: cloneWorkspace)
+        }
+        var clonedPointer: OpaquePointer?
+        let cloneResult = git_clone(&clonedPointer, fixture.url.absoluteString, cloneTemp.path, nil)
+        git_repository_free(clonedPointer)
+        try expect(cloneResult == 0, "Clone local fixture")
+        try FileManager.default.createDirectory(at: cloneWorkspace, withIntermediateDirectories: true)
+        try "local draft".write(to: cloneWorkspace.appendingPathComponent("draft.md"), atomically: true, encoding: .utf8)
+        try FileManager.default.moveItem(at: WorkspaceLocation.repositoryURL(for: cloneTemp),
+                                         to: WorkspaceLocation.repositoryURL(for: cloneWorkspace))
+        let clonedRepository = try fixture.open(WorkspaceLocation.repositoryURL(for: cloneWorkspace))
+        let clonedWorktree = String(cString: git_repository_workdir(clonedRepository.pointer.pointee))
+        try expect(URL(fileURLWithPath: clonedWorktree).resolvingSymlinksInPath() == cloneWorkspace.resolvingSymlinksInPath(),
+                   "Cloned .git infers the workspace rather than the temporary directory")
+        try clonedRepository.checkout(commit: clonedRepository.commitLookup(sha: first), path: target)
+        try expect(try String(contentsOf: cloneWorkspace.appendingPathComponent(target), encoding: .utf8) == "initial \(target)",
+                   "Cloned history restores into the workspace")
+        try expect(try String(contentsOf: cloneWorkspace.appendingPathComponent("draft.md"), encoding: .utf8) == "local draft",
+                   "Cloned history preserves unrelated workspace notes")
         try expect(initialCommit.summary == "Initial", "Subject-only commit summary")
         try expect(initialCommit.body.isEmpty, "Subject-only commits must have an empty body without crashing")
         for path in [target, unicode, bundle] { try fixture.write(path, "second \(path)") }
@@ -159,16 +184,6 @@ private final class Fixture {
         let history = try repository.fileHistory(path: target)
         try expect(history.compactMap { $0.oid.sha() } == [recreated, second, first], "Deletion and recreation history")
 
-        // Separated Git storage (used for iCloud) must still restore the worktree file.
-        let externalGit = fixture.url.appendingPathComponent("external.git")
-        try FileManager.default.moveItem(at: fixture.url.appendingPathComponent(".git"), to: externalGit)
-        try "gitdir: \(externalGit.path)\n".write(to: fixture.url.appendingPathComponent(".git"), atomically: true, encoding: .utf8)
-        try fixture.git(["config", "core.worktree", fixture.url.path])
-        let externalRepository = try fixture.open(externalGit)
-        try expect(String(data: externalRepository.fileContent(commit: externalRepository.commitLookup(sha: first), path: target), encoding: .utf8) == "initial \(target)", "Separated repository preview")
-        try externalRepository.checkout(commit: externalRepository.commitLookup(sha: first), path: target)
-        try expect(try fixture.read(target) == "initial \(target)", "Separated repository restore")
-
         let branches = try Fixture()
         try branches.write("note.md", "initial")
         let branchRoot = try branches.commit("Root")
@@ -204,6 +219,6 @@ private final class Fixture {
         let replacement = HistoryDiff.lines(from: "old", to: "new")
         try expect(replacement.count == 2 && replacement[0].kind == .removed && replacement[1].kind == .added,
                    "Diff direction must be saved version to current note")
-        print("PASS: read-only and empty previews, line differences, commit messages, history, initial commit, unrelated changes, SHA lookup, literal/Unicode paths, single-file restore, unchanged index/HEAD, failed restore, deletion/recreation, separated repository, merges, symlinks")
+        print("PASS: read-only and empty previews, line differences, commit messages, history, initial commit, unrelated changes, SHA lookup, literal/Unicode paths, single-file restore, unchanged index/HEAD, failed restore, deletion/recreation, portable workspace and clone, merges, symlinks")
     }
 }

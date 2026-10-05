@@ -854,6 +854,7 @@
 		AD4A792954A44828BF8E3890 /* WorkspaceLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE97FFF7F8F8482BBD302E3F /* WorkspaceLocation.swift */; };
 		30B2215769104B79BD31C667 /* PreferencesLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA79C77547354AB682C4F724 /* PreferencesLayout.swift */; };
 		1D9E163D53F4483ABBCD99EE /* PreferencesLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA79C77547354AB682C4F724 /* PreferencesLayout.swift */; };
+		1CC528AD86BF47CD8A442045 /* WorkspaceLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE97FFF7F8F8482BBD302E3F /* WorkspaceLocation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -2620,6 +2621,7 @@
 				D70E9E162901AEF300A3C634 /* TagIterator.swift in Sources */,
 				11BD8FA22EDE024D000673A7 /* AtomOneDark.swift in Sources */,
 				D7A9C1D92910784400905619 /* Project+Git.swift in Sources */,
+				1CC528AD86BF47CD8A442045 /* WorkspaceLocation.swift in Sources */,
 				D73673A820D10CF2000BA61D /* CloudDriveManager.swift in Sources */,
 				D7EDEDFD21920402000B8C1A /* NoteCellView+.swift in Sources */,
 				D767938B201F21F5000F7BBF /* ViewController.swift in Sources */,

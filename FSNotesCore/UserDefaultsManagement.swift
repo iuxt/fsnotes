@@ -83,7 +83,6 @@ public class UserDefaultsManagement {
         static let NoteType = "noteType"
         static let NoteExtension = "noteExtension"
         static let GrammarChecking = "grammarChecking"
-        static let GitStorage = "gitStorage"
         static let GitUsername = "gitUsername"
         static let GitPassword = "gitPassword"
         static let GitOrigin = "gitOrigin"
@@ -1053,36 +1052,6 @@ public class UserDefaultsManagement {
             shared?.set(newValue, forKey: Constants.MarginSizeKey)
         }
     }
-
-    #if os(iOS)
-    static var gitStorage: URL? {
-        get {
-            if let repositories = shared?.url(forKey: Constants.GitStorage) {
-                if !FileManager.default.fileExists(atPath: repositories.path) {
-                    try? FileManager.default.createDirectory(at: repositories, withIntermediateDirectories: true, attributes: nil)
-                }
-
-                return repositories
-            }
-
-            if let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-                let repositories = applicationSupport.appendingPathComponent("Repositories")
-                
-                if !FileManager.default.fileExists(atPath: repositories.path) {
-                    try? FileManager.default.createDirectory(at: repositories, withIntermediateDirectories: true, attributes: nil)
-                }
-                
-                return repositories
-            }
-            
-            return nil
-        }
-        set {
-            shared?.set(newValue, forKey: Constants.GitStorage)
-        }
-    }
-    
-    #endif
 
     static var gitUsername: String? {
         get {

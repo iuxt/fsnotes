@@ -120,20 +120,6 @@ public class Repository {
         }
     }
     
-    public func setWorkTree(path: String) {
-        var configPointer: OpaquePointer? = nil
-        
-        var result = git_repository_config(&configPointer, self.pointer.pointee);
-        if result != GIT_OK.rawValue {
-            print("Config opening error")
-        }
-        
-        result = git_config_set_string(configPointer, "core.worktree", path);
-        if result != GIT_OK.rawValue {
-            print("Core config error")
-        }
-    }
-    
     /// Read a saved file without touching the working tree, index, or HEAD.
     public func fileContent(commit: Commit, path: String) throws -> Data {
         let (_, entry) = try fileEntry(commit: commit, path: path)
