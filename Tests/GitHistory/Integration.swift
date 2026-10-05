@@ -60,9 +60,69 @@ private final class Fixture {
 }
 
 @main private struct GitHistoryIntegration {
+    static func testImagePreview() throws {
+        let fixture = try Fixture()
+        let repository = try fixture.open()
+        let notePath = "notes/nested/note.md"
+        let imagePath = "images/中文 & picture.png"
+        let image = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j5ioAAAAASUVORK5CYII=")!
+        try fixture.write(notePath, "![saved](../../images/中文%20%26%20picture.png)")
+        let destination = fixture.url.appendingPathComponent(imagePath)
+        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try image.write(to: destination)
+        let saved = try repository.commitLookup(sha: fixture.commit("Save image"))
+        try Data("changed image".utf8).write(to: destination)
+        try fixture.commit("Replace image")
+        try FileManager.default.removeItem(at: destination)
+        let indexURL = repository.url.appendingPathComponent("index")
+        let indexBefore = try Data(contentsOf: indexURL)
+        let headBefore = try fixture.git(["rev-parse", "HEAD"])
+        let source = "<p>图片</p><img alt=\"saved\" src=\"../../images/中文%20%26%20picture.png\">"
+        let preview = HistoryPreview.embedImages(in: source, notePath: notePath) {
+            try HistoryPreview.imageData(path: $0, repository: repository, commit: saved)
+        }
+        try expect(preview.contains("data:image/png;base64," + image.base64EncodedString()),
+                   "History embeds the saved image after replacement and deletion in the working tree")
+        try expect(preview.contains("<p>图片</p>"), "Image embedding preserves the surrounding content")
+        try expect(try Data(contentsOf: indexURL) == indexBefore && fixture.git(["rev-parse", "HEAD"]) == headBefore,
+                   "Image preview leaves the index and HEAD unchanged")
+        try expect(!FileManager.default.fileExists(atPath: destination.path), "Preview must not restore assets into the working tree")
+        try expect(HistoryPreview.imagePath(source: "../../images/中文%20%26%20picture.png?size=1#image", notePath: notePath) == imagePath,
+                   "Relative parent paths, Unicode, percent escapes, queries and fragments resolve from the saved note")
+        for path in ["../../../outside.png", "%2Foutside.png", "/outside.png", "file:///outside.png", "//example.com/image.png", ""] {
+            try expect(HistoryPreview.imagePath(source: path, notePath: notePath) == nil, "Non-repository image paths rejected")
+        }
+        let remote = "<img src=\"https://example.com/a.png?x=1&amp;y=2\"><img src='data:image/png;base64,AA=='>"
+        try expect(HistoryPreview.embedImages(in: remote, notePath: notePath) { _ in
+            throw GitError.notFound(ref: "Must not read remote images")
+        } == remote, "Remote and inline images remain displayable")
+        let missing = HistoryPreview.embedImages(in: "<img alt='missing' src='missing.png'>", notePath: notePath) {
+            try HistoryPreview.imageData(path: $0, repository: repository, commit: saved)
+        }
+        try expect(missing == "<img alt='missing' src=''>", "Missing images retain their alt text without resolving to live files")
+        let entity = HistoryPreview.embedImages(in: "<img data-src='ignored' src='../../images/中文%20&amp;%20picture.png'>", notePath: notePath) {
+            try HistoryPreview.imageData(path: $0, repository: repository, commit: saved)
+        }
+        try expect(entity.contains("src='data:image/png;base64," + image.base64EncodedString()), "HTML entities and single-quoted image sources resolve")
+
+        let lfsPath = "images/lfs.png"
+        let pointer = try GitLFS.clean(image, gitDirectory: repository.url)
+        try pointer.write(to: fixture.url.appendingPathComponent(lfsPath))
+        let lfsCommit = try repository.commitLookup(sha: fixture.commit("Save LFS image"))
+        try expect(try HistoryPreview.imageData(path: lfsPath, repository: repository, commit: lfsCommit) == image,
+                   "History preview resolves LFS pointers to the saved image object")
+        let object = GitLFS.Pointer(pointer: pointer)!.objectURL(in: repository.url)
+        try FileManager.default.removeItem(at: object)
+        try expectFailure("Missing LFS objects must not display pointer text as an image") {
+            _ = try HistoryPreview.imageData(path: lfsPath, repository: repository, commit: lfsCommit)
+        }
+        print("PASS: historical image preview, nested/Unicode paths, deleted assets, remote/inline images, LFS objects, unchanged index/HEAD")
+    }
+
     static func main() throws {
         git_libgit2_init()
         defer { git_libgit2_shutdown() }
+        try testImagePreview()
         let fixture = try Fixture()
         let repository = try fixture.open()
         try expect(try repository.fileHistory(path: "missing.md").isEmpty, "Empty repository should have no history")

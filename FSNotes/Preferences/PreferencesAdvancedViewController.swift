@@ -21,8 +21,6 @@ class PreferencesAdvancedViewController: NSViewController {
     @IBOutlet weak var dockIconFirst: NSButton!
     @IBOutlet weak var dockIconSecond: NSButton!
 
-    @IBOutlet weak var trashPath: NSPathControl!
-    
     @IBAction func appearanceClick(_ sender: NSPopUpButton) {
         if let type = AppearanceType(rawValue: sender.indexOfSelectedItem) {
             UserDefaultsManagement.appearanceType = type
@@ -89,10 +87,6 @@ class PreferencesAdvancedViewController: NSViewController {
         default:
             dockIconFirst.state = .on
         }
-        
-        if let url = Storage.shared().getDefaultTrash()?.url {
-            trashPath.url = url
-        }
     }
 
     @IBAction func languagePopUp(_ sender: NSPopUpButton) {
@@ -123,36 +117,6 @@ class PreferencesAdvancedViewController: NSViewController {
         appDelegate.loadDockIcon()
     }
 
-    @IBAction func trash(_ sender: NSButton) {
-        let openPanel = NSOpenPanel()
-        openPanel.directoryURL = Storage.shared().getDefaultTrash()?.url
-        openPanel.allowsMultipleSelection = false
-        openPanel.canChooseDirectories = true
-        openPanel.canCreateDirectories = true
-        openPanel.canChooseFiles = false
-        openPanel.canSelectHiddenExtension = true
-        openPanel.begin { (result) -> Void in
-            if result == .OK {
-                guard let url = openPanel.url else { return }
-
-                let bookmarksManager = SandboxBookmark.sharedInstance()
-
-                if let currentURL = UserDefaultsManagement.trashURL {
-                    bookmarksManager.remove(url: currentURL)
-                }
-
-                bookmarksManager.store(url: url)
-                bookmarksManager.save()
-
-                UserDefaultsManagement.trashURL = url
-                self.trashPath.url = url
-                
-                Storage.shared().getDefaultTrash()?.url = url
-                self.restart()
-            }
-        }
-    }
-    
     @IBAction func resetCaches(_ sender: Any) {
         if let sidebarTreeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("sidebarTree") {
             try? FileManager.default.removeItem(at: sidebarTreeURL)

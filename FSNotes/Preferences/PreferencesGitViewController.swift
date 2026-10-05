@@ -23,7 +23,6 @@ class PreferencesGitViewController: SettingsViewController {
         cloneButton.title = NSLocalizedString(title, comment: "")
         let busy = isActive ?? project.isActiveGit
         cloneButton.isEnabled = !busy
-        removeButton.isEnabled = project.hasRepository() && !busy
     }
 
     @IBOutlet weak var repositoryInfoLabel: NSTextField!

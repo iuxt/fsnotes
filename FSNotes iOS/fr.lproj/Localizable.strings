@@ -19,7 +19,6 @@
 "(optional)" = "(facultatif)";
 
 /* SFTP settings actions */
-"Use Custom SFTP Server" = "Utiliser un serveur SFTP";
 "Test Connection" = "Tester la connexion";
 
 /* SFTP connection test alerts */

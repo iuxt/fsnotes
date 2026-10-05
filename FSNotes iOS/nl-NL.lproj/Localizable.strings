@@ -19,7 +19,6 @@
 "(optional)" = "(optioneel)";
 
 /* SFTP settings actions */
-"Use Custom SFTP Server" = "Gebruik aangepaste SFTP-server";
 "Test Connection" = "Verbinding testen";
 
 /* SFTP connection test alerts */

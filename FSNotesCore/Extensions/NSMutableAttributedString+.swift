@@ -215,8 +215,9 @@ extension NSMutableAttributedString {
         return nil
     }
 
-    public func saveData() {
-        let range = NSRange(location: 0, length: length)
+    /// Snapshot attachment bytes for undo without removing shared resource files.
+    public func saveData(in affectedRange: NSRange? = nil) {
+        let range = affectedRange ?? NSRange(location: 0, length: length)
         enumerateAttribute(.attachmentUrl, in: range) { (value, range, _) in
             guard let url = value as? URL,
                   let data = try? Data(contentsOf: url) else { return }

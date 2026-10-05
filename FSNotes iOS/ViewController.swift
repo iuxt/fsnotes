@@ -282,6 +282,9 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
     }
 
     public func configureNotifications() {
+        NotificationCenter.default.addObserver(self, selector: #selector(metadataLibraryDidRefresh(_:)),
+                                               name: .metadataLibraryDidRefresh, object: storage)
+
         NotificationCenter.default.addObserver(self,
             selector: #selector(ubiquitousKeyValueStoreDidChange(_:)),
             name: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
@@ -304,6 +307,26 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
         NotificationCenter.default.addObserver(self, selector: #selector(ViewController.keyboardWillHide), name: UIResponder.keyboardWillHideNotification, object: nil)
 
         NotificationCenter.default.addObserver(self, selector: #selector(didBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
+    }
+
+    @objc private func metadataLibraryDidRefresh(_ notification: Notification) {
+        let removed = notification.userInfo?["removed"] as? [Note] ?? []
+        let added = notification.userInfo?["added"] as? [Note] ?? []
+        let changed = notification.userInfo?["changed"] as? [Note] ?? []
+        for note in changed {
+            note.invalidateCache()
+            note.loadPreviewInfo()
+            note.undoManager.removeAllActions()
+        }
+        for note in added { note.loadPreviewInfo() }
+        if let editor = editorViewController, let note = editor.note,
+           changed.contains(where: { $0 === note }) {
+            editor.editArea?.undoManager?.removeAllActions()
+            editor.fill(note: note, clearPreview: true)
+        }
+        sidebarTableView.reloadSidebar()
+        notesTable.doVisualChanges(results: (removed, added, changed))
+        reloadNotesTable()
     }
 
     public func configureGestures() {
@@ -683,12 +706,6 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
                     let settingsKey = key.replacingOccurrences(of: "es.fsnot.project-settings", with: "")
                     if let project = storage.getProjectBy(settingsKey: settingsKey) {
                         project.reloadSettings()
-
-                        DispatchQueue.main.async {
-                            if let result = project.loadWebAPI() {
-                                self.notesTable.reloadRows(notes: result.0 + result.1)
-                            }
-                        }
                     }
                 }
             }
@@ -1344,16 +1361,6 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
     public func clean() {
         notesTable.notes.removeAll()
         notesTable.reloadData()
-    }
-
-    public func showAlert(message: String) {
-        DispatchQueue.main.async {
-            let title = NSLocalizedString("Web sharing error", comment: "")
-            let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
-            let confirmAction = UIAlertAction(title: "OK", style: .default)
-            alertController.addAction(confirmAction)
-            self.present(alertController, animated: true)
-        }
     }
 
     public func buildSearchQuery() {

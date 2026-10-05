@@ -1,5 +1,9 @@
 import Foundation
 
+extension Notification.Name {
+    static let metadataLibraryDidRefresh = Notification.Name("FSNotesMetadataLibraryDidRefresh")
+}
+
 extension Storage {
     func openMetadataLibrary(for project: Project) {
         guard project.isDefault || project.isBookmark || FileManager.default.fileExists(atPath: project.url.appendingPathComponent(".git").path) else { return }
@@ -54,13 +58,36 @@ extension Storage {
     }
 
     func refreshMetadataLibraries() {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { self.refreshMetadataLibraries() }
+            return
+        }
         let diff = getProjectDiffs()
+        var removed = diff.2
+        var added = diff.3
+        var changed = [Note]()
         for note in noteList where note.metadataStore != nil { note.applyMetadata() }
-        for removed in diff.0 { removeBy(project: removed) }
+        for project in diff.0 {
+            removed += noteList.filter { $0.project === project }
+            removeBy(project: project)
+        }
         for project in projects where project.metadataStore != nil || project.isTrash {
-            _ = project.checkFSAndMemoryDiff()
+            let changes = project.checkFSAndMemoryDiff()
+            removed += changes.0
+            added += changes.1
+            changed += changes.2
         }
         for note in noteList where note.metadataStore != nil { note.applyMetadata() }
+        func unique(_ notes: [Note]) -> [Note] {
+            var seen = Set<ObjectIdentifier>()
+            return notes.filter { seen.insert(ObjectIdentifier($0)).inserted }
+        }
+        let live = Set(noteList.map { ObjectIdentifier($0) })
+        removed = unique(removed).filter { !live.contains(ObjectIdentifier($0)) }
+        added = unique(added).filter { live.contains(ObjectIdentifier($0)) }
+        changed = unique(changed).filter { live.contains(ObjectIdentifier($0)) }
+        NotificationCenter.default.post(name: .metadataLibraryDidRefresh, object: self,
+                                        userInfo: ["removed": removed, "added": added, "changed": changed])
     }
 
     func createMetadataFolder(in parent: Project, name: String) throws -> Project? {

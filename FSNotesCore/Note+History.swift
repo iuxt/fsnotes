@@ -167,14 +167,22 @@ extension Note {
     }
 
     public func gitContent(at commit: Commit) throws -> Data {
+        guard let project = getGitProject() else { throw GitError.notFound(ref: name) }
+        let repository = try project.getRepository()
+        let commit = try repository.commitLookup(oid: commit.oid)
+        return try repository.fileContent(commit: commit, path: gitContentPath(at: commit))
+    }
+
+    /// The saved note's location also supplies the base for relative image links.
+    public func gitContentPath(at commit: Commit) throws -> String {
         guard let project = getGitProject(), getGitPathPrefix() != nil else {
             throw GitError.notFound(ref: name)
         }
         let repository = try project.getRepository()
         let commit = try repository.commitLookup(oid: commit.oid)
         let current = getGitPath(history: true)
-        if try commit.tree().entry(byPath: current) != nil { return try repository.fileContent(commit: commit, path: current) }
-        if let legacy = legacyGitPath() { return try repository.fileContent(commit: commit, path: legacy) }
+        if try commit.tree().entry(byPath: current) != nil { return current }
+        if let legacy = legacyGitPath(), try commit.tree().entry(byPath: legacy) != nil { return legacy }
         throw GitError.notFound(ref: current)
     }
 

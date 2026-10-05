@@ -59,7 +59,8 @@ final class Project {
     }
     func getSettings() -> Int? { nil }
     func saveSettings() {}
-    func checkFSAndMemoryDiff() -> ([Note], [Note], [Note]) { ([], [], []) }
+    var filesystemChanges: ([Note], [Note], [Note]) = ([], [], [])
+    func checkFSAndMemoryDiff() -> ([Note], [Note], [Note]) { filesystemChanges }
 }
 final class Note {
     var url: URL

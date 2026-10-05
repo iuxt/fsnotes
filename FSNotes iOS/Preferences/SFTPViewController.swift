@@ -94,7 +94,7 @@ class SFTPViewController: UIViewController, UITableViewDelegate, UITableViewData
         switch SFTPSection(rawValue: section)! {
         case .server:         return 4  // host, port, remote path, web URL
         case .authentication: return 5  // username, password, private key, public key, passphrase
-        case .actions:        return 2  // enable custom server toggle + test button
+        case .actions:        return 1  // test button
         }
     }
 
@@ -134,7 +134,7 @@ class SFTPViewController: UIViewController, UITableViewDelegate, UITableViewData
             present(documentPickerPublicKey, animated: true)
         }
 
-        if indexPath.section == SFTPSection.actions.rawValue && indexPath.row == 1 {
+        if indexPath.section == SFTPSection.actions.rawValue && indexPath.row == 0 {
             testConnection()
         }
     }
@@ -251,16 +251,6 @@ class SFTPViewController: UIViewController, UITableViewDelegate, UITableViewData
         switch indexPath.row {
         case 0:
             let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-            cell.textLabel?.text = NSLocalizedString("Use Custom SFTP Server", comment: "")
-            let toggle = UISwitch()
-            toggle.isOn = UserDefaultsManagement.customWebServer
-            toggle.addTarget(self, action: #selector(customServerToggleChanged(_:)), for: .valueChanged)
-            cell.accessoryView = toggle
-            cell.selectionStyle = .none
-            return cell
-
-        case 1:
-            let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
             cell.textLabel?.text = NSLocalizedString("Test Connection", comment: "")
             cell.textLabel?.textColor = .systemBlue
             cell.textLabel?.textAlignment = .center
@@ -334,10 +324,6 @@ class SFTPViewController: UIViewController, UITableViewDelegate, UITableViewData
         case tagPassphrase:  UserDefaultsManagement.sftpPassphrase = text
         default: break
         }
-    }
-
-    @objc private func customServerToggleChanged(_ sender: UISwitch) {
-        UserDefaultsManagement.customWebServer = sender.isOn
     }
 
     @objc private func deletePrivateKey() {

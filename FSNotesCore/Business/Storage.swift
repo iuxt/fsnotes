@@ -1551,29 +1551,6 @@ class Storage {
         self.sortDirectionState = UserDefaultsManagement.sortDirection ? .desc : .asc
     }
 
-    public func migrationAPIIds() {
-        guard let key = UserDefaultsManagement.deprecatedUploadKey else {
-            return
-        }
-
-        UserDefaultsManagement.uploadKey = key
-        UserDefaultsManagement.deprecatedUploadKey = nil
-
-         guard let data = UserDefaultsManagement.apiBookmarksData,
-               let uploadBookmarks = try? NSKeyedUnarchiver.unarchivedObject(ofClasses: [NSDictionary.self, NSURL.self, NSString.self], from: data) as? [URL: String] else { return }
-
-         for bookmark in uploadBookmarks {
-             if let note = getBy(url: bookmark.key) {
-                 if note.apiId == nil {
-                     note.apiId = bookmark.value
-                     note.project.saveWebAPI()
-                 }
-             }
-         }
-
-        UserDefaultsManagement.apiBookmarksData = nil
-    }
-
     public func addNote(url: URL) -> Note {
         let projectURL = url.deletingLastPathComponent()
         var project: Project? = getProjectByNote(url: url)

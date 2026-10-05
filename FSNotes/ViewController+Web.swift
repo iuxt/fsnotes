@@ -16,15 +16,6 @@ extension EditorViewController {
     }
     
     @IBAction func removeWebNote(_ sender: NSMenuItem) {
-        if !UserDefaultsManagement.customWebServer, let note = getCurrentNote() {
-            ViewController.shared()?.deleteAPI(note: note, completion: {
-                DispatchQueue.main.async {
-                    ViewController.shared()?.notesTableView.reloadRow(note: note)
-                }
-            })
-            return
-        }
-        
         guard let note = getCurrentNote(), let remotePath = note.uploadPath else { return }
         
         DispatchQueue.global().async {
@@ -47,22 +38,6 @@ extension EditorViewController {
     }
         
     @IBAction func uploadWebNote(_ sender: NSMenuItem) {
-        if !UserDefaultsManagement.customWebServer, let note = getCurrentNote() {
-            ViewController.shared()?.createAPI(note: note, completion: { url in
-                DispatchQueue.main.async {
-                    ViewController.shared()?.notesTableView.reloadRow(note: note)
-                    guard let url = url else { return }
-
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.declareTypes([NSPasteboard.PasteboardType.string], owner: nil)
-                    pasteboard.setString(url.absoluteString, forType: NSPasteboard.PasteboardType.string)
-
-                    NSWorkspace.shared.open(url)
-                }
-            })
-            return
-        }
-        
         guard let note = getCurrentNote() else { return }
         
         let dst = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("Upload")
@@ -187,15 +162,5 @@ extension EditorViewController {
         alert.informativeText = NSLocalizedString("Upload error", comment: "")
         alert.messageText = text
         alert.beginSheetModal(for: self.view.window!)
-    }
-    
-    public func showAlert(message: String) {
-        DispatchQueue.main.async {
-            let alert = NSAlert()
-            alert.alertStyle = .critical
-            alert.informativeText = NSLocalizedString(message, comment: "")
-            alert.messageText = NSLocalizedString("Web publishing error", comment: "")
-            alert.beginSheetModal(for: self.view.window!) { (returnCode: NSApplication.ModalResponse) -> Void in }
-        }
     }
 }

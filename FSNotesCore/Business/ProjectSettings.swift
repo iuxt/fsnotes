@@ -25,7 +25,6 @@ public class ProjectSettings: NSObject, NSSecureCoding {
     public var gitPrivateKeyPassphrase: String?
     public var gitCACertificates: String?
     public var notesPreview = [String]()
-    public var notesAPI: [String: String]?
 
     public override init() {/*_*/}
     
@@ -70,10 +69,6 @@ public class ProjectSettings: NSObject, NSSecureCoding {
         if let value = aDecoder.decodeObject(of: [NSArray.self, NSString.self], forKey: "notesPreview") as? [String] {
             notesPreview = value
         }
-
-        if let value = aDecoder.decodeObject(of: [NSDictionary.self, NSString.self], forKey: "notesAPI") as? [String: String] {
-            notesAPI = value
-        }
     }
 
     public func encode(with aCoder: NSCoder) {
@@ -111,10 +106,6 @@ public class ProjectSettings: NSObject, NSSecureCoding {
         }
 
         aCoder.encode(notesPreview, forKey: "notesPreview")
-
-        if let notesAPI = self.notesAPI {
-            aCoder.encode(notesAPI, forKey: "notesAPI")
-        }
     }
 
     public func setOrigin(_ origin: String?) {

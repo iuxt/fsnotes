@@ -22,7 +22,6 @@ class SettingsViewController: NSViewController, NSTextFieldDelegate {
     @IBOutlet var origin: NSTextField!
     @IBOutlet var keyStatus: NSTextField!
     @IBOutlet var logTextField: NSTextField!
-    @IBOutlet var removeButton: NSButton!
     @IBOutlet var cloneButton: NSButton!
     @IBOutlet var passphrase: NSSecureTextField!
     @IBOutlet var progressIndicator: NSProgressIndicator!
@@ -74,12 +73,6 @@ class SettingsViewController: NSViewController, NSTextFieldDelegate {
                 errorAlert.runModal()
             }
         }
-    }
-
-    @IBAction func removeRepository(_ sender: Any) {
-        gitProject?.removeRepository(progress: progress)
-
-        updateButtons()
     }
 
     @IBAction func origin(_ sender: Any) {
@@ -193,7 +186,6 @@ class SettingsViewController: NSViewController, NSTextFieldDelegate {
 
         progressIndicator.isHidden = !project.isActiveGit
         cloneButton.title = project.getRepositoryState().title
-        removeButton.isEnabled = project.hasRepository()
 
         if let isActive = isActive {
             if isActive {

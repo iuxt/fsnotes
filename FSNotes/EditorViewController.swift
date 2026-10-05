@@ -711,7 +711,6 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
             let trashedNotes = notes.filter { urlMapping[$0.url] != nil }
             vc.notesTableView.removeRows(notes: trashedNotes)
             for note in trashedNotes {
-                vc.deleteAPI(note: note)
                 let tags = note.tags
                 note.tags.removeAll()
                 vc.sidebarOutlineView.removeTags(tags)

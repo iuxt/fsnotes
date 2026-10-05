@@ -320,7 +320,7 @@ class NotesTableView: UITableView,
         let shareImage = UIImage(systemName: "square.and.arrow.up")
         actions.append(UIAction(title: shareTitle, image: shareImage, identifier: UIAction.Identifier("share"), handler: handler))
 
-        let isPublished = note.apiId != nil || (UserDefaultsManagement.customWebServer && note.uploadPath != nil)
+        let isPublished = note.uploadPath != nil
 
         var shareWebTitle = NSLocalizedString("Create Web Page", comment: "")
         if isPublished {
@@ -885,58 +885,32 @@ class NotesTableView: UITableView,
     }
 
     public func shareWebAction(note: Note) {
-        if UserDefaultsManagement.customWebServer {
-            showLoader()
-            SFTPUploader.upload(note: note) { result in
-                self.hideLoader()
-                self.reloadRowForce(note: note)
-                UIApplication.getEVC().configureNavMenu()
+        showLoader()
+        SFTPUploader.upload(note: note) { result in
+            self.hideLoader()
+            self.reloadRowForce(note: note)
+            UIApplication.getEVC().configureNavMenu()
 
-                switch result {
-                case .success(let url):
-                    UIApplication.shared.open(url)
-                case .failure(let error):
-                    self.showSFTPError(error)
-                }
+            switch result {
+            case .success(let url):
+                UIApplication.shared.open(url)
+            case .failure(let error):
+                self.showSFTPError(error)
             }
-            return
         }
-
-        UIApplication.getVC().createAPI(note: note, completion: { url in
-            DispatchQueue.main.async {
-                self.reloadRowForce(note: note)
-
-                if let url = url {
-                    UIApplication.shared.open(url)
-                }
-
-                UIApplication.getEVC().configureNavMenu()
-            }
-        })
     }
 
     public func deleteWebAction(note: Note) {
-        if UserDefaultsManagement.customWebServer {
-            showLoader()
-            SFTPUploader.remove(note: note) { error in
-                self.hideLoader()
-                self.reloadRowForce(note: note)
-                UIApplication.getEVC().configureNavMenu()
+        showLoader()
+        SFTPUploader.remove(note: note) { error in
+            self.hideLoader()
+            self.reloadRowForce(note: note)
+            UIApplication.getEVC().configureNavMenu()
 
-                if let error = error {
-                    self.showSFTPError(error)
-                }
+            if let error = error {
+                self.showSFTPError(error)
             }
-            return
         }
-
-        UIApplication.getVC().deleteAPI(note: note, completion: {
-            DispatchQueue.main.async {
-                self.reloadRowForce(note: note)
-
-                UIApplication.getEVC().configureNavMenu()
-            }
-        })
     }
 
     private func showSFTPError(_ error: Error) {

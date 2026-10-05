@@ -6,14 +6,14 @@ import Foundation
         checks += 1
         if try !condition() { throw NSError(domain: "SyncTests", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
     }
-    @discardableResult static func git(_ arguments: [String], in root: URL) throws -> String {
+    @discardableResult static func git(_ arguments: [String], in root: URL, expectSuccess: Bool = true) throws -> String {
         let process = Process(); process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
         process.arguments = ["-c", "user.name=Tests", "-c", "user.email=tests@example.com"] + arguments
         process.currentDirectoryURL = root
         let pipe = Pipe(); process.standardOutput = pipe; process.standardError = pipe
         try process.run()
         let output = pipe.fileHandleForReading.readDataToEndOfFile(); process.waitUntilExit()
-        try expect(process.terminationStatus == 0, String(decoding: output, as: UTF8.self))
+        try expect((process.terminationStatus == 0) == expectSuccess, String(decoding: output, as: UTF8.self))
         return String(decoding: output, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     }
     static func write(_ text: String, _ path: String, in root: URL) throws {
@@ -83,6 +83,113 @@ import Foundation
         try expect(try git(["rev-parse", "HEAD"], in: local) == localHead, "failed pull creates no local commit")
         try expect(try String(contentsOf: local.appendingPathComponent("local.md"), encoding: .utf8) == "unsaved local conflict", "failed pull retains local edits")
         try expect(try git(["--git-dir", remote.path, "rev-parse", branch], in: temp) == remoteConflict, "failed pull does not push")
+        try testMetadataConflicts(in: temp)
+        try testCloneProtection(in: temp)
         print("Git sync integration: \(checks) checks passed")
     }
+    static func testMetadataConflicts(in temp: URL) throws {
+        let manager = FileManager.default
+        let local = temp.appendingPathComponent("metadata-local")
+        let peer = temp.appendingPathComponent("metadata-peer")
+        let remote = temp.appendingPathComponent("metadata-remote.git")
+        try manager.createDirectory(at: local, withIntermediateDirectories: true)
+        let store = try MetadataStore(root: local)
+        let entry = try store.register(name: "Original", folderID: nil, ext: "md")
+        try "body remains valid".write(to: store.fileURL(entry), atomically: true, encoding: .utf8)
+        try git(["init", "-q"], in: local)
+        try git(["add", "."], in: local); try git(["commit", "-qm", "base"], in: local)
+        try git(["clone", "--bare", "-q", local.path, remote.path], in: temp)
+        try git(["clone", "-q", remote.path, peer.path], in: temp)
+        let peerStore = try MetadataStore(root: peer)
+        try peerStore.renameNote(id: entry.id, name: "Remote title")
+        try write("remote add/add", "shared.md", in: peer)
+        try git(["add", "."], in: peer); try git(["commit", "-qm", "remote metadata"], in: peer)
+        try git(["push", "-q"], in: peer)
+        try store.renameNote(id: entry.id, name: "Local title")
+        try write("local add/add", "shared.md", in: local)
+        try git(["add", "."], in: local); try git(["commit", "-qm", "local metadata"], in: local)
+        let project = Project(url: local)
+        project.metadataStore = store; project.settings.gitOrigin = remote.path
+        defer { project.removeCommitsCache() }
+        let head = try git(["rev-parse", "HEAD"], in: local)
+        let remoteHead = try git(["--git-dir", remote.path, "rev-parse", "HEAD"], in: temp)
+        let manifest = try Data(contentsOf: store.manifestURL)
+        do { try project.synchronize(); try expect(false, "committed metadata conflict must stop sync") }
+        catch GitError.unableToMerge(let message) {
+            try expect(message.contains("metadata.json") && message.contains("shared.md"),
+                       "conflict report includes modify/modify and ancestor-free add/add paths")
+        }
+        try expect(try git(["rev-parse", "HEAD"], in: local) == head, "conflict does not create a merge commit")
+        try expect(try Data(contentsOf: store.manifestURL) == manifest, "conflict does not write markers into metadata")
+        try expect(try git(["status", "--porcelain"], in: local).isEmpty, "failed merge leaves index and worktree intact")
+        try expect(try git(["--git-dir", remote.path, "rev-parse", "HEAD"], in: temp) == remoteHead,
+                   "failed metadata merge publishes nothing")
+        try expect(try String(contentsOf: store.fileURL(entry), encoding: .utf8) == "body remains valid", "note body is retained")
+        _ = try store.refresh()
+        try expect(store.entry(id: entry.id)?.name == "Local title", "metadata remains readable after a conflict")
+
+        // An external client can start a real conflicted merge. Sync must not
+        // stage its marker-filled files and erase Git's unresolved entries.
+        try git(["merge", "origin/" + git(["branch", "--show-current"], in: local)], in: local, expectSuccess: false)
+        let unresolved = try git(["ls-files", "-u"], in: local)
+        let conflictedManifest = try Data(contentsOf: store.manifestURL)
+        do { try project.commit(); try expect(false, "pending external merge must block auto-commit") }
+        catch GitError.invalidSpec { checks += 1 }
+        try expect(try git(["ls-files", "-u"], in: local) == unresolved && !unresolved.isEmpty,
+                   "pending external merge retains all unresolved index stages")
+        try expect(try Data(contentsOf: store.manifestURL) == conflictedManifest, "pending merge worktree remains untouched")
+        try expect(try git(["rev-parse", "HEAD"], in: local) == head, "pending merge is not committed")
+        try git(["merge", "--abort"], in: local)
+    }
+
+    static func testCloneProtection(in temp: URL) throws {
+        let manager = FileManager.default
+        let seed = temp.appendingPathComponent("clone-seed")
+        let remote = temp.appendingPathComponent("clone-remote.git")
+        try manager.createDirectory(at: seed, withIntermediateDirectories: true)
+        let seedStore = try MetadataStore(root: seed)
+        let entry = try seedStore.register(name: "Remote note", folderID: nil, ext: "md")
+        try "remote body".write(to: seedStore.fileURL(entry), atomically: true, encoding: .utf8)
+        try git(["init", "-q"], in: seed)
+        try git(["add", "."], in: seed); try git(["commit", "-qm", "remote library"], in: seed)
+        try git(["clone", "--bare", "-q", seed.path, remote.path], in: temp)
+
+        let populated = temp.appendingPathComponent("clone-populated")
+        try manager.createDirectory(at: populated, withIntermediateDirectories: true)
+        let existingStore = try MetadataStore(root: populated)
+        let existing = try existingStore.register(name: "Local note", folderID: nil, ext: "md")
+        try "local body".write(to: existingStore.fileURL(existing), atomically: true, encoding: .utf8)
+        let project = Project(url: populated)
+        project.metadataStore = existingStore; project.settings.gitOrigin = remote.path
+        let manifest = try Data(contentsOf: existingStore.manifestURL)
+        do { _ = try project.cloneRepository(); try expect(false, "clone must reject a populated library") }
+        catch GitError.invalidSpec { checks += 1 }
+        try expect(!project.hasRepository(), "rejected clone does not install .git")
+        try expect(try Data(contentsOf: existingStore.manifestURL) == manifest, "rejected clone retains local metadata byte for byte")
+        try expect(try String(contentsOf: existingStore.fileURL(existing), encoding: .utf8) == "local body", "rejected clone retains note content")
+
+        let fresh = temp.appendingPathComponent("clone-fresh")
+        try manager.createDirectory(at: fresh, withIntermediateDirectories: true)
+        let emptyStore = try MetadataStore(root: fresh)
+        let empty = Project(url: fresh)
+        empty.metadataStore = emptyStore; empty.settings.gitOrigin = remote.path
+        try expect(try empty.cloneRepository() != nil, "empty initialized workspace can clone")
+        try expect(try Data(contentsOf: emptyStore.manifestURL) == Data(contentsOf: seedStore.manifestURL), "clone installs the remote manifest")
+        _ = try emptyStore.refresh()
+        try expect(emptyStore.entry(id: entry.id)?.name == "Remote note", "cloned metadata indexes the remote note")
+        try expect(try String(contentsOf: emptyStore.fileURL(entry), encoding: .utf8) == "remote body", "clone installs the note worktree")
+        try expect(try git(["status", "--porcelain"], in: fresh).isEmpty, "cloned index agrees with its installed worktree")
+
+        let unindexed = temp.appendingPathComponent("clone-unindexed")
+        try manager.createDirectory(at: unindexed, withIntermediateDirectories: true)
+        let unindexedStore = try MetadataStore(root: unindexed)
+        try write("unindexed body", "notes/unindexed.md", in: unindexed)
+        let unsafe = Project(url: unindexed)
+        unsafe.metadataStore = unindexedStore; unsafe.settings.gitOrigin = remote.path
+        do { _ = try unsafe.cloneRepository(); try expect(false, "clone must preserve unindexed notes too") }
+        catch GitError.invalidSpec { checks += 1 }
+        try expect(try String(contentsOf: unindexed.appendingPathComponent("notes/unindexed.md"), encoding: .utf8) == "unindexed body",
+                   "empty metadata does not permit overwriting unindexed files")
+    }
+
 }

@@ -19,6 +19,9 @@ subject-only commit messages, Unicode commit bodies,
 workspace folder validation, portable colocated Git history after moving the library,
 cloning through a temporary folder with history restored into the workspace,
 read-only and empty-file previews, and line differences with duplicate/Unicode lines.
+Image preview coverage checks saved image bytes after replacement/deletion, nested
+relative paths and Unicode/escaped filenames, HTML image attributes, remote/data
+images, missing assets, LFS objects, and unchanged working tree, index and HEAD.
 
 The LFS executable compiles the production clean/smudge filter and verifies actual
 libgit2 staging, recursive image paths, SHA-256 pointers and object storage, empty
@@ -48,3 +51,16 @@ Only UI and settings are scaffolded. Its temporary history cache uses a unique n
 and is removed on exit; existing application caches are untouched.
 It also verifies that imported and rewritten SSH private keys have mode 0600 and
 retain the expected contents, so OpenSSH can use keys installed by the app.
+
+Sync regression coverage also uses the production metadata store to verify
+modify/modify metadata conflicts and add/add conflicts stop without changing
+HEAD, index, worktree or remote. Pending external merges cannot be auto-staged.
+Clone checks reject populated libraries and unindexed files, while an empty
+initialized library receives the complete remote manifest, note bodies and index.
+
+The conflict executable checks the workbench's production in-memory merge model:
+committed and uncommitted local changes, independently resolved hunks, exact shared
+text, unresolved-marker rejection, binary and delete/modify choices, valid metadata,
+stale working-tree rejection, merge parents and push. A locked branch update forces
+installation recovery; the test verifies restoration of local files and the index,
+removal of newly installed files, and a successful retry without losing local edits.

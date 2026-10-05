@@ -16,9 +16,6 @@ import Foundation
 
 public class UserDefaultsManagement {
 
-    static var apiPath = "https://api.fsnot.es/"
-    static var webPath = "https://p.fsnot.es/"
-
     public static var global = NSUbiquitousKeyValueStore.default
 
 #if os(OSX)
@@ -46,7 +43,6 @@ public class UserDefaultsManagement {
     private struct Constants {
         static let AppearanceTypeKey = "appearanceType"
         static let AskCommitMessage = "askCommitMessage"
-        static let ApiBookmarksData = "apiBookmarksData"
         static let AutoInsertHeader = "autoInsertHeader"
         static let AutoVersioning = "autoVersioning"
         static let AutomaticSpellingCorrection = "automaticSpellingCorrection"
@@ -70,7 +66,6 @@ public class UserDefaultsManagement {
         static let codeTheme = "codeTheme2025"
         static let ContinuousSpellChecking = "continuousSpellChecking"
         static let CrashedLastTime = "crashedLastTime"
-        static let CustomWebServer = "customWebServer"
         static let DefaultLanguageKey = "defaultLanguage"
         static let DefaultKeyboardKey = "defaultKeyboard"
         static let FontNameKey = "font"
@@ -139,8 +134,6 @@ public class UserDefaultsManagement {
         static let StoragePathKey = "storageUrl"
         static let TableOrientation = "isUseHorizontalMode"
         static let TextMatchAutoSelection = "textMatchAutoSelection"
-        static let TrashKey = "trashKey"
-        static let UploadKey = "uploadKey"
         static let AutocloseBrackets = "autocloseBrackets"
         static let Welcome = "welcome2026"
     }
@@ -1305,18 +1298,6 @@ public class UserDefaultsManagement {
         }
     }
 
-    static var customWebServer: Bool {
-        get {
-            if let result = shared?.object(forKey: Constants.CustomWebServer) as? Bool {
-                return result
-            }
-            return false
-        }
-        set {
-            shared?.set(newValue, forKey: Constants.CustomWebServer)
-        }
-    }
-
     static var sftpHost: String {
         get {
             if let result = shared?.object(forKey: Constants.SftpHost) as? String {
@@ -1448,15 +1429,6 @@ public class UserDefaultsManagement {
         }
     }
 
-    static var apiBookmarksData: Data? {
-        get {
-            return shared?.data(forKey: Constants.ApiBookmarksData)
-        }
-        set {
-            shared?.set(newValue, forKey: Constants.ApiBookmarksData)
-        }
-    }
-
     static var gitPrivateKeyData: Data? {
         get {
             return shared?.data(forKey: Constants.GitPrivateKeyData)
@@ -1479,35 +1451,6 @@ public class UserDefaultsManagement {
         }
     }
 
-    static var uploadKey: String {
-        get {
-            if let result = global.object(forKey: Constants.UploadKey) as? String, result.count > 0 {
-                return result
-            }
-
-            let key = String.random(length: 20)
-            global.set(key, forKey: Constants.UploadKey)
-
-            return key
-        }
-        set {
-            global.set(newValue, forKey: Constants.UploadKey)
-        }
-    }
-
-    static var deprecatedUploadKey: String? {
-        get {
-            if let result = shared?.object(forKey: Constants.UploadKey) as? String, result.count > 0 {
-                return result
-            }
-
-            return nil
-        }
-        set {
-            shared?.set(newValue, forKey: Constants.UploadKey)
-        }
-    }
-
     static var clickableLinks: Bool {
         get {
             if let highlight = shared?.object(forKey: Constants.ClickableLinks) as? Bool {
@@ -1522,19 +1465,6 @@ public class UserDefaultsManagement {
         }
         set {
             shared?.set(newValue, forKey: Constants.ClickableLinks)
-        }
-    }
-
-    static var trashURL: URL? {
-        get {
-            if let trashUrl = shared?.url(forKey: Constants.TrashKey) {
-                return trashUrl
-            }
-
-            return nil
-        }
-        set {
-            shared?.set(newValue, forKey: Constants.TrashKey)
         }
     }
 

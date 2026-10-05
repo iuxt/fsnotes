@@ -14,6 +14,7 @@ public final class Project {
     var commitsCache = [String: [String]]()
     var isCleanGit = false
     var gitStatus: String?
+    var gitMergePending = false
     init(url: URL) { self.url = url }
     func getSettingsKey() -> String { settingsKey }
 }
@@ -29,11 +30,6 @@ final class Storage {
     func getProjectBy(url: URL) -> Project? { nil }
     func getGitKeysDir() -> URL? { gitKeysDir }
     func refreshMetadataLibraries() {}
-}
-final class MetadataStore {
-    let root = URL(fileURLWithPath: "/unused")
-    func refresh() throws {}
-    enum Failure: Error { case invalid(String) }
 }
 final class AppDelegate { static var gitProgress: GitProgress? }
 extension FileManager {

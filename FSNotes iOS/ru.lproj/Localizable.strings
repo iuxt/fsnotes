@@ -440,7 +440,6 @@
 "(optional)" = "(необязательно)";
 
 /* SFTP settings actions */
-"Use Custom SFTP Server" = "Использовать SFTP-сервер";
 "Test Connection" = "Проверить соединение";
 
 /* SFTP connection test alerts */

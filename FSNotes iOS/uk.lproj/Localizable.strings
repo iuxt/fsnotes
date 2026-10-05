@@ -19,7 +19,6 @@
 "(optional)" = "(необов'язково)";
 
 /* SFTP settings actions */
-"Use Custom SFTP Server" = "Використовувати SFTP-сервер";
 "Test Connection" = "Перевірити з'єднання";
 
 /* SFTP connection test alerts */

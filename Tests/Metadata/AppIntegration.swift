@@ -90,6 +90,23 @@ import Foundation
         catch let error as NSError where error.domain == NSCocoaErrorDomain { checks += 1 }
         try expect(try store.allEntries().count == countBefore, "failed import rolls back metadata")
         try expect(manager.fileExists(atPath: invalid.path), "failed import preserves original")
+        root.filesystemChanges = ([note], [], [note, note])
+        child.filesystemChanges = ([], [storage.getBy(url: duplicate)!], [])
+        var received: Notification?
+        let observer = NotificationCenter.default.addObserver(forName: .metadataLibraryDidRefresh,
+                                                              object: storage, queue: nil) { received = $0 }
+        storage.refreshMetadataLibraries()
+        NotificationCenter.default.removeObserver(observer)
+        try expect(received?.object as? Storage === storage, "refresh identifies the library storage")
+        try expect((received?.userInfo?["changed"] as? [Note])?.first === note,
+                   "refresh propagates content changes to open editors")
+        try expect((received?.userInfo?["changed"] as? [Note])?.count == 1,
+                   "refresh deduplicates changes gathered from overlapping projects")
+        try expect((received?.userInfo?["removed"] as? [Note])?.isEmpty == true,
+                   "moving a surviving note between logical projects does not report deletion")
+        try expect((received?.userInfo?["added"] as? [Note])?.first === storage.getBy(url: duplicate),
+                   "refresh propagates added notes to the table")
+        root.filesystemChanges = ([], [], []); child.filesystemChanges = ([], [], [])
         let snapshot = try Data(contentsOf: store.manifestURL)
         _ = note.removeMetadataFile()
         try expect(note.project === trash && manager.fileExists(atPath: imported.path), "trash retains body path")

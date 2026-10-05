@@ -335,11 +335,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
 
             SSZipArchive.createZipFile(atPath: zipURL.path, withFilesAtPaths: [note.url.path])
 
-            if UserDefaultsManagement.customWebServer {
-                webPath = UserDefaultsManagement.sftpWeb
-            } else {
-                webPath = UserDefaultsManagement.webPath
-            }
+            webPath = UserDefaultsManagement.sftpWeb
         }
 
         let state = !(web || print)
@@ -397,68 +393,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
     }
 
     public static func loadImages(imagesStorage: URL, html: String, at: URL, web: Bool = false) -> String {
-        var htmlString = html
-
-        do {
-            let regex = try NSRegularExpression(pattern: "<img.*?src=\"([^\"]*)\"")
-            let results = regex.matches(in: html, range: NSRange(html.startIndex..., in: html))
-
-            let images = results.map {
-                String(html[Range($0.range, in: html)!])
-            }
-
-            for image in images {
-                var localPath = image.replacingOccurrences(of: "<img src=\"", with: "").dropLast()
-
-                guard !localPath.starts(with: "http://") && !localPath.starts(with: "https://") else {
-                    continue
-                }
-
-                let localPathClean = localPath.removingPercentEncoding ?? String(localPath)
-
-                let fullImageURL = imagesStorage
-                let imageURL = fullImageURL.appendingPathComponent(localPathClean)
-
-                guard imageURL.isImage else { continue }
-
-                let webkitPreview = at
-
-                let create = webkitPreview
-                    .appendingPathComponent(localPathClean)
-                    .deletingLastPathComponent()
-                let destination = webkitPreview.appendingPathComponent(localPathClean)
-
-                try? FileManager.default.createDirectory(atPath: create.path, withIntermediateDirectories: true, attributes: nil)
-                try? FileManager.default.removeItem(at: destination)
-                try? FileManager.default.copyItem(at: imageURL, to: destination)
-
-                var orientation = 0
-                let url = NSURL(fileURLWithPath: imageURL.path)
-                if let imageSource = CGImageSourceCreateWithURL(url, nil) {
-                    let imageProperties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as Dictionary?
-                    if let orientationProp = imageProperties?[kCGImagePropertyOrientation] as? Int {
-                        orientation = orientationProp
-                    }
-                }
-
-                if localPath.first == "/" {
-                    localPath.remove(at: localPath.startIndex)
-                }
-
-                // Uploaded over API or SSH
-                if web {
-                    localPath = "i/\(imageURL.lastPathComponent)"
-                }
-
-                let imPath = "<img data-orientation=\"\(orientation)\" class=\"fsnotes-preview\" src=\"" + localPath + "\""
-
-                htmlString = htmlString.replacingOccurrences(of: image, with: imPath)
-            }
-        } catch let error {
-            print("Images regex: \(error.localizedDescription)")
-        }
-
-        return htmlString
+        PreviewImages.render(html, relativeTo: imagesStorage, exportDirectory: at, forWeb: web)
     }
 
     public static func htmlFromTemplate(_ htmlString: String, webPath: String? = nil, print: Bool = false, archivePath: String? = nil, note: Note? = nil) throws -> String {

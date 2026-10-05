@@ -33,8 +33,7 @@ class GitViewController: UIViewController, UITableViewDelegate, UITableViewDataS
     private var project: Project?
 
     public var activity: UIActivityIndicatorView?
-    public var leftButton: UIButton?
-    public var rightButton: UIButton?
+    public var cloneButton: UIButton?
     public var logTextField: UITextField?
 
     public func setProject(_ project: Project) {
@@ -169,10 +168,8 @@ class GitViewController: UIViewController, UITableViewDelegate, UITableViewDataS
             let cell = tableView.dequeueReusableCell(withIdentifier: "gitTableViewCell", for: indexPath) as! GitTableViewCell
             cell.selectionStyle = .none
             cell.cloneButton.addTarget(self, action: #selector(repoPressed), for: .touchUpInside)
-            cell.removeButton.addTarget(self, action: #selector(removePressed), for: .touchUpInside)
             
-            leftButton = cell.cloneButton
-            rightButton = cell.removeButton
+            cloneButton = cell.cloneButton
             activity = cell.activity
             
             activity?.isHidden = true
@@ -317,17 +314,6 @@ class GitViewController: UIViewController, UITableViewDelegate, UITableViewDataS
         updateButtons()
     }
     
-    @objc func removePressed(sender: UIButton) {
-        guard let project = project else { return }
-
-        project.removeSSHKey()
-        project.removeRepository()
-        rightButton?.isEnabled = false
-
-        progress?.log(message: "git repository removed")
-        updateButtons()
-    }
-    
     @objc func repoPressed(sender: UIButton) {
         guard let project = project else { return }
 
@@ -374,14 +360,12 @@ class GitViewController: UIViewController, UITableViewDelegate, UITableViewDataS
 
         if let isActive = isActive {
             hasActiveGit = isActive
-            leftButton?.isEnabled = !isActive
+            cloneButton?.isEnabled = !isActive
             activity?.isHidden = !isActive
         }
 
-        rightButton?.isEnabled = project.hasRepository()
-
         let state = project.getRepositoryState()
-        leftButton?.setTitle(state.title, for: .normal)
+        cloneButton?.setTitle(state.title, for: .normal)
     }
 
     @objc public func autoPullDidChange(_ sender: UISwitch) {

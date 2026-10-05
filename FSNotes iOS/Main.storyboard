@@ -389,18 +389,6 @@
                                             <rect key="frame" x="0.0" y="0.0" width="430" height="51"/>
                                             <autoresizingMask key="autoresizingMask"/>
                                             <subviews>
-                                                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" role="cancel" translatesAutoresizingMaskIntoConstraints="NO" id="2L9-ws-4au">
-                                                    <rect key="frame" x="244.99999999999997" y="8.3333333333333321" width="87.666666666666657" height="34.333333333333343"/>
-                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleHeadline"/>
-                                                    <inset key="imageEdgeInsets" minX="0.0" minY="0.0" maxX="2.2250738585072014e-308" maxY="0.0"/>
-                                                    <state key="normal" title="Remove">
-                                                        <color key="titleColor" systemColor="systemRedColor"/>
-                                                    </state>
-                                                    <buttonConfiguration key="configuration" style="gray" title="Remove">
-                                                        <fontDescription key="titleFontDescription" style="UICTFontTextStyleHeadline"/>
-                                                        <color key="baseForegroundColor" systemColor="systemRedColor"/>
-                                                    </buttonConfiguration>
-                                                </button>
                                                 <activityIndicatorView opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" style="medium" translatesAutoresizingMaskIntoConstraints="NO" id="Ssq-3E-vWD">
                                                     <rect key="frame" x="205" y="15.666666666666664" width="20" height="20"/>
                                                 </activityIndicatorView>
@@ -416,18 +404,14 @@
                                             </subviews>
                                             <constraints>
                                                 <constraint firstItem="Ssq-3E-vWD" firstAttribute="leading" secondItem="zz2-R4-zDV" secondAttribute="trailing" constant="20" id="2rY-h3-c4f"/>
-                                                <constraint firstItem="2L9-ws-4au" firstAttribute="centerY" secondItem="zz2-R4-zDV" secondAttribute="centerY" id="3KN-eT-nH9"/>
-                                                <constraint firstItem="Ssq-3E-vWD" firstAttribute="centerX" secondItem="L8C-L6-AT1" secondAttribute="centerX" id="5ij-TU-4I4"/>
+                                                <constraint firstItem="zz2-R4-zDV" firstAttribute="centerX" secondItem="L8C-L6-AT1" secondAttribute="centerX" id="5ij-TU-4I4"/>
                                                 <constraint firstItem="Ssq-3E-vWD" firstAttribute="centerY" secondItem="L8C-L6-AT1" secondAttribute="centerY" id="DhW-tf-ogF"/>
                                                 <constraint firstItem="zz2-R4-zDV" firstAttribute="centerY" secondItem="L8C-L6-AT1" secondAttribute="centerY" id="SAh-w7-0gI"/>
-                                                <constraint firstItem="2L9-ws-4au" firstAttribute="width" secondItem="zz2-R4-zDV" secondAttribute="width" id="Saa-7b-7ac"/>
-                                                <constraint firstItem="2L9-ws-4au" firstAttribute="leading" secondItem="Ssq-3E-vWD" secondAttribute="trailing" constant="20" id="hHm-YV-mVC"/>
                                             </constraints>
                                         </tableViewCellContentView>
                                         <connections>
                                             <outlet property="activity" destination="Ssq-3E-vWD" id="n9Y-id-UOC"/>
                                             <outlet property="cloneButton" destination="zz2-R4-zDV" id="DnY-AP-Ogr"/>
-                                            <outlet property="removeButton" destination="2L9-ws-4au" id="DAa-BV-ckA"/>
                                         </connections>
                                     </tableViewCell>
                                     <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" reuseIdentifier="gitA" textLabel="zbT-aV-jkK" style="IBUITableViewCellStyleDefault" id="mEX-ec-VWj">

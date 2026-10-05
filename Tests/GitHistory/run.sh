@@ -80,6 +80,7 @@ git_sources=(
     "$repo_root/FSNotesCore/Git/commons/Signature.swift"
     "$repo_root/FSNotesCore/Git/commons/Strings.swift"
     "$repo_root/FSNotes/HistoryDiff.swift"
+    "$repo_root/FSNotes/HistoryPreview.swift"
     "$repo_root/Tests/GitHistory/Support.swift"
     "$repo_root/FSNotesCore/Git/index/Index.swift"
     "$repo_root/FSNotesCore/Git/index/Index+Files.swift"
@@ -119,14 +120,17 @@ PATH=/usr/bin:/bin:/usr/sbin:/sbin "$sandbox_app/Contents/MacOS/LFSIntegration"
 
 sync_sources=()
 while IFS= read -r source; do sync_sources+=("$source"); done < <(rg --files "$repo_root/FSNotesCore/Git" -g '*.swift')
+for executable in SyncIntegration ConflictIntegration; do
 swiftc -I "$test_build/Cgit2" -I "$git_source/include" \
     -I "$repo_root/FSNotesCore/Git/LFS" \
     "${sync_sources[@]}" \
     "$repo_root/FSNotesCore/Business/WorkspaceLocation.swift" \
+    "$repo_root/FSNotesCore/Business/MetadataStore.swift" \
     "$repo_root/FSNotesCore/Extensions/Project+Git.swift" \
     "$repo_root/FSNotesCore/RepositoryAction.swift" \
     "$repo_root/Tests/GitHistory/SyncSupport.swift" \
-    "$repo_root/Tests/GitHistory/SyncIntegration.swift" \
+    "$repo_root/Tests/GitHistory/$executable.swift" \
     "$test_build/libgit2/libgit2.a" -lz -liconv -framework Security \
-    -o "$test_build/sync-integration"
-"$test_build/sync-integration"
+    -o "$test_build/$executable"
+"$test_build/$executable"
+done

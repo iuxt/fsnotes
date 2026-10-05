@@ -44,6 +44,7 @@ public class Note: NSObject  {
     public var isParsed = false
 
     private let writeLock = NSRecursiveLock()
+    private lazy var autosave = NoteAutosave(lock: writeLock)
 
     public var isLoaded = false
     public var isLoadedFromCache = false
@@ -52,7 +53,6 @@ public class Note: NSObject  {
     public var cacheHash: UInt64?
 
     public var uploadPath: String?
-    public var apiId: String?
 
     public var previewState: Bool = false
 
@@ -784,40 +784,26 @@ public class Note: NSObject  {
     }
 
     public func save(attributed: NSAttributedString) {
-
         guard let copy = attributed.copy() as? NSAttributedString else {
             return
         }
-
+        writeLock.lock()
+        defer { writeLock.unlock() }
+        content = NSMutableAttributedString(attributedString: copy)
         modifiedLocalAt = Date()
-
-        let operation = BlockOperation()
-        operation.addExecutionBlock { [weak self] in
-            guard let self = self else {
-                return
+        isBlocked = true
+        autosave.enqueue(copy, on: Storage.shared().plainWriter, write: { [weak self] snapshot in
+            guard let self = self else { return }
+            if self.write(attributedString: NSMutableAttributedString(attributedString: snapshot).unloadAttachments()) {
+                Storage.shared().add(self)
             }
-
-            if operation.isCancelled {
-                return
-            }
-
-            let mutable = NSMutableAttributedString(attributedString: copy)
-            self.save(content: mutable)
-            usleep(1000000)
-
-            if !operation.isCancelled {
-                self.isBlocked = false
-            }
-        }
-
-        Storage.shared().plainWriter.cancelAllOperations()
-        Storage.shared().plainWriter.addOperation(operation)
+        }, didFinish: { [weak self] in self?.isBlocked = false })
     }
 
     public func save(content: NSMutableAttributedString) {
         writeLock.lock()
         defer { writeLock.unlock() }
-
+        autosave.discardPending()
         self.content = content
 
         let copy = content.unloadAttachments()
@@ -839,6 +825,9 @@ public class Note: NSObject  {
     }
 
     public func save() -> Bool {
+        writeLock.lock()
+        defer { writeLock.unlock() }
+        autosave.discardPending()
         let attributedString = self.content.unloadAttachments()
 
         return write(attributedString: attributedString)
@@ -1358,7 +1347,7 @@ public class Note: NSObject  {
     }
 
     public func isPublished() -> Bool {
-        return apiId != nil || uploadPath != nil
+        return uploadPath != nil
     }
 
     public func getAutoRenameTitle() -> String? {
@@ -1502,6 +1491,9 @@ public class Note: NSObject  {
     }
 
     public func saveSimple() -> Bool {
+        writeLock.lock()
+        defer { writeLock.unlock() }
+        autosave.discardPending()
         return write(attributedString: content)
     }
 

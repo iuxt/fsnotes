@@ -76,6 +76,12 @@ public class Repository {
         let reference = try head().targetReference()
         return try branches.get(spec: reference.name)
     }
+
+    public func requireCompletedOperation() throws {
+        guard git_repository_state(pointer.pointee) == GIT_REPOSITORY_STATE_NONE.rawValue else {
+            throw GitError.invalidSpec(spec: "Finish or abort the pending Git operation with an external Git client before syncing.")
+        }
+    }
     
     /// Get the index for the repo. The caller is responsible for freeing the index.
     func unsafeIndex() -> Result<OpaquePointer, NSError> {

@@ -9501,9 +9501,6 @@
         }
       }
     },
-    "Use Custom SFTP Server" : {
-
-    },
     "Use First Line as Title" : {
       "localizations" : {
         "cs" : {

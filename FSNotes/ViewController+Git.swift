@@ -37,6 +37,7 @@ extension ViewController {
             alert.beginSheetModal(for: window)
             return
         }
+        if GitConflictWindowController.reveal(project: project) { return }
         guard !project.isActiveGit else { return }
         project.isActiveGit = true
         syncButton.isEnabled = false
@@ -49,8 +50,15 @@ extension ViewController {
             ViewController.gitQueueBusy = true
             self.storage.plainWriter.waitUntilAllOperationsAreFinished()
             var failure: Error?
+            var conflicts: GitMergeSession?
             do { try project.synchronize() }
-            catch { failure = error }
+            catch {
+                failure = error
+                if Self.isGitMergeConflict(error) {
+                    do { conflicts = try GitMergeSession.prepare(project: project) }
+                    catch { failure = error }
+                }
+            }
             ViewController.gitQueueOperationDate = nil
             ViewController.gitQueueBusy = false
             DispatchQueue.main.async {
@@ -62,7 +70,9 @@ extension ViewController {
                 self.storage.refreshMetadataLibraries()
                 self.sidebarOutlineView.loadAllTags()
                 self.notesTableView.reloadData()
-                if let failure = failure {
+                if let conflicts = conflicts {
+                    self.presentGitConflicts(conflicts, project: project)
+                } else if let failure = failure {
                     let alert = NSAlert()
                     alert.alertStyle = .critical
                     alert.messageText = NSLocalizedString("Git sync failed", comment: "Git")
@@ -71,6 +81,93 @@ extension ViewController {
                 } else {
                     self.syncButton.toolTip = NSLocalizedString("Sync complete", comment: "Git")
                 }
+            }
+        }
+    }
+
+    private static func isGitMergeConflict(_ error: Error) -> Bool {
+        guard let error = error as? GitError else { return false }
+        switch error {
+        case .uncommittedConflict, .unableToMerge: return true
+        default: return false
+        }
+    }
+
+    private func presentGitConflicts(_ session: GitMergeSession, project: Project) {
+        project.isActiveGit = true
+        syncButton.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: NSLocalizedString("Resolve sync conflicts", comment: "Git conflicts"))
+        syncButton.toolTip = NSLocalizedString("Resolve sync conflicts", comment: "Git conflicts")
+        GitConflictWindowController.open(project: project, session: session, resume: { [weak self] resolutions, completion in
+            guard let self = self else { completion(GitError.invalidSpec(spec: "The main window is closed")); return }
+            self.finishGitConflicts(session, resolutions: resolutions, project: project, completion: completion)
+        }, dismiss: { [weak self] in
+            project.isActiveGit = false
+            self?.syncButton.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: NSLocalizedString("Sync", comment: "Git"))
+            self?.syncButton.toolTip = NSLocalizedString("Sync: pull, commit and push", comment: "Git")
+        })
+    }
+
+    private func finishGitConflicts(_ session: GitMergeSession, resolutions: [GitMergeSession.Resolution],
+                                    project: Project, completion: @escaping (Error?) -> Void) {
+        let editors = AppDelegate.getEditTextViews().filter {
+            $0.note?.getGitProject()?.getRepositoryUrl().standardizedFileURL == project.getRepositoryUrl().standardizedFileURL
+        }
+        let editability = editors.map { $0.isEditable }
+        let notes = editors.compactMap { $0.note }
+        editors.forEach { $0.isEditable = false }
+        notes.forEach { $0.isBlocked = true }
+        ViewController.gitQueue.addOperation {
+            ViewController.gitQueueOperationDate = Date()
+            ViewController.gitQueueBusy = true
+            self.storage.plainWriter.waitUntilAllOperationsAreFinished()
+            notes.forEach { $0.isBlocked = true }
+            var failure: Error?, nextSession: GitMergeSession?
+            do {
+                if !session.completed {
+                    let coordinator = NSFileCoordinator()
+                    var coordinationError: NSError?, result: Result<Void, Error>?
+                    coordinator.coordinate(writingItemAt: project.url, options: [], error: &coordinationError) { _ in
+                        result = Result { try session.finish(resolutions: resolutions, signature: project.getSign()) }
+                    }
+                    if let error = coordinationError { throw error }
+                    guard let result = result else { throw GitError.invalidSpec(spec: "Merge installation did not complete") }
+                    try result.get()
+                }
+                project.gitMergePending = false
+                try project.synchronize()
+            } catch {
+                failure = error
+                // A remote update received after this merge can introduce a new
+                // conflict. Present its versions rather than reusing old choices.
+                if session.completed && Self.isGitMergeConflict(error) {
+                    do { nextSession = try GitMergeSession.prepare(project: project) }
+                    catch { failure = error }
+                }
+            }
+            ViewController.gitQueueOperationDate = nil
+            ViewController.gitQueueBusy = false
+            DispatchQueue.main.async {
+                if session.completed { self.storage.refreshMetadataLibraries() }
+                for (editor, editable) in zip(editors, editability) {
+                    if let note = editor.note {
+                        note.isBlocked = false
+                        if session.completed {
+                            editor.undoManager?.removeAllActions()
+                            if FileManager.default.fileExists(atPath: note.url.path) {
+                                note.forceReload(); note.cacheCodeBlocks(); note.loadModifiedLocalAt()
+                                NotesTextProcessor.highlight(attributedString: note.content)
+                                editor.fill(note: note, highlight: true, force: true)
+                            } else { editor.clear() }
+                        }
+                    }
+                    editor.isEditable = editable
+                }
+                notes.forEach { $0.isBlocked = false }
+                self.sidebarOutlineView.loadAllTags(); self.notesTableView.reloadData()
+                if let nextSession = nextSession {
+                    completion(nil)
+                    self.presentGitConflicts(nextSession, project: project)
+                } else { completion(failure) }
             }
         }
     }

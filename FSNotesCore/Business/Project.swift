@@ -43,6 +43,7 @@ public class Project: NSObject {
     public var isCleanGit = false
     public var gitStatus: String?
     public var isActiveGit = false
+    var gitMergePending = false
 
     init(storage: Storage,
          url: URL,
@@ -317,7 +318,6 @@ public class Project: NSObject {
         }
 
         loadNotesPreview()
-        _ = loadWebAPI()
 
         return notes
     }
@@ -573,7 +573,7 @@ public class Project: NSObject {
 
         for memoryNote in memoryNotes {
             if let note = fileSystemNotes.first(where: { $0.url == memoryNote.url }) {
-                if memoryNote.modifiedLocalAt != note.modifiedLocalAt {
+                if !memoryNote.isBlocked && memoryNote.modifiedLocalAt != note.modifiedLocalAt {
                     memoryNote.forceLoad()
                     foundChanged.append(memoryNote)
                 }
@@ -741,7 +741,6 @@ public class Project: NSObject {
                 && !$0.path.contains("/Trash")
                 && !$0.path.contains(".revisions")
                 && !$0.path.contains("/.")
-                && $0 != UserDefaultsManagement.trashURL
             })
 
         var fin = [URL]()
@@ -825,43 +824,5 @@ public class Project: NSObject {
         for note in notes {
             note.previewState = names.contains(note.name)
         }
-    }
-
-    public func saveWebAPI() {
-        let notes = getNotes()
-        var result = [String: String]()
-        for note in notes {
-            if let apiId = note.apiId {
-                result[note.name] = apiId
-            }
-        }
-        settings.notesAPI = result
-        saveSettings()
-    }
-
-    public func loadWebAPI() -> ([Note], [Note])? {
-        guard let items = settings.notesAPI else { return nil }
-
-        var keys = [String]()
-        for (key, _) in items {
-            keys.append(key)
-        }
-
-        let notes = storage.getNotesBy(project: self)
-
-        var added = [Note]()
-        var removed = [Note]()
-
-        for note in notes {
-            if note.apiId != nil && !keys.contains(note.name) {
-                removed.append(note)
-                note.apiId = nil
-            } else if note.apiId == nil && keys.contains(note.name) {
-                added.append(note)
-                note.apiId = items[note.name]
-            }
-        }
-
-        return (added, removed)
     }
 }

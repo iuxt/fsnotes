@@ -1174,7 +1174,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         note.resetAttributesCache()
 
         scheduleTagScan(for: note)
-        deleteUnusedImages(checkRange: range)
+        textStorage?.saveData(in: range)
         resetTypingAttributes()
 
         return super.shouldChangeText(in: range, replacementString: replacementString)
@@ -1604,24 +1604,6 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         }
 
         return CGFloat((Float(width) - lineWidth) / 2)
-    }
-
-    private func deleteUnusedImages(checkRange: NSRange) {
-        guard let storage = textStorage, self.note != nil else { return }
-
-        storage.enumerateAttribute(.attachment, in: checkRange) { (value, range, _) in
-            guard let meta = storage.getMeta(at: range.location) else { return }
-
-            do {
-                if let data = try? Data(contentsOf: meta.url) {
-                    storage.addAttribute(.attachmentSave, value: data, range: range)
-
-                    try FileManager.default.removeItem(at: meta.url)
-                }
-            } catch {
-                print(error)
-            }
-        }
     }
 
     @available(OSX 10.12.2, *)

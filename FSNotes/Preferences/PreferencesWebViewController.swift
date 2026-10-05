@@ -31,13 +31,6 @@ class PreferencesWebViewController: NSViewController, NSTextFieldDelegate {
             }
         }
         
-        publishFSNotes.state = UserDefaultsManagement.customWebServer ? .off : .on
-        publishCustom.state = UserDefaultsManagement.customWebServer ? .on : .off
-        
-        if !UserDefaultsManagement.customWebServer {
-            toggleState(state: false)
-        }
-        
         username.delegate = self
         port.delegate = self
         path.delegate = self
@@ -55,11 +48,7 @@ class PreferencesWebViewController: NSViewController, NSTextFieldDelegate {
     @IBOutlet weak var username: NSTextField!
     @IBOutlet weak var password: NSSecureTextField!
     @IBOutlet weak var rsaPath: NSPathControl!
-    @IBOutlet weak var key: NSButton!
     @IBOutlet weak var passphrase: NSSecureTextField!
-    @IBOutlet weak var publishFSNotes: NSButton!
-    @IBOutlet weak var publishCustom: NSButton!
-    @IBOutlet weak var uploadAndTest: NSButton!
     
     @IBAction func host(_ sender: NSTextField) {
         UserDefaultsManagement.sftpHost = sender.stringValue
@@ -225,32 +214,6 @@ class PreferencesWebViewController: NSViewController, NSTextFieldDelegate {
         alert.informativeText = NSLocalizedString("Upload error", comment: "")
         alert.messageText = text
         alert.beginSheetModal(for: self.view.window!)
-    }
-    
-    @IBAction func publishTo(_ sender: NSButton) {
-        if sender.tag == 0 {
-            publishCustom.state = .off
-                        
-            toggleState(state: false)
-        } else {
-            publishFSNotes.state = .off
-            
-            toggleState(state: true)
-        }
-        
-        UserDefaultsManagement.customWebServer = publishCustom.state == .on
-    }
-    
-    public func toggleState(state: Bool) {
-        host.isEnabled = state
-        port.isEnabled = state
-        path.isEnabled = state
-        web.isEnabled = state
-        username.isEnabled = state
-        password.isEnabled = state
-        passphrase.isEnabled = state
-        uploadAndTest.isEnabled = state
-        key.isEnabled = state
     }
     
     @IBAction func resetWebKeys(_ sender: NSButton) {

@@ -167,6 +167,8 @@ class ViewController: EditorViewController,
         configureDelegates()
         configureLayout()
         configureEditor()
+        NotificationCenter.default.addObserver(self, selector: #selector(metadataLibraryDidRefresh(_:)),
+                                               name: .metadataLibraryDidRefresh, object: storage)
 
         // Must before event manager starts
         self.storage.checkWelcome()
@@ -253,8 +255,6 @@ class ViewController: EditorViewController,
 
         // Reload added projects
         self.fsManager?.restart()
-
-        self.storage.migrationAPIIds()
 
         print("1. Notes diff loading finished in \(diffLoading.timeIntervalSinceNow * -1) seconds")
 
@@ -1093,6 +1093,23 @@ class ViewController: EditorViewController,
         center.add(request) { error in }
     }
 
+    @objc private func metadataLibraryDidRefresh(_ notification: Notification) {
+        let removed = notification.userInfo?["removed"] as? [Note] ?? []
+        let added = notification.userInfo?["added"] as? [Note] ?? []
+        let changed = notification.userInfo?["changed"] as? [Note] ?? []
+        for note in changed { note.undoManager.removeAllActions() }
+        for editor in AppDelegate.getEditTextViews() {
+            guard let note = editor.note else { continue }
+            if changed.contains(where: { $0 === note }) {
+                editor.editorViewController?.refillEditArea(force: true)
+            }
+            editor.editorViewController?.updateTitle(note: note)
+        }
+        sidebarOutlineView.reloadSidebar()
+        notesTableView.doVisualChanges(results: (removed, added, changed))
+        updateTable()
+    }
+
     public func reSort(note: Note) {
         if !updateViews.contains(note) {
             updateViews.append(note)
@@ -1628,16 +1645,6 @@ class ViewController: EditorViewController,
                     let settingsKey = key.replacingOccurrences(of: "es.fsnot.project-settings", with: "")
                     if let project = storage.getProjectBy(settingsKey: settingsKey) {
                         project.reloadSettings()
-
-                        DispatchQueue.main.async {
-                            if let result = project.loadWebAPI() {
-                                let toReload = result.0 + result.1
-
-                                for note in toReload {
-                                    ViewController.shared()?.notesTableView.reloadRow(note: note)
-                                }
-                            }
-                        }
                     }
                 }
             }

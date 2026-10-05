@@ -1,8 +1,9 @@
 import Cocoa
+import WebKit
 
 /// A read-only browser. Restoring is delegated to the editor's existing restore flow.
 final class NoteHistoryWindowController: NSWindowController, NSWindowDelegate,
-    NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate {
+    NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, WKNavigationDelegate {
     private static var windows = [ObjectIdentifier: NoteHistoryWindowController]()
 
     private struct Version {
@@ -16,7 +17,12 @@ final class NoteHistoryWindowController: NSWindowController, NSWindowDelegate,
     private let restore: (Commit, NSWindow, @escaping (Bool) -> Void) -> Void
     private var versions = [Version]()
     private var visibleVersions = [Version]()
-    private var contentCache = [String: (String, Int)]()
+    private struct Snapshot {
+        let text: String
+        let size: Int
+        let html: String
+    }
+    private var contentCache = [String: Snapshot]()
     private var selectedContent: String?
     private var request = UUID()
     private var rendering = UUID()
@@ -26,6 +32,13 @@ final class NoteHistoryWindowController: NSWindowController, NSWindowDelegate,
     private let search = NSSearchField()
     private let table = NSTableView()
     private let preview = NSTextView()
+    private let renderedPreview: WKWebView = {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        configuration.defaultWebpagePreferences.allowsContentJavaScript = false
+        return WKWebView(frame: .zero, configuration: configuration)
+    }()
+    private let contentScroll = NSScrollView()
     private let status = NSTextField(labelWithString: "")
     private let countLabel = NSTextField(labelWithString: "")
     private let copyButton = NSButton()
@@ -68,6 +81,7 @@ final class NoteHistoryWindowController: NSWindowController, NSWindowDelegate,
     func windowWillClose(_ notification: Notification) {
         request = UUID()
         rendering = UUID()
+        renderedPreview.stopLoading()
         Self.windows.removeValue(forKey: ObjectIdentifier(note))
     }
 
@@ -162,7 +176,9 @@ final class NoteHistoryWindowController: NSWindowController, NSWindowDelegate,
         }
         close.widthAnchor.constraint(equalToConstant: 20).isActive = true
         header.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 0, right: 16)
-        let contentScroll = NSScrollView()
+        renderedPreview.navigationDelegate = self
+        renderedPreview.isHidden = true
+        renderedPreview.setAccessibilityLabel(NSLocalizedString("Version content", comment: "Git history"))
         contentScroll.hasVerticalScroller = true
         contentScroll.autohidesScrollers = true
         preview.isEditable = false
@@ -181,7 +197,7 @@ final class NoteHistoryWindowController: NSWindowController, NSWindowDelegate,
         status.font = .systemFont(ofSize: 11)
         status.textColor = .secondaryLabelColor
         status.lineBreakMode = .byTruncatingMiddle
-        for view in [header, contentScroll, status] {
+        for view in [header, contentScroll, renderedPreview, status] {
             view.translatesAutoresizingMaskIntoConstraints = false
             detail.view.addSubview(view)
         }
@@ -194,6 +210,10 @@ final class NoteHistoryWindowController: NSWindowController, NSWindowDelegate,
             contentScroll.leadingAnchor.constraint(equalTo: detail.view.leadingAnchor),
             contentScroll.trailingAnchor.constraint(equalTo: detail.view.trailingAnchor),
             contentScroll.bottomAnchor.constraint(equalTo: status.topAnchor, constant: -10),
+            renderedPreview.topAnchor.constraint(equalTo: contentScroll.topAnchor),
+            renderedPreview.leadingAnchor.constraint(equalTo: contentScroll.leadingAnchor),
+            renderedPreview.trailingAnchor.constraint(equalTo: contentScroll.trailingAnchor),
+            renderedPreview.bottomAnchor.constraint(equalTo: contentScroll.bottomAnchor),
             status.leadingAnchor.constraint(equalTo: detail.view.leadingAnchor, constant: 20),
             status.trailingAnchor.constraint(equalTo: detail.view.trailingAnchor, constant: -20),
             status.bottomAnchor.constraint(equalTo: detail.view.bottomAnchor, constant: -12)
@@ -231,7 +251,7 @@ final class NoteHistoryWindowController: NSWindowController, NSWindowDelegate,
         let version = visibleVersions[row]
         let cell = HistoryVersionCell()
         cell.dateLabel.stringValue = version.date
-        let size = contentCache[version.sha].map { ByteCountFormatter.string(fromByteCount: Int64($0.1), countStyle: .file) + " · " } ?? ""
+        let size = contentCache[version.sha].map { ByteCountFormatter.string(fromByteCount: Int64($0.size), countStyle: .file) + " · " } ?? ""
         cell.detailLabel.stringValue = size + String(version.sha.prefix(8)) + " · " + version.summary
         cell.toolTip = version.tooltip
         return cell
@@ -276,7 +296,7 @@ final class NoteHistoryWindowController: NSWindowController, NSWindowDelegate,
         updateActions()
         guard let version = selectedVersion else { return }
         if let cached = contentCache[version.sha] {
-            selectedContent = cached.0
+            selectedContent = cached.text
             renderContent()
             updateActions()
             return
@@ -295,9 +315,20 @@ final class NoteHistoryWindowController: NSWindowController, NSWindowDelegate,
                     throw NSError(domain: "NoteHistory", code: 1, userInfo: [NSLocalizedDescriptionKey:
                         NSLocalizedString("Unable to decode this version", comment: "Git history")])
                 }
+                guard let project = note.getGitProject() else { throw GitError.notFound(ref: note.name) }
+                let repository = try project.getRepository()
+                let commit = try repository.commitLookup(oid: version.commit.oid)
+                let path = try note.gitContentPath(at: commit)
+                guard let body = renderMarkdownHTML(markdown: text) else {
+                    throw NSError(domain: "NoteHistory", code: 2, userInfo: [NSLocalizedDescriptionKey:
+                        NSLocalizedString("Unable to render this version", comment: "Git history")])
+                }
+                let html = HistoryPreview.embedImages(in: body, notePath: path) { imagePath in
+                    try HistoryPreview.imageData(path: imagePath, repository: repository, commit: commit)
+                }
                 DispatchQueue.main.async {
                     guard let self = self, self.request == token else { return }
-                    self.contentCache[version.sha] = (text, data.count)
+                    self.contentCache[version.sha] = Snapshot(text: text, size: data.count, html: html)
                     self.selectedContent = text
                     self.table.reloadData(forRowIndexes: IndexSet(integer: self.table.selectedRow), columnIndexes: IndexSet(integer: 0))
                     self.renderContent()
@@ -316,16 +347,22 @@ final class NoteHistoryWindowController: NSWindowController, NSWindowDelegate,
         rendering = UUID()
         guard let text = selectedContent, let version = selectedVersion else { return }
         if diffSwitch.state == .off {
-            preview.textStorage?.setAttributedString(NSAttributedString(string: text, attributes: [
-                .font: UserDefaultsManagement.noteFont, .foregroundColor: NSColor.textColor
-            ]))
-            preview.scrollToBeginningOfDocument(nil)
+            guard let snapshot = contentCache[version.sha] else { return }
+            contentScroll.isHidden = true
+            renderedPreview.isHidden = false
+            let style = Bundle.main.url(forResource: "MPreview", withExtension: "bundle")
+                .flatMap { try? String(contentsOf: $0.appendingPathComponent("main.css"), encoding: .utf8) } ?? ""
+            renderedPreview.loadHTMLString(HistoryPreview.page(body: snapshot.html, style: style,
+                fontSize: UserDefaultsManagement.noteFont.pointSize), baseURL: nil)
             status.stringValue = version.date + " · " + version.sha
             status.toolTip = version.tooltip
             return
         }
+        renderedPreview.stopLoading()
+        renderedPreview.isHidden = true
+        contentScroll.isHidden = false
         let token = rendering
-        let current = note.content.string
+        let current = note.content.unloadAttachments().string
         status.stringValue = NSLocalizedString("Saved version → current note · + added · − removed", comment: "Git history")
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let lines = HistoryDiff.lines(from: text, to: current)
@@ -357,11 +394,28 @@ final class NoteHistoryWindowController: NSWindowController, NSWindowDelegate,
 
     private func showMessage(_ message: String) {
         rendering = UUID()
+        renderedPreview.stopLoading()
+        renderedPreview.isHidden = true
+        contentScroll.isHidden = false
         preview.textStorage?.setAttributedString(NSAttributedString(string: message, attributes: [
             .font: NSFont.systemFont(ofSize: 14), .foregroundColor: NSColor.secondaryLabelColor
         ]))
         status.stringValue = message
         status.toolTip = message
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if let url = navigationAction.request.url,
+           url.absoluteString.components(separatedBy: "#").first == "about:blank" {
+            decisionHandler(.allow)
+            return
+        }
+        decisionHandler(.cancel)
+        if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url,
+           ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     private func showError(_ error: Error) {

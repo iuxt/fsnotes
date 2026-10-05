@@ -27,7 +27,6 @@ class EditorViewController: UIViewController,
     public var quickLookURL: URL?
 
     private var isUndo = false
-    private let storageQueue = OperationQueue()
 
     var inProgress = false
     var change = 0
@@ -56,8 +55,6 @@ class EditorViewController: UIViewController,
     var originalBackgrounds: [NSRange: UIColor?] = [:]
 
     override func viewDidLoad() {
-        storageQueue.maxConcurrentOperationCount = 1
-        storageQueue.qualityOfService = .userInitiated
 
         editArea.textContainerInset = UIEdgeInsets(top: 13, left: 10, bottom: 0, right: 10)
 
@@ -325,7 +322,7 @@ class EditorViewController: UIViewController,
 
         tagsHandler(affectedCharRange: range, text: text)
         wikilinkHandler(textView: textView, text: text)
-        deleteUnusedImages(checkRange: range)
+        editArea.textStorage.saveData(in: range)
 
         // New line
         if text == "\n" {
@@ -594,22 +591,6 @@ class EditorViewController: UIViewController,
         }
     }
 
-    private func deleteUnusedImages(checkRange: NSRange) {
-        editArea.textStorage.enumerateAttribute(.attachment, in: checkRange) { (value, range, _) in
-            guard let meta = editArea.textStorage.getMeta(at: range.location) else { return }
-
-            do {
-                if let data = try? Data(contentsOf: meta.url) {
-                    editArea.textStorage.addAttribute(.attachmentSave, value: data, range: range)
-
-                    try FileManager.default.removeItem(at: meta.url)
-                }
-            } catch {
-                print(error)
-            }
-        }
-    }
-
     private func deleteBackwardPressed(text: String) -> Bool {
         if !self.isUndo, let char = text.cString(using: String.Encoding.utf8), strcmp(char, "\\b") == -92 {
             return true
@@ -640,34 +621,21 @@ class EditorViewController: UIViewController,
 
         guard let note = self.note else { return }
 
-        // Prevent textStorage refresh in CloudDriveManager
-        note.modifiedLocalAt = Date()
-        self.storageQueue.cancelAllOperations()
-
-        let text = self.editArea.attributedText.mutableCopy() as? NSMutableAttributedString
-
-        let operation = BlockOperation()
-        operation.addExecutionBlock { [weak self] in
-            guard let self = self, let text = text else {return}
-
-            note.save(content: text)
-
+        note.save(attributed: editArea.attributedText)
+        Storage.shared().plainWriter.addOperation { [weak self] in
             note.invalidateCache()
             note.loadPreviewInfo()
-
             vc.updateSpotlightIndex(notes: [note])
 
             DispatchQueue.main.async {
+                guard let self = self, self.note === note else { return }
                 self.rowUpdaterTimer.invalidate()
                 self.rowUpdaterTimer = Timer.scheduledTimer(timeInterval: 1.2, target: self, selector: #selector(self.updateCurrentRow), userInfo: nil, repeats: false)
 
                 self.tagsTimer?.invalidate()
                 self.tagsTimer = Timer.scheduledTimer(timeInterval: 2.5, target: self, selector: #selector(self.scanTags), userInfo: nil, repeats: false)
             }
-
-            usleep(100000)
         }
-        self.storageQueue.addOperation(operation)
 
         editArea.typingAttributes.removeValue(forKey: .backgroundColor)
         editArea.typingAttributes[.font] = UserDefaultsManagement.noteFont

@@ -173,51 +173,12 @@ extension Head {
         // Create index
         let mergeIndex = Index(repository: repository, idx: mergeIndexPtr)
         
-        // Check conflicts
-        if (mergeIndex.conflicts) {
-            
-            // Create annotated commit
-            let annotatedCommit = UnsafeMutablePointer<OpaquePointer?>.allocate(capacity: 1)
-            defer {
-                if let ptr = annotatedCommit.pointee {
-                    git_annotated_commit_free(ptr)
-                }
-                annotatedCommit.deinitialize(count: 1)
-                annotatedCommit.deallocate()
-            }
-            
-            // Init annoted commit
-            var oid = try branch.targetCommit().oid
-            var error = git_annotated_commit_lookup(annotatedCommit, repository.pointer.pointee, &oid.oid)
-            if (error != 0) {
-                let shaCommit = oid.sha() ?? "no sha"
-                throw gitUnknownError("Unable to annotated commit \(shaCommit)", code: error)
-            }
-            
-            // Write conflicts
-            var merge_opts = git_merge_options()
-            merge_opts.version = 1
-            var checkout_opts = git_checkout_options()
-            checkout_opts.version = 1
-            checkout_opts.checkout_strategy = GIT_CHECKOUT_ALLOW_CONFLICTS.rawValue
-            
-            // Set progress
-            checkout_opts.progress_cb = ProgressDelegate.checkoutProgressCallback
-            
-            // Merge
-            error = git_merge(repository.pointer.pointee, annotatedCommit, 1, &merge_opts, &checkout_opts)
-            if (error != 0) {
-                throw gitUnknownError("Unable to merge conflicted branch \(branch.name)", code: error)
-            }
-            
-            do {
-                return try resolveConflicts(annotatedCommit: annotatedCommit, signature: signature)
-            } catch {
-                print("Automatic conflict resolution failed")
-            }
-            
-            return false
-            
+        // Detect conflicts in memory. In particular, never publish conflict markers
+        // into metadata.json or clear unresolved entries by staging them as content.
+        if mergeIndex.conflicts {
+            let paths = try conflictPaths(index: mergeIndex.idx.pointee!)
+            throw GitError.unableToMerge(msg: "Conflicting files: " + paths.joined(separator: ", ")
+                + ". Resolve the merge with an external Git client before syncing again.")
         } else {
             
             // Write tree to repository
@@ -236,118 +197,23 @@ extension Head {
         }
     }
     
-    private func conflictPaths(index: OpaquePointer) -> [String]? {
+    private func conflictPaths(index: OpaquePointer) throws -> [String] {
         var iterator: OpaquePointer?
-        var result = git_index_conflict_iterator_new(&iterator, index)
-        defer {
-            git_index_conflict_iterator_free(iterator)
-        }
-        guard result == GIT_OK.rawValue else {
-            return nil
-        }
-        var paths = [String]()
-        var entry: UnsafePointer<git_index_entry>?
-        var our: UnsafePointer<git_index_entry>?
-        var their: UnsafePointer<git_index_entry>?
+        let result = git_index_conflict_iterator_new(&iterator, index)
+        guard result == GIT_OK.rawValue else { throw gitUnknownError("Unable to inspect merge conflicts", code: result) }
+        defer { git_index_conflict_iterator_free(iterator) }
+        var paths = Set<String>()
         while true {
-            result = git_index_conflict_next(&entry, &our, &their, iterator!)
+            var ancestor: UnsafePointer<git_index_entry>?
+            var ours: UnsafePointer<git_index_entry>?
+            var theirs: UnsafePointer<git_index_entry>?
+            let result = git_index_conflict_next(&ancestor, &ours, &theirs, iterator!)
             if result == GIT_ITEROVER.rawValue { break }
-            guard result == GIT_OK.rawValue else {
-                return nil
-            }
-
-            if let entry = entry {
-                paths.append(String(cString: entry.pointee.path))
+            guard result == GIT_OK.rawValue else { throw gitUnknownError("Unable to inspect merge conflicts", code: result) }
+            for entry in [ancestor, ours, theirs].compactMap({ $0 }) {
+                paths.insert(String(cString: entry.pointee.path))
             }
         }
-        return paths
-    }
-    
-    private func resolveConflicts(annotatedCommit: UnsafeMutablePointer<OpaquePointer?>, signature: Signature) throws -> Bool {
-        var index: OpaquePointer? = nil
-        git_repository_index(&index, repository.pointer.pointee)
-        
-        guard let index = index else { return false }
-        guard let paths = conflictPaths(index: index) else { return false }
-        
-        for path in paths {
-            git_index_add_bypath(index, path)
-            git_index_conflict_remove(index, path)
-        }
-        
-        git_index_conflict_cleanup(index)
-        git_index_write(index)
-        
-        var headRef: OpaquePointer? = nil
-        git_repository_head(&headRef, repository.pointer.pointee)
-        
-        let rHead = try repository.head()
-        let tCommit = try rHead.targetCommit()
-        guard let lastCommit = tCommit.pointer.pointee else {
-            throw GitError.notFound(ref: "HEAD")
-        }
-        
-        guard let commitID = git_annotated_commit_id(annotatedCommit.pointee) else { return false }
-        let parent2 = try repository.commitLookup(oid: OID(withGitOid: commitID.pointee))
-        
-        var treeOid = git_oid()
-        git_index_write_tree(&treeOid, index)
-        
-        var tree : OpaquePointer? = nil
-        git_tree_lookup(&tree, repository.pointer.pointee, &treeOid);
-                    
-        let sig = UnsafeMutablePointer<UnsafeMutablePointer<git_signature>?>.allocate(capacity: 1)
-        defer {
-            if let ptr = sig.pointee {
-                git_signature_free(ptr)
-            }
-            
-            sig.deinitialize(count: 1)
-            sig.deallocate()
-        }
-        
-        // Create now signature
-        try signature.now(sig: sig)
-        
-        // Parents
-        var parentsPtr : UnsafeMutablePointer<OpaquePointer?>? = nil
-        defer {
-            if let ptr = parentsPtr {
-                ptr.deinitialize(count: 1)
-                ptr.deallocate()
-            }
-        }
-        
-        parentsPtr = UnsafeMutablePointer<OpaquePointer?>.allocate(capacity: 2)
-        
-        var it = parentsPtr!
-        
-        it.initialize(to: lastCommit)
-        it = it.successor()
-        
-        it.initialize(to: parent2.pointer.pointee)
-        it = it.successor()
-        
-        // Create merge commit
-        var commit_id = git_oid()
-        let commitError = git_commit_create(&commit_id,
-            repository.pointer.pointee,
-            "HEAD",
-            sig.pointee,
-            sig.pointee,
-            "UTF-8", "Merge conflict",
-            tree,
-            2,
-           parentsPtr
-        )
-        
-        if (commitError != 0) {
-            throw gitUnknownError("Unable to create commit", code: commitError)
-        }
-        
-        git_tree_free(tree)
-        git_repository_state_cleanup(repository.pointer.pointee)
-        
-        return true
+        return paths.sorted()
     }
 }

@@ -102,7 +102,7 @@ final class MetadataStore {
             guard try manifestStamp() == stamp else { throw Failure.invalid("metadata changed while reading; retry") }
             if loadedData == data { loadedStamp = stamp; failedStamp = nil; return false }
             let next = try JSONDecoder().decode(Snapshot.self, from: data)
-            try validate(next)
+            try Self.validate(next)
             index = Index(next)
             snapshot = next
             loadedData = data
@@ -265,7 +265,7 @@ final class MetadataStore {
             try refresh()
             var next = snapshot
             try change(&next)
-            try validate(next)
+            try Self.validate(next)
             next.folders.sort { $0.id < $1.id }
             next.notes.sort { $0.id < $1.id }
             let data = try encoder.encode(next)
@@ -290,7 +290,11 @@ final class MetadataStore {
         try result.get()
     }
 
-    private func validate(_ next: Snapshot) throws {
+    static func validateMergedData(_ data: Data) throws {
+        try validate(JSONDecoder().decode(Snapshot.self, from: data))
+    }
+
+    private static func validate(_ next: Snapshot) throws {
         guard next.version == 1 else { throw Failure.invalid("unsupported metadata version") }
         let folders = Dictionary(grouping: next.folders, by: { $0.id })
         guard folders.count == next.folders.count, Set(next.notes.map { $0.id }).count == next.notes.count else { throw Failure.invalid("duplicate IDs") }
@@ -348,7 +352,7 @@ final class MetadataStore {
                 }
             }
             try scan(root, parentID: nil)
-            try validate(plan)
+            try Self.validate(plan)
             try encoder.encode(plan).write(to: journal, options: .atomic)
         }
         try validateMigrationPlan(plan)
@@ -427,7 +431,7 @@ final class MetadataStore {
     }
 
     private func validateMigrationPlan(_ plan: Snapshot) throws {
-        try validate(plan)
+        try Self.validate(plan)
         for entry in plan.notes {
             guard let path = entry.legacyPath, !path.hasPrefix("/"),
                   !path.split(separator: "/").contains(where: { $0 == ".." || $0.hasPrefix(".") }),

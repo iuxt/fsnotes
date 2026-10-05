@@ -49,12 +49,14 @@ extension Project {
     }
 
     public func cloneRepository() throws -> Repository? {
+        try requireEmptyCloneDestination()
         let repositoryManager = RepositoryManager()
         let repoURL = getRepositoryUrl()
 
         // Prepare temporary dir
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("FSNotes-clone-" + UUID().uuidString, isDirectory: true)
-        defer { try? FileManager.default.removeItem(at: tempURL) }
+        var preserveRecoveryFiles = false
+        defer { if !preserveRecoveryFiles { try? FileManager.default.removeItem(at: tempURL) } }
 
         // Clone
         if let originString = getGitOrigin(), let origin = URL(string: originString) {
@@ -63,15 +65,88 @@ extension Project {
             let dotGit = tempURL.appendingPathComponent(".git")
 
             if FileManager.default.directoryExists(atUrl: dotGit) {
-                try FileManager.default.moveItem(at: dotGit, to: repoURL)
-
-                return try repositoryManager.openRepository(at: repoURL)
+                // Clone away from the library, then install only into an empty
+                // destination. Preserve its empty scaffolding if installation fails.
+                let backup = tempURL.appendingPathComponent(".fsnotes-clone-backup")
+                let contents = try FileManager.default.contentsOfDirectory(at: tempURL, includingPropertiesForKeys: nil)
+                    .filter { $0.lastPathComponent != ".git" }
+                var installed = [URL]()
+                var originals = [(URL, URL)]()
+                let coordinator = NSFileCoordinator()
+                var coordinationError: NSError?
+                var result: Result<Repository, Error>?
+                coordinator.coordinate(writingItemAt: url, options: [], error: &coordinationError) { _ in
+                    result = Result {
+                        try requireEmptyCloneDestination()
+                        do {
+                            try FileManager.default.createDirectory(at: backup, withIntermediateDirectories: true)
+                            for source in contents {
+                                let destination = url.appendingPathComponent(source.lastPathComponent)
+                                if FileManager.default.fileExists(atPath: destination.path) {
+                                    let saved = backup.appendingPathComponent(source.lastPathComponent)
+                                    try FileManager.default.moveItem(at: destination, to: saved)
+                                    originals.append((saved, destination))
+                                }
+                                installed.append(destination)
+                                try FileManager.default.copyItem(at: source, to: destination)
+                            }
+                            installed.append(repoURL)
+                            try FileManager.default.moveItem(at: dotGit, to: repoURL)
+                            return try repositoryManager.openRepository(at: repoURL)
+                        } catch {
+                            var rollbackFailed = false
+                            for destination in installed.reversed() where FileManager.default.fileExists(atPath: destination.path) {
+                                do { try FileManager.default.removeItem(at: destination) }
+                                catch { rollbackFailed = true }
+                            }
+                            for (saved, destination) in originals.reversed() {
+                                do { try FileManager.default.moveItem(at: saved, to: destination) }
+                                catch { rollbackFailed = true }
+                            }
+                            if rollbackFailed {
+                                preserveRecoveryFiles = true
+                                throw GitError.invalidSpec(spec: "Clone failed: \(error.localizedDescription). Recovery files are preserved at \(backup.path)")
+                            }
+                            throw error
+                        }
+                    }
+                }
+                if let error = coordinationError { throw error }
+                guard let result = result else { throw GitError.invalidSpec(spec: "Clone installation did not complete") }
+                return try result.get()
             }
 
             return nil
         }
 
         return nil
+    }
+
+    private func requireEmptyCloneDestination() throws {
+        guard !hasRepository() else { throw GitError.alreadyExists(ref: getRepositoryUrl().path) }
+        let manager = FileManager.default
+        var scaffolding = Set<String>()
+        if let store = metadataStore {
+            try store.refresh()
+            guard try store.allEntries().isEmpty, try store.allFolders().isEmpty else {
+                throw GitError.invalidSpec(spec: "Clone requires an empty workspace. Choose a new folder to keep your existing notes.")
+            }
+            scaffolding = [store.manifestURL.path, store.notesURL.appendingPathComponent(".fsnotes-library").path]
+            let attributes = url.appendingPathComponent(".gitattributes")
+            if (try? String(contentsOf: attributes, encoding: .utf8)) == "images/** filter=lfs diff=lfs merge=lfs -text\n" {
+                scaffolding.insert(attributes.standardizedFileURL.resolvingSymlinksInPath().path)
+            }
+        }
+        guard let enumerator = manager.enumerator(at: url, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey]) else {
+            throw GitError.invalidSpec(spec: "Unable to inspect clone destination")
+        }
+        for case let file as URL in enumerator {
+            let values = try file.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            if values.isDirectory == true && values.isSymbolicLink != true { continue }
+            guard values.isSymbolicLink != true, scaffolding.contains(file.standardizedFileURL.resolvingSymlinksInPath().path) || file.lastPathComponent == ".DS_Store" else {
+                throw GitError.invalidSpec(spec: "Clone requires an empty workspace. Choose a new folder to keep your existing files.")
+            }
+        }
     }
 
     public func getRepository() throws -> Repository {
@@ -139,9 +214,11 @@ extension Project {
     }
 
     public func commit(message: String? = nil, progress: GitProgress? = nil) throws {
+        guard !gitMergePending else { throw GitError.invalidSpec(spec: "Resolve or close the sync conflict workbench first") }
         guard !metadataUnavailable else { throw MetadataStore.Failure.invalid("library migration or metadata loading failed") }
-        try metadataStore?.refresh()
         let repository = try getRepository()
+        try repository.requireCompletedOperation()
+        try metadataStore?.refresh()
         let lastCommit = try? repository.head().targetCommit()
 
         // Add all and save index
@@ -199,6 +276,7 @@ extension Project {
     }
 
     public func push(progress: GitProgress? = nil) throws {
+        guard !gitMergePending else { throw GitError.invalidSpec(spec: "Resolve or close the sync conflict workbench first") }
         guard let origin = getGitOrigin() else { return }
 
         let repository = try getRepository()
@@ -216,9 +294,11 @@ extension Project {
     }
 
     public func pull(progress: GitProgress? = nil) throws {
+        guard !gitMergePending else { throw GitError.invalidSpec(spec: "Resolve or close the sync conflict workbench first") }
         guard let origin = getGitOrigin() else { return }
 
         let repository = try getRepository()
+        try repository.requireCompletedOperation()
         try repository.addRemoteOrigin(path: origin)
 
         let authHandler = getAuthHandler()
@@ -261,18 +341,6 @@ extension Project {
         do { try commit(progress: progress) }
         catch GitError.noAddedFiles { }
         try push(progress: progress)
-    }
-
-    public func removeRepository(progress: GitProgress? = nil) {
-        let repoURL = getRepositoryUrl()
-
-        if FileManager.default.fileExists(atPath: repoURL.path) {
-            try? FileManager.default.removeItem(at: repoURL)
-        }
-
-        removeCommitsCache()
-
-        progress?.log(message: "git repository has been deleted")
     }
 
     public func removeCommitsCache() {
@@ -380,8 +448,7 @@ extension Project {
         var message: String?
 
         do {
-            if let repo = try cloneRepository(), let local = getLocalBranch(repository: repo) {
-                try repo.head().checkout(branch: local, type: .force)
+            if let repo = try cloneRepository(), getLocalBranch(repository: repo) != nil {
                 try GitLFS.transfer(["pull", "origin"], in: url, sshKey: getSSHKeyUrl(),
                                     caCertificates: settings.gitCACertificates, origin: getGitOrigin())
                 try metadataStore?.refresh()

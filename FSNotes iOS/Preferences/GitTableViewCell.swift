@@ -12,7 +12,6 @@ import UIKit
 class GitTableViewCell: UITableViewCell {
     public var project: Project?
     
-    @IBOutlet weak var removeButton: UIButton!
     @IBOutlet weak var cloneButton: UIButton!
     @IBOutlet weak var activity: UIActivityIndicatorView!
     
