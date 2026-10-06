@@ -1358,6 +1358,16 @@
         }
       }
     },
+    "No differences": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无差异"
+          }
+        }
+      }
+    },
     "Compare with the current note": {
       "localizations": {
         "zh-Hans": {

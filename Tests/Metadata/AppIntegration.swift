@@ -163,6 +163,32 @@ import Foundation
         _ = emptyNote.removeMetadataFile()
         _ = emptyNote.removeMetadataFile()
         try expect(manager.fileExists(atPath: emptyURL.path) && emptyNote.metadataEntry?.trashed == true, "empty note is retained in trash")
+        let moveDestination = try storage.createMetadataFolder(in: root, name: "Move destination")!
+        let moveParent = try storage.createMetadataFolder(in: root, name: "Move parent")!
+        let moving = try storage.createMetadataFolder(in: moveParent, name: "Moving")!
+        let nested = try storage.createMetadataFolder(in: moving, name: "Nested")!
+        let movingNoteURL = try storage.importMetadataFile(document, to: nested)
+        let movingNote = storage.getBy(url: movingNoteURL)!
+        let movingBody = try Data(contentsOf: movingNoteURL)
+        let movingID = moving.metadataFolderID
+        try storage.moveMetadataFolder(moving, to: root)
+        try expect(moving.parent === root && root.child.contains { $0 === moving }, "promoted folder is linked to library root")
+        try expect(!moveParent.child.contains { $0 === moving }, "promoted folder leaves old parent")
+        try storage.moveMetadataFolder(moving, to: moveDestination)
+        try expect(moving.parent === moveDestination && nested.parent === moving, "moving a folder preserves subtree objects")
+        try expect(moving.metadataFolderID == movingID && movingNote.url == movingNoteURL && movingNote.project === nested,
+                   "moving folder preserves note and folder identity")
+        try expect(try Data(contentsOf: movingNoteURL) == movingBody, "adapter move retains body and relative image links")
+        var rejectedCycle = false
+        do { try storage.moveMetadataFolder(moving, to: nested) } catch { rejectedCycle = true }
+        try expect(rejectedCycle && moving.parent === moveDestination, "adapter rejects cycles without changing memory hierarchy")
+        let otherLibrary = temporary.appendingPathComponent("other-library")
+        try manager.createDirectory(at: otherLibrary, withIntermediateDirectories: true)
+        let otherRoot = Project(storage: storage, url: otherLibrary)
+        otherRoot.metadataStore = try MetadataStore(root: otherLibrary)
+        var rejectedCrossLibrary = false
+        do { try storage.moveMetadataFolder(moving, to: otherRoot) } catch { rejectedCrossLibrary = true }
+        try expect(rejectedCrossLibrary && moving.parent === moveDestination, "folder cannot move across libraries")
         print("Metadata adapter integration: \(checks) checks passed")
     }
 }

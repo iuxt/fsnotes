@@ -104,6 +104,21 @@ extension Storage {
         return project
     }
 
+    func validateMetadataFolderMove(_ project: Project, to parent: Project) throws {
+        guard let store = project.metadataStore, let id = project.metadataFolderID,
+              parent.metadataStore === store, !parent.isTrash else {
+            throw MetadataStore.Failure.invalid("folders can only move within their library")
+        }
+        try store.validateFolderMove(id: id, parentID: parent.metadataFolderID)
+    }
+
+    func moveMetadataFolder(_ project: Project, to parent: Project) throws {
+        try validateMetadataFolderMove(project, to: parent)
+        try project.metadataStore!.moveFolder(id: project.metadataFolderID!, parentID: parent.metadataFolderID)
+        loadProjectRelations()
+        refreshMetadataLibraries()
+    }
+
     func deleteMetadataFolder(_ project: Project) throws {
         guard let store = project.metadataStore, let id = project.metadataFolderID else { return }
         try store.deleteFolder(id: id)

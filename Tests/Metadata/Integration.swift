@@ -91,6 +91,53 @@ import Foundation
         try expect(try reopened.allEntries() == lastValidEntries, "reopening reconstructs 2000 memory records from JSON")
         try expect(try reopened.entries(inFolder: nil) == lastValidEntries.filter { $0.folderID == nil }, "reopening reconstructs root membership")
     }
+    static func checkFolderMoves(in temporary: URL) throws {
+        let root = temporary.appendingPathComponent("folder-moves")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let store = try MetadataStore(root: root)
+        let first = try store.createFolder(name: "First", parentID: nil)
+        let second = try store.createFolder(name: "Second", parentID: nil)
+        let child = try store.createFolder(name: "Child", parentID: first.id)
+        let descendant = try store.createFolder(name: "Descendant", parentID: child.id)
+        let note = try store.register(name: "Preserved", folderID: descendant.id, ext: "md")
+        let body = Data("![image](../images/preserved.png)".utf8)
+        try body.write(to: store.fileURL(note))
+        let image = store.imagesURL.appendingPathComponent("preserved.png")
+        try Data([1, 2, 3]).write(to: image)
+        let beforeValidation = try Data(contentsOf: store.manifestURL)
+        try store.validateFolderMove(id: child.id, parentID: nil)
+        try expect(try Data(contentsOf: store.manifestURL) == beforeValidation, "drag validation is read-only")
+        try store.moveFolder(id: child.id, parentID: nil)
+        try expect(try store.allFolders().first { $0.id == child.id }?.parentID == nil, "subfolder can move to root")
+        try store.moveFolder(id: child.id, parentID: second.id)
+        try expect(try store.allFolders().first { $0.id == child.id }?.parentID == second.id, "folder moves between parents")
+        try expect(try store.allFolders().first { $0.id == descendant.id }?.parentID == child.id, "descendants keep their parent identity")
+        try expect(store.entry(id: note.id) == note, "folder move preserves note metadata")
+        try expect(try Data(contentsOf: store.fileURL(note)) == body && Data(contentsOf: image) == Data([1, 2, 3]), "folder move preserves bodies and image paths")
+        let reopened = try MetadataStore(root: root)
+        try expect(try reopened.allFolders().first { $0.id == child.id }?.parentID == second.id, "folder parent persists after reopening")
+        let duplicate = try store.createFolder(name: "child", parentID: first.id)
+        func reject(_ id: String, parentID: String?, message: String) throws {
+            let before = try Data(contentsOf: store.manifestURL)
+            var validationRejected = false
+            do { try store.validateFolderMove(id: id, parentID: parentID) }
+            catch { validationRejected = true }
+            var moveRejected = false
+            do { try store.moveFolder(id: id, parentID: parentID) }
+            catch { moveRejected = true }
+            try expect(validationRejected && moveRejected, message)
+            try expect(try Data(contentsOf: store.manifestURL) == before, "rejected folder move preserves snapshot")
+        }
+        try reject(child.id, parentID: child.id, message: "folder cannot contain itself")
+        try reject(child.id, parentID: descendant.id, message: "folder cannot move into descendant")
+        try reject(child.id, parentID: first.id, message: "folder name collision is rejected ignoring case")
+        try reject(child.id, parentID: UUID().uuidString.lowercased(), message: "missing destination is rejected")
+        try reject(UUID().uuidString.lowercased(), parentID: second.id, message: "missing source is rejected")
+        try store.renameFolder(id: duplicate.id, name: "Another")
+        try reopened.moveFolder(id: child.id, parentID: first.id)
+        try expect(try store.allFolders().first { $0.id == duplicate.id }?.name == "Another", "folder move preserves concurrent metadata updates")
+    }
+
     static func main() throws {
         let manager = FileManager.default
         let temporary = manager.temporaryDirectory.appendingPathComponent("fsnotes-metadata-tests-" + UUID().uuidString)
@@ -231,6 +278,7 @@ import Foundation
             throw MetadataStore.Failure.invalid("cloud placeholder overwritten")
         } catch MetadataStore.Failure.invalid(let reason) { try expect(reason.contains("finish downloading"), "cloud placeholder blocks migration") }
         try expect(!manager.fileExists(atPath: cloud.appendingPathComponent("metadata.json").path), "cloud snapshot not replaced by empty metadata")
+        try checkFolderMoves(in: temporary)
         try checkMemoryIndexes(in: temporary)
         print("Metadata integration: \(checks) checks passed")
     }

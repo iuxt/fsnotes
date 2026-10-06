@@ -365,9 +365,13 @@ final class NoteHistoryWindowController: NSWindowController, NSWindowDelegate,
         let current = note.content.unloadAttachments().string
         status.stringValue = NSLocalizedString("Saved version → current note · + added · − removed", comment: "Git history")
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let lines = HistoryDiff.lines(from: text, to: current)
+            let lines = HistoryDiff.lines(from: text, to: current).filter { $0.kind != .unchanged }
             DispatchQueue.main.async {
                 guard let self = self, self.rendering == token else { return }
+                if lines.isEmpty {
+                    self.showMessage(NSLocalizedString("No differences", comment: "Git history"))
+                    return
+                }
                 let output = NSMutableAttributedString()
                 for (index, line) in lines.enumerated() {
                     var attributes: [NSAttributedString.Key: Any] = [
@@ -376,7 +380,7 @@ final class NoteHistoryWindowController: NSWindowController, NSWindowDelegate,
                     ]
                     let prefix: String
                     switch line.kind {
-                    case .unchanged: prefix = "  "
+                    case .unchanged: continue
                     case .added:
                         prefix = "+ "
                         attributes[.backgroundColor] = NSColor.systemGreen.withAlphaComponent(0.16)

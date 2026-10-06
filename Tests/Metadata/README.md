@@ -8,7 +8,8 @@ notes, installed applications or Git configuration are changed.
 Coverage includes nested and empty folders, Markdown migration,
 relative attachments in the root images directory and note links, recursive LFS
 attribute configuration, virtual trash without a disk folder, untouched code blocks, Unicode/quoted names,
-stable physical paths, metadata-only Git changes, trash and folder deletion,
+stable physical paths, metadata-only Git changes, folder promotion/reparenting,
+cycle/name-collision rejection without partial changes, trash and folder deletion,
 external snapshot restoration, preservation of external edits, malformed JSON and
 folder-cycle rejection, independent memory indexes, index rebuilding on reopening,
 missing-manifest protection, and interrupted migration before/after publication.
@@ -18,6 +19,7 @@ instances, rejection of duplicate IDs without replacing valid indexes, and reope
 
 The second executable compiles the production MetadataLibrary adapter with minimal
 UI/model scaffolding and exercises actual file import, attachment copying, whole
-directory links, rename, move, duplication, persistent trash (including repeated deletion, empty notes),
+directory links, rename, note and folder moves (including subtree identity and cross-library rejection),
+duplication, persistent trash (including repeated deletion, empty notes),
 case-insensitive title collisions, restoration, reopening and snapshot recovery.
 It does not replace the macOS/iOS application build checks or a live UI smoke test.

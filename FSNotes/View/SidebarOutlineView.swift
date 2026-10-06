@@ -149,11 +149,49 @@ class SidebarOutlineView: NSOutlineView,
         guard let vc = ViewController.shared() else { return false }
         guard let sidebarItems = self.sidebarItems else { return false }
 
-        // Drag and drop project (reorder)
+        // Drag and drop folders: move between parents or reorder siblings.
         if let data = info.draggingPasteboard.string(forType: NSPasteboard.project) {
             let url = URL(fileURLWithPath: data)
 
             guard let project = Storage.shared().getProjectBy(url: url) else { return false }
+
+            if project.metadataFolderID != nil {
+                guard let destination = metadataDropDestination(for: project, item: item, childIndex: index) else { return false }
+                do {
+                    var siblings: [Project]
+                    let insertionIndex: Int
+                    if item == nil || (item as? SidebarItem)?.type == .All {
+                        siblings = sidebarItems.compactMap { $0 as? Project }.filter { $0 !== project }
+                        insertionIndex = index < 0 ? siblings.count : sidebarItems.prefix(index)
+                            .compactMap { $0 as? Project }.filter { $0 !== project }.count
+                    } else {
+                        siblings = destination.child.filter { $0 !== project }
+                        let sourceIndex = destination.child.firstIndex { $0 === project }
+                        insertionIndex = index < 0 ? siblings.count : index - ((sourceIndex.map { $0 < index } ?? false) ? 1 : 0)
+                    }
+                    if project.parent !== destination {
+                        try storage.moveMetadataFolder(project, to: destination)
+                    }
+                    siblings.insert(project, at: min(insertionIndex, siblings.count))
+                    saveOrderFor(projects: siblings)
+                    storage.loadProjectRelations()
+                    reloadSidebar()
+                    var ancestors = [Project]()
+                    var parent = project.parent
+                    while let current = parent {
+                        ancestors.append(current)
+                        parent = current.parent
+                    }
+                    for ancestor in ancestors.reversed() where !ancestor.isDefault { expandItem(ancestor) }
+                    focus(on: project)
+                    return true
+                } catch {
+                    let alert = NSAlert()
+                    alert.messageText = error.localizedDescription
+                    alert.runModal()
+                    return false
+                }
+            }
 
             // Get src index for child and root folders
             var srcIndex: Int?
@@ -328,6 +366,24 @@ class SidebarOutlineView: NSOutlineView,
 
             guard let project = Storage.shared().getProjectBy(url: url) else {
                 return NSDragOperation()
+            }
+
+            if project.metadataFolderID != nil {
+                guard let destination = metadataDropDestination(for: project, item: item, childIndex: index) else { return [] }
+                do { try storage.validateMetadataFolderMove(project, to: destination) }
+                catch { return [] }
+                if project.parent === destination {
+                    if index == NSOutlineViewDropOnItemIndex { return [] }
+                    let sourceIndex = item == nil
+                        ? sidebarItems?.firstIndex { $0 as? Project === project }
+                        : destination.child.firstIndex { $0 === project }
+                    if let sourceIndex = sourceIndex, index == sourceIndex || index == sourceIndex + 1 { return [] }
+                }
+                if (item == nil && index == NSOutlineViewDropOnItemIndex) || (item as? SidebarItem)?.type == .All,
+                   let end = getTagsSeparatorPosition() {
+                    outlineView.setDropItem(nil, dropChildIndex: end)
+                }
+                return .move
             }
 
             let dstProject = item as? Project
@@ -835,6 +891,20 @@ class SidebarOutlineView: NSOutlineView,
 
     // MARK: Functions
 
+    private func metadataDropDestination(for project: Project, item: Any?, childIndex index: Int) -> Project? {
+        guard let store = project.metadataStore else { return nil }
+        if let destination = item as? Project {
+            guard destination.metadataStore === store,
+                  index == NSOutlineViewDropOnItemIndex || (0...destination.child.count).contains(index) else { return nil }
+            return destination
+        }
+        guard let root = storage.getDefault(), root.metadataStore === store else { return nil }
+        if let sidebarItem = item as? SidebarItem { return sidebarItem.type == .All ? root : nil }
+        guard item == nil, let start = getProjectsSeparatorPosition(), let end = getTagsSeparatorPosition(),
+              index == NSOutlineViewDropOnItemIndex || ((start + 1)...end).contains(index) else { return nil }
+        return root
+    }
+
     private func isAllowedDropIndex(srcProject: Project, dstProject: Project?, dstIndex: Int) -> Bool {
         guard let sidebarItems = self.sidebarItems else { return false }
 
@@ -1297,9 +1367,10 @@ class SidebarOutlineView: NSOutlineView,
         vc.loadMoveMenu()
 
         let selected = vc.sidebarOutlineView.selectedRow
-        vc.sidebarOutlineView.sidebarItems = Sidebar().getList()
-        vc.sidebarOutlineView.reloadData()
-        vc.sidebarOutlineView.selectRowIndexes([selected], byExtendingSelection: false)
+        vc.restoreSidebar()
+        if selected >= 0 && selected < numberOfRows {
+            selectRowIndexes([selected], byExtendingSelection: false)
+        }
 
         vc.sidebarOutlineView.loadAllTags()
 

@@ -242,6 +242,27 @@ final class MetadataStore {
         }
     }
 
+    func validateFolderMove(id: String, parentID: String?) throws {
+        lock.lock(); defer { lock.unlock() }
+        try refresh(force: false)
+        var next = snapshot
+        try Self.reparentFolder(in: &next, id: id, parentID: parentID)
+        try Self.validate(next)
+    }
+
+    func moveFolder(id: String, parentID: String?) throws {
+        try mutate { next in
+            try Self.reparentFolder(in: &next, id: id, parentID: parentID)
+        }
+    }
+
+    private static func reparentFolder(in snapshot: inout Snapshot, id: String, parentID: String?) throws {
+        guard let index = snapshot.folders.firstIndex(where: { $0.id == id }) else {
+            throw Failure.invalid("folder no longer exists")
+        }
+        snapshot.folders[index].parentID = parentID
+    }
+
     /// Deleting a folder sends its notes to logical Trash without changing their physical paths.
     func deleteFolder(id: String) throws {
         try mutate { next in
