@@ -20,7 +20,7 @@ extension LayoutManager {
             }
         }
         guard sourceChanged || hidden != hiddenMarkdownCharacters || decorations != markdownDecorations else { return }
-        let affected = hidden.union(hiddenMarkdownCharacters)
+        let affected = hidden.symmetricDifference(hiddenMarkdownCharacters)
         hiddenMarkdownCharacters = hidden
         markdownDecorations = decorations
         let fullRange = NSRange(location: 0, length: storage.length)
@@ -35,12 +35,13 @@ extension LayoutManager {
         firstTextView?.needsDisplay = true
     }
 
-    func markdownDecorationSize(_ decoration: MarkdownPresentation.Decoration, in container: NSTextContainer) -> NSSize {
-        let font = UserDefaultsManagement.noteFont
+    func markdownDecorationSize(_ decoration: MarkdownPresentation.Decoration, in container: NSTextContainer, at index: Int? = nil) -> NSSize {
+        let font = markdownDecorationFont(decoration, at: index)
         let height = defaultLineHeight(for: font)
         let width = max(1, container.size.width - container.lineFragmentPadding * 2)
         switch decoration {
         case .text(let value): return NSSize(width: (value as NSString).size(withAttributes: [.font: font]).width + 8, height: height)
+        case .literal(let value), .footnote(let value): return NSSize(width: (value as NSString).size(withAttributes: [.font: font]).width, height: height)
         case .quote: return NSSize(width: 14, height: height)
         case .rule: return NSSize(width: width, height: height)
         case .image(let destination, let title):
@@ -50,6 +51,15 @@ extension LayoutManager {
             }
             return NSSize(width: min(width, (imageLabel(title, destination) as NSString).size(withAttributes: [.font: font]).width + 12), height: height)
         }
+    }
+
+    private func markdownDecorationFont(_ decoration: MarkdownPresentation.Decoration, at index: Int?) -> NSFont {
+        var font = UserDefaultsManagement.noteFont
+        if let index = index, let storage = textStorage, index < storage.length {
+            font = storage.attribute(.font, at: index, effectiveRange: nil) as? NSFont ?? font
+        }
+        if case .footnote = decoration { return NSFontManager.shared.convert(font, toSize: font.pointSize * 0.75) }
+        return font
     }
 
     private func imageLabel(_ title: String, _ destination: String) -> String {
@@ -90,13 +100,15 @@ extension LayoutManager {
             let glyph = glyphIndexForCharacter(at: index)
             let line = lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
             let position = location(forGlyphAt: glyph)
-            let size = markdownDecorationSize(decoration, in: container)
+            let size = markdownDecorationSize(decoration, in: container, at: index)
             let rect = NSRect(x: origin.x + line.minX + position.x, y: origin.y + line.minY,
                               width: size.width, height: size.height)
             switch decoration {
-            case .text(let text):
-                (text as NSString).draw(at: NSPoint(x: rect.minX, y: rect.minY + (rect.height - size.height) / 2),
-                    withAttributes: [.font: UserDefaultsManagement.noteFont, .foregroundColor: NSColor.labelColor])
+            case .text(let text), .literal(let text), .footnote(let text):
+                var color = textStorage?.attribute(.foregroundColor, at: index, effectiveRange: nil) as? NSColor ?? NSColor.labelColor
+                if case .text = decoration { color = .labelColor }
+                (text as NSString).draw(at: NSPoint(x: rect.minX, y: rect.minY),
+                    withAttributes: [.font: markdownDecorationFont(decoration, at: index), .foregroundColor: color])
             case .quote:
                 NSColor.separatorColor.setFill()
                 NSRect(x: rect.minX + 2, y: rect.minY, width: 3, height: line.height).fill()

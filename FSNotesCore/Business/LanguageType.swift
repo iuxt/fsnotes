@@ -124,6 +124,7 @@ enum LanguageType: Int {
         case "ar": return 0x05
         case "zh-Hans": return 0x06
         case "zh-Hant": return 18
+        case "zh": return 0x06
         case "ko": return 0x07
         case "fr": return 0x08
         case "nl-NL": return 0x09
@@ -131,7 +132,7 @@ enum LanguageType: Int {
         case "it": return 11
         case "he": return 12
         case "ja": return 13
-        case "pr-BR": return 14
+        case "pt-BR": return 14
         case "cs": return 15
         case "hi": return 16
         case "tr": return 17

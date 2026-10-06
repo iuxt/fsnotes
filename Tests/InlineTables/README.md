@@ -1,4 +1,5 @@
-Run `bash Tests/InlineTables/run.sh` on macOS. It compiles the production parser,
+Run `bash Tests/InlineTables/run.sh` on macOS after a Debug app build into `.build`
+(or set `FSNOTES_DERIVED_DATA` to another derived-data directory). It compiles the production parser,
 commands, renderer, TextKit layout manager, native cell editor and document editing
 extension. Small stubs supply unrelated app settings and note metadata.
 

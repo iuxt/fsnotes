@@ -58,7 +58,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 NSAlert(error: error).runModal()
             }
         }
-        loadDockIcon()
 
         if UserDefaultsManagement.showInMenuBar {
             constructMenu()
@@ -398,23 +397,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         aboutWindowController.window?.makeKeyAndOrderFront(aboutWindowController)
 
         NSApp.activate(ignoringOtherApps: true)
-    }
-
-    public func loadDockIcon() {
-        let appDockTile = NSApplication.shared.dockTile
-
-        // Only the classic icon needs a custom Dock tile. For the default icon
-        // the tile is left to the system, so it follows the Dark/Clear/Tinted
-        // icon style on macOS 26+.
-        if #available(OSX 10.12, *) {
-            if UserDefaultsManagement.dockIcon == 1, let image = NSImage(named: "AppIconClassic") {
-                appDockTile.contentView = NSImageView(image: image)
-            } else {
-                appDockTile.contentView = nil
-            }
-        }
-
-        appDockTile.display()
     }
 
     func application(_ application: NSApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([NSUserActivityRestoring]) -> Void) -> Bool {

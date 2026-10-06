@@ -4,7 +4,7 @@ import libcmark_gfm
 /// A display plan in original UTF-16 coordinates. It never rewrites Markdown.
 struct MarkdownPresentation {
     enum Decoration: Equatable {
-        case text(String), quote, rule, image(destination: String, title: String)
+        case text(String), literal(String), footnote(String), quote, rule, image(destination: String, title: String)
     }
     struct Element: Equatable {
         let range: NSRange
@@ -42,17 +42,27 @@ struct MarkdownPresentation {
         var literalBlocks: [NSRange] = []
         var contentBlocks: [NSRange] = []
         var styles: [StyledRange] = []
+        var expressions: [String: NSRegularExpression] = [:]
+        var listNumbers: [UnsafeMutablePointer<cmark_node>: Int] = [:]
+        let escapedPunctuation = try! NSRegularExpression(pattern: ##"\\[!\"#$%&'()*+,\-./:;<=>?@\[\]\\^_`{|}~]"##)
+        let entities = try! NSRegularExpression(pattern: #"&(?:#[0-9]+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]+);"#)
+        let htmlTags = try! NSRegularExpression(pattern: #"<!--[\s\S]*?-->|</?[A-Za-z][^>]*>"#)
 
         func add(_ scope: NSRange, _ hidden: [NSRange], _ decoration: Decoration? = nil, anchor: Int? = nil) {
             let valid = hidden.filter { $0.location != NSNotFound && $0.length > 0 && NSMaxRange($0) <= text.length }
             guard !valid.isEmpty else { return }
-            elements.append(Element(range: scope, hidden: valid, decoration: decoration, anchor: anchor ?? valid[0].location))
+            let start = min(scope.location, valid.map { $0.location }.min() ?? scope.location)
+            let editingRange = NSRange(location: start, length: NSMaxRange(scope) - start)
+            elements.append(Element(range: editingRange, hidden: valid, decoration: decoration, anchor: anchor ?? valid[0].location))
         }
         func match(_ pattern: String, in range: NSRange) -> NSTextCheckingResult? {
-            (try? NSRegularExpression(pattern: pattern)).flatMap { $0.firstMatch(in: source, range: range) }
+            if expressions[pattern] == nil { expressions[pattern] = try? NSRegularExpression(pattern: pattern) }
+            return expressions[pattern]?.firstMatch(in: source, range: range)
         }
         func walk(_ node: UnsafeMutablePointer<cmark_node>) {
-            let type = String(cString: cmark_node_get_type_string(node))
+            let nodeType = cmark_node_get_type(node)
+            let type = nodeType == CMARK_NODE_FOOTNOTE_REFERENCE ? "footnote_reference" :
+                (nodeType == CMARK_NODE_FOOTNOTE_DEFINITION ? "footnote_definition" : String(cString: cmark_node_get_type_string(node)))
             let range = lines.range(node)
             guard range.length > 0 else { return }
             if ["paragraph", "heading", "code_block", "html_block", "thematic_break", "table"].contains(type) {
@@ -81,6 +91,9 @@ struct MarkdownPresentation {
             case "link", "image":
                 if text.character(at: range.location) == 60, text.character(at: NSMaxRange(range) - 1) == 62 {
                     add(range, [NSRange(location: range.location, length: 1), NSRange(location: NSMaxRange(range) - 1, length: 1)])
+                    if let url = cmark_node_get_url(node) {
+                        styles.append(StyledRange(range: NSRange(location: range.location + 1, length: range.length - 2), style: .link(String(cString: url))))
+                    }
                 } else if let label = labelRange(in: range, text: text) {
                     let hidden = [NSRange(location: range.location, length: label.location - range.location),
                                   NSRange(location: NSMaxRange(label), length: NSMaxRange(range) - NSMaxRange(label))]
@@ -118,7 +131,11 @@ struct MarkdownPresentation {
                     let label: String
                     if raw.contains("[ ]") { label = "☐" }
                     else if raw.lowercased().contains("[x]") { label = "☑" }
-                    else if raw.first?.isNumber == true { label = raw.trimmingCharacters(in: .whitespaces) }
+                    else if raw.first?.isNumber == true, let list = cmark_node_parent(node) {
+                        let number = listNumbers[list] ?? Int(cmark_node_get_list_start(list))
+                        label = "\(number)."
+                        listNumbers[list] = number + 1
+                    }
                     else { label = "•" }
                     add(line, [marker.range], .text(label))
                     if label == "☑" {
@@ -156,23 +173,29 @@ struct MarkdownPresentation {
                     add(range, hidden)
                 }
                 return
+            case "footnote_reference":
+                let raw = text.substring(with: range)
+                add(range, [range], .footnote(raw.replacingOccurrences(of: "[^", with: "").replacingOccurrences(of: "]", with: "")))
+                return
+            case "footnote_definition":
+                let line = lines.content(at: Int(cmark_node_get_start_line(node)))
+                if let prefix = match(#"^ {0,3}\[\^([^\]]+)\]:[ \t]*"#, in: line) {
+                    add(line, [prefix.range], .text(text.substring(with: prefix.range(at: 1)) + "."))
+                }
             case "html_inline", "html_block":
-                let tags = try! NSRegularExpression(pattern: #"<!--[\s\S]*?-->|</?[A-Za-z][^>]*>"#)
                 let scope = text.paragraphRange(for: range)
-                for tag in tags.matches(in: source, range: range) { add(scope, [tag.range]) }
+                for tag in htmlTags.matches(in: source, range: range) { add(scope, [tag.range]) }
                 return
             case "text":
                 // Escaped punctuation is literal content, including within link labels.
-                let regex = try! NSRegularExpression(pattern: ##"\\[!\"#$%&'()*+,\-./:;<=>?@\[\]\\^_`{|}~]"##)
-                for escape in regex.matches(in: source, range: range) {
+                for escape in escapedPunctuation.matches(in: source, range: range) {
                     add(escape.range, [NSRange(location: escape.range.location, length: 1)])
                 }
-                let entities = try! NSRegularExpression(pattern: #"&(?:#[0-9]+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]+);"#)
                 for entity in entities.matches(in: source, range: range) {
                     let raw = text.substring(with: entity.range)
                     if let decoded = try? AttributedString(markdown: raw, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
                         let value = String(decoded.characters)
-                        if value != raw { add(entity.range, [entity.range], .text(value)) }
+                        if value != raw { add(entity.range, [entity.range], .literal(value)) }
                     }
                 }
             default: break
@@ -186,7 +209,10 @@ struct MarkdownPresentation {
         let wiki = try! NSRegularExpression(pattern: #"\[\[([^\]\n]+)\]\]"#)
         for result in wiki.matches(in: source, range: NSRange(location: 0, length: text.length)) {
             guard !literalBlocks.contains(where: { NSIntersectionRange($0, result.range).length > 0 }),
-                  !elements.contains(where: { NSIntersectionRange($0.range, result.range).length > 0 }) else { continue }
+                  !styles.contains(where: { styled in
+                      if case .link = styled.style { return NSIntersectionRange(styled.range, result.range).length > 0 }
+                      return false
+                  }) else { continue }
             add(result.range, [NSRange(location: result.range.location, length: 2),
                                NSRange(location: NSMaxRange(result.range) - 2, length: 2)])
         }
@@ -239,10 +265,12 @@ private struct SourceLines {
             text.getLineStart(&start, end: &end, contentsEnd: &contentEnd, for: NSRange(location: offset, length: 0))
             let content = NSRange(location: start, length: contentEnd - start)
             var map = [0], utf16 = 0
+            map.reserveCapacity(content.length + 1)
             for scalar in text.substring(with: content).unicodeScalars {
-                let bytes = String(scalar).utf8.count
-                map.append(contentsOf: Array(repeating: utf16, count: bytes - 1))
-                utf16 += scalar.utf16.count
+                let value = scalar.value
+                let bytes = value <= 0x7f ? 1 : (value <= 0x7ff ? 2 : (value <= 0xffff ? 3 : 4))
+                for _ in 1..<bytes { map.append(utf16) }
+                utf16 += value <= 0xffff ? 1 : 2
                 map.append(utf16)
             }
             result.append(Line(range: NSRange(location: start, length: end - start), content: content, byteOffsets: map))

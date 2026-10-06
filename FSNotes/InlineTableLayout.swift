@@ -173,7 +173,7 @@ extension LayoutManager {
                        for textContainer: NSTextContainer, proposedLineFragment proposedRect: NSRect,
                        glyphPosition: NSPoint, characterIndex charIndex: Int) -> NSRect {
         if let decoration = markdownDecorations[charIndex] {
-            return NSRect(origin: .zero, size: markdownDecorationSize(decoration, in: textContainer))
+            return NSRect(origin: .zero, size: markdownDecorationSize(decoration, in: textContainer, at: charIndex))
         }
         guard let table = inlineTables.first(where: { $0.range.location == charIndex }) else { return .zero }
         let layout = inlineTableLayout(table, in: textContainer)

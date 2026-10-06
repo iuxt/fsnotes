@@ -552,6 +552,13 @@ public class UserDefaultsManagement {
                 return dl
             }
 
+            // preferredLocalizations returns the localization macOS actually
+            // resolved for this bundle (e.g. "zh-Hans"), unlike
+            // NSLocale.current.languageCode which yields bare codes ("zh").
+            if let preferred = Bundle.main.preferredLocalizations.first {
+                return LanguageType.withCode(rawValue: preferred)
+            }
+
             if let code = NSLocale.current.languageCode {
                 return LanguageType.withCode(rawValue: code)
             }

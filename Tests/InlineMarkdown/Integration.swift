@@ -69,6 +69,23 @@ func expect(_ value: @autoclosure () -> Bool, _ message: String) {
         expect(escaped.count == 2, "escaped punctuation")
         let code = MarkdownPresentation.parse("`` a`b ``\n").elements[0]
         expect(code.hidden.map { ("`` a`b ``\n" as NSString).substring(with: $0) } == ["``", "``"], "multiple code backticks")
+        let html = MarkdownPresentation.parse("<b>literal</b> &amp; &#x1F600;\n")
+        expect(html.elements.filter { $0.decoration == nil }.count == 2, "HTML tags are hidden at rest")
+        expect(html.elements.contains { $0.decoration == .literal("&") }, "HTML entities are decoded")
+        expect(html.elements.contains { $0.decoration == .literal("😀") }, "numeric Unicode entities")
+        let footnotes = MarkdownPresentation.parse("text[^1]\n\n[^1]: footnote\n")
+        expect(footnotes.elements.contains { $0.decoration == .footnote("1") }, "footnote reference")
+        expect(footnotes.elements.contains { $0.decoration == .text("1.") }, "footnote definition prefix")
+        let numbers = MarkdownPresentation.parse("3. three\n1. four\n")
+        expect(numbers.elements.map { $0.decoration } == [.text("3."), .text("4.")], "ordered list display follows list numbering")
+        let formattedWiki = MarkdownPresentation.parse("[[**note**]]\n")
+        expect(formattedWiki.elements.count == 2, "formatted wiki labels hide both kinds of syntax")
+        let inlineWikiCode = MarkdownPresentation.parse("`[[literal]]`\n")
+        expect(inlineWikiCode.elements.count == 1, "wiki syntax within inline code stays literal")
+        let invalidDefinition = MarkdownPresentation.parse("paragraph\n[id]: https://example.com\n")
+        expect(!invalidDefinition.elements.contains { $0.hidden.contains { $0.length > 4 } }, "ordinary paragraph content isn't mistaken for a definition")
+        let indent = MarkdownPresentation.parse("    **literal**\n")
+        expect(indent.elements.count == 1 && indent.elements[0].hidden[0].length == 4, "indented code hides indentation without styling literal markers")
         let crlf = MarkdownPresentation.parse("# 中文 😀\r\n\r\n**bold**\r\n")
         expect(crlf.elements.count == 2, "CRLF and UTF-8 source mapping")
 
@@ -77,6 +94,10 @@ func expect(_ value: @autoclosure () -> Bool, _ message: String) {
             font: UserDefaultsManagement.noteFont, codeFont: NSFont.monospacedSystemFont(ofSize: 14, weight: .regular),
             textColor: .labelColor, codeBackground: .quaternaryLabelColor, codeSpanBackground: .quaternaryLabelColor)
         let snapshot = NSAttributedString(attributedString: storage)
+        let boldFont = storage.attribute(.font, at: range("粗体").location, effectiveRange: nil) as! NSFont
+        expect(NSFontManager.shared.traits(of: boldFont).contains(.boldFontMask), "bold presentation style")
+        expect((storage.attribute(.font, at: range("标题").location, effectiveRange: nil) as! NSFont).pointSize == 28, "heading size")
+        expect(storage.attribute(.link, at: range("reference").location, effectiveRange: nil) as? String == "https://example.com", "reference links stay clickable")
         let manager = LayoutManager()
         manager.delegate = manager
         let container = NSTextContainer(containerSize: NSSize(width: 460, height: CGFloat.greatestFiniteMagnitude))
@@ -122,8 +143,38 @@ func expect(_ value: @autoclosure () -> Bool, _ message: String) {
         storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: "")
         expect(manager.hiddenMarkdownCharacters.isEmpty, "empty note clears hidden glyphs")
 
+        let imageURL = FileManager.default.temporaryDirectory.appendingPathComponent("fsnotes-inline-image-" + UUID().uuidString + ".png")
+        defer { try? FileManager.default.removeItem(at: imageURL) }
+        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 800, pixelsHigh: 400, bitsPerSample: 8,
+                                      samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        try bitmap.representation(using: .png, properties: [:])!.write(to: imageURL)
+        let imageSource = "![图片](" + imageURL.path + ")\nAfter image\n"
+        storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: imageSource)
+        editor.refreshInlineTables()
+        manager.ensureLayout(for: container)
+        expect(manager.markdownDecorations[0] != nil && manager.hiddenMarkdownCharacters.contains(0), "image preview hides source")
+        let imageSize = manager.markdownDecorationSize(manager.markdownDecorations[0]!, in: container)
+        expect(imageSize.width <= 460 && abs(imageSize.width / imageSize.height - 2) < 0.01, "image fits width and preserves aspect ratio")
+        let afterImage = (imageSource as NSString).range(of: "After image").location
+        let following = manager.lineFragmentRect(forGlyphAt: manager.glyphIndexForCharacter(at: afterImage), effectiveRange: nil)
+        expect(following.minY >= imageSize.height, "image reserves height before following text")
+        window.makeFirstResponder(editor)
+        editor.setSelectedRange(NSRange(location: 3, length: 0))
+        expect(manager.markdownDecorations[0] == nil && !manager.hiddenMarkdownCharacters.contains(0), "image caret reveals editable alt text and path")
+        editor.setSelectedRange(NSRange(location: afterImage, length: 0))
+        expect(manager.markdownDecorations[0] != nil, "leaving image restores preview")
+        window.makeFirstResponder(nil)
+        let taskSource = "- [x] complete\n"
+        storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: taskSource)
+        let taskPlan = MarkdownPresentation.parse(taskSource)
+        taskPlan.applyStyles(to: storage, in: NSRange(location: 0, length: storage.length),
+            font: UserDefaultsManagement.noteFont, codeFont: UserDefaultsManagement.noteFont,
+            textColor: .labelColor, codeBackground: .gray, codeSpanBackground: .gray)
+        expect(manager.markdownDecorations[0] == .text("☑"), "checked task preview")
+        expect(storage.attribute(.strikethroughStyle, at: 6, effectiveRange: nil) as? Int == 1, "checked tasks retain completed styling")
+
         if let output = ProcessInfo.processInfo.environment["FSNOTES_MARKDOWN_PREVIEW"] {
-            storage.replaceCharacters(in: NSRange(location: 0, length: 0), with: source)
+            storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: source)
             plan.applyStyles(to: storage, in: NSRange(location: 0, length: storage.length),
                 font: UserDefaultsManagement.noteFont, codeFont: NSFont.monospacedSystemFont(ofSize: 14, weight: .regular),
                 textColor: .labelColor, codeBackground: .quaternaryLabelColor, codeSpanBackground: .quaternaryLabelColor)

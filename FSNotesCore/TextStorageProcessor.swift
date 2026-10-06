@@ -17,6 +17,9 @@ import AVKit
 class TextStorageProcessor: NSObject, NSTextStorageDelegate {
     public weak var editor: EditTextView?
     public var detector = CodeBlockDetector()
+    #if os(macOS)
+    private var semanticCodeBlocks: [NSRange] = []
+    #endif
 
 #if os(iOS)
     public func textStorage(
@@ -60,6 +63,27 @@ class TextStorageProcessor: NSObject, NSTextStorageDelegate {
             note.content.string.fnv1a == note.cacheHash
         ) { return }
         
+        #if os(macOS)
+        let currentCodeBlocks = MarkdownPresentation.parse(textStorage.string).styles.compactMap { styled -> NSRange? in
+            if case .codeBlock = styled.style { return styled.range }
+            return nil
+        }
+        let adjustedCodeBlocks = semanticCodeBlocks.map { range -> NSRange in
+            if range.location >= editedRange.location {
+                return NSRange(location: max(0, range.location + delta), length: range.length)
+            }
+            if NSMaxRange(range) <= editedRange.location { return range }
+            return NSRange(location: range.location, length: max(0, range.length + delta))
+        }
+        let codeStructureChanged = adjustedCodeBlocks != currentCodeBlocks
+        semanticCodeBlocks = currentCodeBlocks
+        if codeStructureChanged {
+            NotesTextProcessor.highlight(attributedString: textStorage)
+            note.codeBlockRangesCache = detector.findCodeBlocks(in: textStorage)
+            return
+        }
+        #endif
+
         // Full load
         if editedRange.length == textStorage.length {
             NotesTextProcessor.highlight(attributedString: textStorage)

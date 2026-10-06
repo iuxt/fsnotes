@@ -270,7 +270,9 @@ public class TextFormatter {
         let selectRange = NSRange(location: location + padding.count, length: length + addsChars)
         
         let mutableResult = NSMutableAttributedString(string: result)
-        #if os(iOS)
+        #if os(macOS)
+        if !note.isMarkdown() { mutableResult.loadTasks() }
+        #else
         mutableResult.loadTasks()
         #endif
 
@@ -364,7 +366,9 @@ public class TextFormatter {
 
         let selectRange = NSRange(location: selectLocation, length: selectLength)
         let mutableResult = NSMutableAttributedString(string: result)
-        #if os(iOS)
+        #if os(macOS)
+        if !note.isMarkdown() { mutableResult.loadTasks() }
+        #else
         mutableResult.loadTasks()
         #endif
 
@@ -594,7 +598,7 @@ public class TextFormatter {
 
         #if os(macOS)
         let taskRegex = try! NSRegularExpression(pattern: #"^([ \t]*(?:>[ \t]*)*[-+*][ \t]+)\[[ xX]\][ \t]+"#)
-        if let task = taskRegex.firstMatch(in: currentParagraph.string, range: NSRange(location: 0, length: currentParagraph.length)),
+        if note.isMarkdown(), let task = taskRegex.firstMatch(in: currentParagraph.string, range: NSRange(location: 0, length: currentParagraph.length)),
            selectedRange.location >= currentParagraphRange.location + task.range.length {
             let content = (currentParagraph.string as NSString).substring(from: task.range.length)
             if content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -716,7 +720,9 @@ public class TextFormatter {
         let mutable = NSMutableAttributedString(attributedString: attributedString).unloadTasks()
 
         #if os(macOS)
-        let hasTask = mutable.string.range(of: #"^\s*[-+*] \[[ xX]\] "#, options: .regularExpression) != nil
+        let hasTask = note.isMarkdown()
+            ? mutable.string.range(of: #"^\s*[-+*] \[[ xX]\] "#, options: .regularExpression) != nil
+            : attributedString.hasTodoAttribute()
         #else
         let hasTask = attributedString.hasTodoAttribute()
         #endif
@@ -733,8 +739,13 @@ public class TextFormatter {
 
             let insertRange = NSRange(location: pRange.location + offset, length: 0)
             #if os(macOS)
-            let selectRange = NSRange(location: range.location + 6, length: range.length)
-            insertText("- [ ] ", replacementRange: insertRange, selectRange: selectRange)
+            if note.isMarkdown() {
+                let selectRange = NSRange(location: range.location + 6, length: range.length)
+                insertText("- [ ] ", replacementRange: insertRange, selectRange: selectRange)
+            } else {
+                let selectRange = NSRange(location: range.location + 2, length: range.length)
+                insertText(AttributedBox.getUnChecked()!, replacementRange: insertRange, selectRange: selectRange)
+            }
             #else
             let selectRange = NSRange(location: range.location + 2, length: range.length)
             insertText(AttributedBox.getUnChecked()!, replacementRange: insertRange, selectRange: selectRange)
@@ -821,7 +832,9 @@ public class TextFormatter {
         mutableResult.addAttribute(.foregroundColor, value: textColor, range: NSRange(location: 0, length: mutableResult.length))
         mutableResult.addAttribute(.font, value: NotesTextProcessor.font, range: NSRange(location: 0, length: mutableResult.length))
         mutableResult.fixAttributes(in: NSRange(location: 0, length: mutableResult.length))
-        #if os(iOS)
+        #if os(macOS)
+        if !note.isMarkdown() { mutableResult.loadTasks() }
+        #else
         mutableResult.loadTasks()
         #endif
 

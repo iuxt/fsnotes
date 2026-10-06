@@ -60,6 +60,16 @@ import AppKit
         try expect(handoffWrites == ["running", "newer"] && handoffFinishes == 1,
                    "edits arriving during a write are drained before unblocking")
 
+        let checkbox = NSMutableAttributedString(attachment: NSTextAttachment())
+        checkbox.addAttribute(.todo, value: 1, range: NSRange(location: 0, length: 1))
+        checkbox.append(NSAttributedString(string: " done"))
+        let taskSource = checkbox.unloadTasks()
+        try expect(taskSource.string == "- [x] done", "checkbox expands into editable Markdown")
+        try expect(taskSource.attribute(.attachment, at: 0, effectiveRange: nil) == nil && taskSource.attribute(.todo, at: 0, effectiveRange: nil) == nil,
+                   "unloaded source does not inherit attachment or task attributes")
+        try expect(checkbox.length == 6 && checkbox.attribute(.attachment, at: 0, effectiveRange: nil) != nil,
+                   "source expansion preserves original note storage")
+
         let notes = root.appendingPathComponent("notes")
         let export = root.appendingPathComponent("preview")
         let first = root.appendingPathComponent("images/a/共享 图.png")

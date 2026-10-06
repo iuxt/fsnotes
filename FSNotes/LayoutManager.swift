@@ -180,14 +180,18 @@ class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
         
         guard !relevantCodeBlocks.isEmpty else { return }
         
-        textContainer.lineFragmentPadding = 10
         context.saveGState()
         
         let backgroundColor = NotesTextProcessor.getHighlighter().options.style.backgroundColor.cgColor
         let borderColor = NSColor.lightGray.cgColor
         
         for codeBlockRange in relevantCodeBlocks {  // ← теперь только релевантные блоки!
-            let safeCharRange = codeBlockRange.clamped(to: storageFullRange)
+            let sourceRange = codeBlockRange.clamped(to: storageFullRange)
+            var start = sourceRange.location, end = NSMaxRange(sourceRange)
+            while start < end && hiddenMarkdownCharacters.contains(start) { start += 1 }
+            let source = textStorage.string as NSString
+            while end > start && (hiddenMarkdownCharacters.contains(end - 1) || source.character(at: end - 1) == 10 || source.character(at: end - 1) == 13) { end -= 1 }
+            let safeCharRange = NSRange(location: start, length: end - start)
             if safeCharRange.length == 0 { continue }
             
             let glyphRange = self.glyphRange(forCharacterRange: safeCharRange, actualCharacterRange: nil)
@@ -244,7 +248,7 @@ class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
         
         let attachmentInfo = hasAttachment(in: glyphRange)
         let decorationHeight = markdownDecorations.filter { NSLocationInRange($0.key, characterRange) }
-            .map { markdownDecorationSize($0.value, in: textContainer).height }.max() ?? 0
+            .map { markdownDecorationSize($0.value, in: textContainer, at: $0.key).height }.max() ?? 0
         
         var finalLineHeight: CGFloat
         var baselineNudge: CGFloat

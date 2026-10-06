@@ -17,7 +17,6 @@ extension UserDefaultsManagement {
         static let codeTheme = "codeTheme"
         static let codeThemeDark = "codeThemeDark"
         static let darkMode = "darkMode"
-        static let dockIcon = "dockIcon"
         static let NewNoteKeyModifier = "newNoteKeyModifier"
         static let NewNoteKeyCode = "newNoteKeyCode"
         static let SearchNoteKeyCode = "searchNoteKeyCode"
@@ -137,20 +136,6 @@ extension UserDefaultsManagement {
 
             UserDefaults.standard.set(code, forKey: Constants.ActivateKeyCode)
             UserDefaults.standard.set(modifier, forKey: Constants.ActivateKeyModifier)
-        }
-    }
-
-    static var dockIcon: Int {
-        get {
-            if let tag = UserDefaults.standard.object(forKey: Constants.dockIcon) as? Int {
-                return tag
-            }
-
-            return 0
-        }
-
-        set {
-            UserDefaults.standard.set(newValue, forKey: Constants.dockIcon)
         }
     }
 
