@@ -279,6 +279,11 @@ enum GitLFS {
         return ["-c", "http.https://\(authority)/.sslCAInfo=\(file.path)"]
     }
 
+    /// Install filters and the pre-push hook in this repository only.
+    static func install(in root: URL) throws {
+        try run(["install", "--local"], in: root)
+    }
+
     static func transfer(_ arguments: [String], in root: URL, sshKey: URL? = nil,
                          caCertificates: String? = nil, origin: String? = nil) throws {
         // No LFS work is required for a repository with no image objects or pointers.
@@ -288,7 +293,13 @@ enum GitLFS {
         let hasImages = (manager.enumerator(atPath: images.path)?.nextObject() != nil)
         let hasObjects = (manager.enumerator(atPath: objects.path)?.nextObject() != nil)
         guard hasImages || hasObjects else { return }
+        try run(arguments, in: root, sshKey: sshKey, caCertificates: caCertificates, origin: origin)
+    }
+
+    private static func run(_ arguments: [String], in root: URL, sshKey: URL? = nil,
+                            caCertificates: String? = nil, origin: String? = nil) throws {
 #if os(macOS)
+        let manager = FileManager.default
         // External Homebrew executables are inaccessible from the app sandbox.
         // The build embeds and signs this helper with sandbox inheritance.
         guard let executable = Bundle.main.url(forAuxiliaryExecutable: "git-lfs"),

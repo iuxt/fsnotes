@@ -20,7 +20,7 @@ public typealias MPreviewViewClosure = () -> ()
 
 class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
 
-    private var editorVC: EditorViewController?
+    private weak var editorVC: EditorViewController?
     private weak var note: Note?
     private var closure: MPreviewViewClosure?
     public static var template: String?

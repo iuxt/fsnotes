@@ -4,6 +4,11 @@
 set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 git_source="${1:?Pass the libgit2 source directory from the swift-cgit2 package checkout}"
+test_suite="${2:-all}"
+if [[ "$test_suite" != all && "$test_suite" != workspace ]]; then
+    echo 'The optional test suite must be all or workspace.' >&2
+    exit 1
+fi
 test_build="$(mktemp -d "${TMPDIR:-/tmp}/fsnotes-git-tests.XXXXXX")"
 ssh_fixture_pid=""
 cleanup() {
@@ -87,6 +92,7 @@ git_sources=(
     "$repo_root/FSNotesCore/Git/LFS/GitLFS.swift"
 )
 for executable in Integration LFSIntegration; do
+    if [[ "$test_suite" == workspace ]]; then continue; fi
     swiftc -I "$test_build/Cgit2" -I "$git_source/include" \
         -I "$repo_root/FSNotesCore/Git/LFS" \
         "${git_sources[@]}" "$repo_root/Tests/GitHistory/$executable.swift" \
@@ -99,7 +105,9 @@ done
 # detect the denied access to Homebrew that originally broke image syncing.
 sandbox_app="$test_build/LFSTests.app"
 mkdir -p "$sandbox_app/Contents/MacOS"
-cp "$test_build/LFSIntegration" "$sandbox_app/Contents/MacOS/LFSIntegration"
+if [[ "$test_suite" == all ]]; then
+    cp "$test_build/LFSIntegration" "$sandbox_app/Contents/MacOS/LFSIntegration"
+fi
 cat > "$sandbox_app/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -114,13 +122,16 @@ SRCROOT="$repo_root" TARGET_BUILD_DIR="$test_build" \
     ARCHS="$(uname -m)" PRODUCT_BUNDLE_IDENTIFIER=co.fluder.fsnotes.lfs-integration \
     GIT_LFS_EXECUTABLE="$test_build/git-lfs" EXPANDED_CODE_SIGN_IDENTITY=- \
     /bin/bash "$repo_root/Scripts/embed-git-lfs.sh"
-codesign --force --sign - --entitlements "$repo_root/FSNotes/FSNotes.entitlements" "$sandbox_app"
-codesign --verify --deep --strict "$sandbox_app"
-PATH=/usr/bin:/bin:/usr/sbin:/sbin "$sandbox_app/Contents/MacOS/LFSIntegration"
+if [[ "$test_suite" == all ]]; then
+    codesign --force --sign - --entitlements "$repo_root/FSNotes/FSNotes.entitlements" "$sandbox_app"
+    codesign --verify --deep --strict "$sandbox_app"
+    PATH=/usr/bin:/bin:/usr/sbin:/sbin "$sandbox_app/Contents/MacOS/LFSIntegration"
+fi
 
 sync_sources=()
 while IFS= read -r source; do sync_sources+=("$source"); done < <(rg --files "$repo_root/FSNotesCore/Git" -g '*.swift')
-for executable in SyncIntegration ConflictIntegration; do
+for executable in SyncIntegration ConflictIntegration WorkspaceIntegration; do
+if [[ "$test_suite" == workspace && "$executable" != WorkspaceIntegration ]]; then continue; fi
 swiftc -I "$test_build/Cgit2" -I "$git_source/include" \
     -I "$repo_root/FSNotesCore/Git/LFS" \
     "${sync_sources[@]}" \
@@ -134,3 +145,8 @@ swiftc -I "$test_build/Cgit2" -I "$git_source/include" \
     -o "$test_build/$executable"
 "$test_build/$executable"
 done
+
+# Use the same signed sandbox fixture to verify first-open Git/LFS setup.
+cp "$test_build/WorkspaceIntegration" "$sandbox_app/Contents/MacOS/LFSIntegration"
+codesign --force --sign - --entitlements "$repo_root/FSNotes/FSNotes.entitlements" "$sandbox_app"
+PATH=/usr/bin:/bin:/usr/sbin:/sbin "$sandbox_app/Contents/MacOS/LFSIntegration"

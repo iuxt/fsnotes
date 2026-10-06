@@ -1238,12 +1238,22 @@
       }
     }
   },
-  "Choose a folder for your notes, attachments and Git history. You can change it later in Settings.": {
+  "Choose a folder for your notes and attachments. An existing Git repository opens directly; a new folder is initialized with Git and Git LFS. You can change it later in Settings.": {
     "localizations": {
       "zh-Hans": {
         "stringUnit": {
           "state": "translated",
-          "value": "选择一个文件夹，统一存放笔记、附件和 Git 历史。之后可在设置中修改。"
+          "value": "选择存放笔记和附件的文件夹。已有 Git 仓库将直接打开；普通文件夹会自动初始化 Git 和 Git LFS。之后可在设置中修改。"
+        }
+      }
+    }
+  },
+  "Choose a Git working folder, not a bare repository.": {
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "请选择 Git 仓库的工作目录，不能使用裸仓库。"
         }
       }
     }

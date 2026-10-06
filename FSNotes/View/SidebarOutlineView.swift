@@ -17,7 +17,7 @@ class SidebarOutlineView: NSOutlineView,
     public var sidebarItems: [Any]? = nil
     public var viewDelegate: ViewController? = nil
 
-    public var storage = Storage.shared()
+    public lazy var storage = Storage.shared()
     public var isFirstLaunch = true
     public var selectNote: Note? = nil
 

@@ -15,6 +15,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var aboutWindowController: AboutWindowController?
     var statusItem: NSStatusItem?
     private var isSwitchingWorkspace = false
+    private var isRestarting = false
+    private var restartCleanup: (() -> Void)?
 
     public var urls: [URL]? = nil
     public var url: URL? = nil
@@ -37,12 +39,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Restore sandbox access before checking the chosen workspace. Storage must
         // not initialize until the user has selected an accessible directory.
         SandboxBookmark.sharedInstance().load()
-        if let url = UserDefaultsManagement.storageUrl, (try? WorkspaceLocation.validate(url)) != nil {
-            UserDefaultsManagement.storageType = .custom
-        } else {
+        var workspaceReady = false
+        if let url = UserDefaultsManagement.storageUrl {
+            do {
+                try RepositoryManager().prepareWorkspace(at: url)
+                UserDefaultsManagement.storageType = .custom
+                workspaceReady = true
+            } catch {
+                NSAlert(error: error).runModal()
+            }
+        }
+        while !workspaceReady {
             guard let url = WorkspaceDirectory.choose() else { exit(EXIT_SUCCESS) }
-            do { try WorkspaceDirectory.save(url) }
-            catch { NSAlert(error: error).runModal(); exit(EXIT_FAILURE) }
+            do {
+                try WorkspaceDirectory.save(url)
+                workspaceReady = true
+            } catch {
+                NSAlert(error: error).runModal()
+            }
         }
         loadDockIcon()
 
@@ -114,19 +128,41 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         temporary.appendPathComponent("ThumbnailsBig")
         try? FileManager.default.removeItem(at: temporary)
 
-        let storyboard = NSStoryboard(name: "Main", bundle: nil)
-        guard let mainWC = storyboard.instantiateController(withIdentifier: "MainWindowController") as? MainWindowController else {
-            return
-        }
-
-        if let x = mainWC.window?.frame.origin.x, let y = mainWC.window?.frame.origin.y {
-            UserDefaultsManagement.lastScreenX = Int(x)
-            UserDefaultsManagement.lastScreenY = Int(y)
+        if let origin = AppDelegate.mainWindowController?.window?.frame.origin {
+            UserDefaultsManagement.lastScreenX = Int(origin.x)
+            UserDefaultsManagement.lastScreenY = Int(origin.y)
         }
 
         Storage.shared().saveProjectsCache()
 
         print("Termination end, crash status: \(UserDefaultsManagement.crashedLastTime)")
+
+        // Reset only after normal persistence, so shutdown cannot recreate it.
+        restartCleanup?()
+    }
+
+    func restart(afterTermination cleanup: (() -> Void)? = nil) {
+        guard !isRestarting, !isSwitchingWorkspace else { return }
+        isRestarting = true
+        let controller = ViewController.shared()
+        controller?.stopPull()
+        controller?.snapshotsTimer.invalidate()
+        DispatchQueue.global(qos: .userInitiated).async {
+            ViewController.gitQueue.waitUntilAllOperationsAreFinished()
+            Storage.shared().plainWriter.waitUntilAllOperationsAreFinished()
+            DispatchQueue.main.async {
+                do {
+                    try ApplicationRelaunch.schedule()
+                    self.restartCleanup = cleanup
+                    NSApp.terminate(nil)
+                } catch {
+                    self.isRestarting = false
+                    controller?.schedulePull()
+                    controller?.scheduleSnapshots()
+                    NSAlert(error: error).runModal()
+                }
+            }
+        }
     }
 
     private static func saveWindowsState() {
@@ -178,7 +214,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func switchWorkspace(to url: URL) {
         // Stop producers before draining their queues and changing the root path.
-        guard !isSwitchingWorkspace else { return }
+        guard !isSwitchingWorkspace, !isRestarting else { return }
         let previousPath = UserDefaultsManagement.customStoragePath
         let previousType = UserDefaultsManagement.storageType
         let previousBookmarks = SandboxBookmark.sharedInstance().bookmarks
@@ -197,11 +233,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     if let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
                         try? FileManager.default.removeItem(at: support.appendingPathComponent("editors.settings"))
                     }
-                    let task = Process()
-                    task.executableURL = URL(fileURLWithPath: "/bin/sh")
-                    // Arguments carry the app path without interpolating shell source.
-                    task.arguments = ["-c", "while kill -0 \"$1\" 2>/dev/null; do sleep 0.1; done; /usr/bin/open -n \"$2\"", "fsnotes-restart", String(ProcessInfo.processInfo.processIdentifier), Bundle.main.bundlePath]
-                    try task.run()
+                    try ApplicationRelaunch.schedule()
                     NSApp.terminate(nil)
                 } catch {
                     self.isSwitchingWorkspace = false

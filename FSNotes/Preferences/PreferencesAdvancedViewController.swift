@@ -100,14 +100,8 @@ class PreferencesAdvancedViewController: NSViewController {
         restart()
     }
 
-    private func restart() {
-        let url = URL(fileURLWithPath: Bundle.main.resourcePath!)
-        let path = url.deletingLastPathComponent().deletingLastPathComponent().absoluteString
-        let task = Process()
-        task.launchPath = "/usr/bin/open"
-        task.arguments = [path]
-        task.launch()
-        exit(0)
+    private func restart(afterTermination cleanup: (() -> Void)? = nil) {
+        (NSApp.delegate as? AppDelegate)?.restart(afterTermination: cleanup)
     }
 
     @IBAction func dockIcon(_ sender: NSButton) {
@@ -118,6 +112,10 @@ class PreferencesAdvancedViewController: NSViewController {
     }
 
     @IBAction func resetCaches(_ sender: Any) {
+        restart(afterTermination: Self.removeCaches)
+    }
+
+    private static func removeCaches() {
         if let sidebarTreeURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("sidebarTree") {
             try? FileManager.default.removeItem(at: sidebarTreeURL)
         }
@@ -127,14 +125,14 @@ class PreferencesAdvancedViewController: NSViewController {
             if let cacheUrl = project.getCacheURL() {
                 try? FileManager.default.removeItem(at: cacheUrl)
             }
-
-            project.isReadyForCacheSaving = false
         }
-
-        restart()
     }
     
     @IBAction func resetSettings(_ sender: Any) {
+        restart(afterTermination: Self.removeSettings)
+    }
+
+    private static func removeSettings() {
         let store = NSUbiquitousKeyValueStore.default
         for (key, _) in store.dictionaryRepresentation {
             store.removeObject(forKey: key)
@@ -144,10 +142,6 @@ class PreferencesAdvancedViewController: NSViewController {
         if let bundleID = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: bundleID)
             UserDefaults.standard.synchronize()
-        }
-        
-        if let userDefaultsURL = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?.appendingPathComponent("Preferences").appendingPathComponent("co.fluder.FSNotes.plist") {
-            try? FileManager.default.removeItem(at: userDefaultsURL)
         }
         
         if let editorsURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("editors.settings") {
@@ -161,7 +155,5 @@ class PreferencesAdvancedViewController: NSViewController {
         if let bookmarkUrls = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("Bookmarks.dict") {
             try? FileManager.default.removeItem(at: bookmarkUrls)
         }
-        
-        restart()
     }
 }

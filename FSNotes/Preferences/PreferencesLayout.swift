@@ -7,7 +7,7 @@ enum WorkspaceDirectory {
         panel.prompt = NSLocalizedString("Use This Folder", comment: "")
         panel.message = NSLocalizedString(switching
             ? "Switch to the selected workspace after restarting. Files in the current workspace stay where they are."
-            : "Choose a folder for your notes, attachments and Git history. You can change it later in Settings.", comment: "")
+            : "Choose a folder for your notes and attachments. An existing Git repository opens directly; a new folder is initialized with Git and Git LFS. You can change it later in Settings.", comment: "")
         panel.directoryURL = UserDefaultsManagement.storageUrl ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -25,6 +25,9 @@ enum WorkspaceDirectory {
     }
 
     static func save(_ url: URL) throws {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        let url = try RepositoryManager().prepareWorkspace(at: url)
         // Persist access before the path; a failed bookmark must not switch the library.
         let bookmark = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
         let manager = SandboxBookmark.sharedInstance()

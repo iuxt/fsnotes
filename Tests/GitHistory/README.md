@@ -10,6 +10,8 @@ Run with the libgit2 source from the project's resolved `swift-cgit2` checkout:
 Tests/GitHistory/run.sh /path/to/DerivedData/SourcePackages/checkouts/swift-cgit2/libgit2
 ```
 
+Append `workspace` to run only workspace initialization checks, including the sandbox fixture.
+
 Requires Xcode's Swift compiler, CMake and `git-lfs`. The runner builds in a temporary directory
 and installs nothing. Coverage includes empty repositories, initial commits,
 file-specific history, merged branches, full and abbreviated commit lookup, invalid
@@ -22,6 +24,13 @@ read-only and empty-file previews, and line differences with duplicate/Unicode l
 Image preview coverage checks saved image bytes after replacement/deletion, nested
 relative paths and Unicode/escaped filenames, HTML image attributes, remote/data
 images, missing assets, LFS objects, and unchanged working tree, index and HEAD.
+
+The workspace executable checks first-open initialization in folders with existing
+files, local LFS filters and hooks without image objects, preserved attributes,
+immediate metadata snapshots, existing index/config/history preservation, independent
+repositories in subfolders, rejection of invalid Git markers and bare repositories,
+and rollback/retry after initialization fails. These checks also run in the signed
+sandbox fixture to verify bundled Git LFS installation at first open.
 
 The LFS executable compiles the production clean/smudge filter and verifies actual
 libgit2 staging, recursive image paths, SHA-256 pointers and object storage, empty

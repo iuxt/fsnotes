@@ -169,16 +169,6 @@ class PreferencesEditorViewController: NSViewController {
         }
     }
 
-    private func restart() {
-        let url = URL(fileURLWithPath: Bundle.main.resourcePath!)
-        let path = url.deletingLastPathComponent().deletingLastPathComponent().absoluteString
-        let task = Process()
-        task.launchPath = "/usr/bin/open"
-        task.arguments = [path]
-        task.launch()
-        exit(0)
-    }
-
     @IBAction func indentUsing(_ sender: NSPopUpButton) {
         guard let item = sender.selectedItem else {
             return

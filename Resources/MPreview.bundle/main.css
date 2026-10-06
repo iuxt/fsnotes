@@ -431,12 +431,7 @@ code {
     background-color: rgba(0, 0, 0, .04);
     border: 1px solid rgba(0, 0, 0, .04);
     border-radius: 3px;
-    transition: background 0.5s ease-out;
 }
-    code:hover {
-        border: 1px solid #9c9c9c;
-        cursor: pointer;
-    }
 
 pre code,
 pre>code {
@@ -497,17 +492,55 @@ pre {
     position: relative;
 }
 
+pre.hasCopyButton > code {
+    display: block;
+    padding-top: 40px;
+}
+
 pre > .copyCode {
     position: absolute;
-    top: 0;
-    right: 0;
-    background: white;
-    border-radius: 3px;
-    margin: 2px;
-    padding: 2px;
-    height: 18px;
-    border: 1px solid #AAAAAA;
-    transition: background 0.5s ease-out;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 28px;
+    padding: 5px;
+    color: inherit;
+    background: transparent;
+    border: 1px solid rgba(128, 128, 128, .4);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+pre > .copyCode:hover {
+    background: rgba(128, 128, 128, .15);
+}
+
+pre > .copyCode:focus-visible {
+    outline: 2px solid #4078c0;
+    outline-offset: 2px;
+}
+
+pre > .copyCode svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+@media print {
+    pre > .copyCode {
+        display: none;
+    }
+
+    pre.hasCopyButton > code {
+        padding-top: .5em;
+    }
 }
 
 body > ul, body > ol {

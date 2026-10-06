@@ -15,7 +15,7 @@ class FileWatcher{
    * Start listening for FSEvents
    */
   func start() {
-    guard !hasStarted else { return } // -- make sure we are not already listening!
+    guard !hasStarted, !filePaths.isEmpty else { return }
     
     var context = FSEventStreamContext(
       version: 0, info: Unmanaged.passUnretained(self).toOpaque(),
@@ -23,14 +23,21 @@ class FileWatcher{
       copyDescription:nil
     )
     
-    streamRef = FSEventStreamCreate(
+    guard let stream = FSEventStreamCreate(
       kCFAllocatorDefault, eventCallback, &context,
       filePaths as CFArray,FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0,
       UInt32(kFSEventStreamCreateFlagUseCFTypes | kFSEventStreamCreateFlagFileEvents)
-    )
-    
+    ) else {
+      NSLog("Unable to create file event stream for %@", filePaths)
+      return
+    }
+
+    streamRef = stream
     selectStreamScheduler()
-    FSEventStreamStart(streamRef!)
+    if !FSEventStreamStart(stream) {
+      stop()
+      NSLog("Unable to start file event stream for %@", filePaths)
+    }
   }
   
   /**
@@ -85,4 +92,3 @@ extension FileWatcher {
     self.callback = callback
   }
 }
-

@@ -27,7 +27,8 @@ class ViewController: EditorViewController,
 
     private var isPreLoaded = false
 
-    let storage = Storage.shared()
+    // The menu storyboard also creates this controller before workspace selection.
+    lazy var storage = Storage.shared()
 
     private var sidebarTimer = Timer()
     private var selectRowTimer = Timer()
@@ -1170,7 +1171,8 @@ class ViewController: EditorViewController,
         counterQueue.cancelAllOperations()
 
         let operation = BlockOperation()
-        operation.addExecutionBlock { [weak self] in
+        operation.addExecutionBlock { [weak self, weak operation] in
+            guard let operation = operation, !operation.isCancelled else { return }
             var title = String()
 
             if let charRange = charRange, charRange.length > 0 {
@@ -1230,8 +1232,8 @@ class ViewController: EditorViewController,
         self.searchQueue.cancelAllOperations()
 
         let operation = BlockOperation()
-        operation.addExecutionBlock { [weak self] in
-            guard let self = self else {return}
+        operation.addExecutionBlock { [weak self, weak operation] in
+            guard let self = self, let operation = operation, !operation.isCancelled else { return }
 
             let projects = Storage.shared().searchQuery.projects
             for project in projects {

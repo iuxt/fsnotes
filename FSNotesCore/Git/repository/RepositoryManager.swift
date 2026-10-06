@@ -102,6 +102,55 @@ public class RepositoryManager {
         // Open repository
         return try Repository(openAt: url, manager: self)
     }
+
+#if os(macOS)
+    /// Open exactly the selected folder, without discovering a parent repository.
+    /// Existing repositories retain their configuration, index and history.
+    @discardableResult
+    func prepareWorkspace(at url: URL) throws -> URL {
+        let root = try WorkspaceLocation.validate(url)
+        var pointer: OpaquePointer?
+        let result = git_repository_open_ext(&pointer, root.path,
+                                             GIT_REPOSITORY_OPEN_NO_SEARCH.rawValue, nil)
+        if result == GIT_OK.rawValue {
+            defer { git_repository_free(pointer) }
+            guard let workdir = git_repository_workdir(pointer) else {
+                throw GitError.invalidSpec(spec: NSLocalizedString("Choose a Git working folder, not a bare repository.", comment: ""))
+            }
+            var relationship = FileManager.URLRelationship.other
+            try FileManager.default.getRelationship(&relationship, ofDirectoryAt: root,
+                toItemAt: URL(fileURLWithPath: String(cString: workdir)))
+            guard relationship == .same else {
+                throw GitError.invalidSpec(spec: "The Git working folder does not match the selected workspace.")
+            }
+            return root
+        }
+        git_repository_free(pointer)
+        // An invalid .git marker must never be replaced by a newly initialized repo.
+        let contents = try FileManager.default.contentsOfDirectory(atPath: root.path)
+        guard result == GIT_ENOTFOUND.rawValue, !contents.contains(".git") else {
+            throw gitUnknownError("Unable to open workspace repository: \(root.path)", code: result)
+        }
+
+        do {
+            let repository = try initRepository(at: root,
+                signature: Signature(name: "FSNotes App", email: "support@fsnot.es"))
+            try withExtendedLifetime(repository) {
+                try GitLFS.install(in: root)
+                try MetadataStore.configureImageTracking(in: root)
+            }
+        } catch {
+            // Leave the folder selectable for another attempt if LFS setup fails.
+            // Only the .git directory just created by this operation is removed.
+            let gitDirectory = WorkspaceLocation.repositoryURL(for: root)
+            if FileManager.default.fileExists(atPath: gitDirectory.path) {
+                try FileManager.default.removeItem(at: gitDirectory)
+            }
+            throw error
+        }
+        return root
+    }
+#endif
     
     /// Clone repository
     ///

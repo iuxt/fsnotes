@@ -74,7 +74,7 @@ final class MetadataStore {
         try refresh()
         try FileManager.default.createDirectory(at: notesURL, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true)
-        try configureImageTracking()
+        try Self.configureImageTracking(in: self.root)
         for name in ["Trash", "trash"] {
             let directory = self.root.appendingPathComponent(name)
             if let files = try? FileManager.default.contentsOfDirectory(atPath: directory.path), files.isEmpty {
@@ -84,7 +84,7 @@ final class MetadataStore {
     }
 
     /// Keep the rule in the library, so external Git clients use the same storage format.
-    private func configureImageTracking() throws {
+    static func configureImageTracking(in root: URL) throws {
         let attributes = root.appendingPathComponent(".gitattributes")
         let rule = "images/** filter=lfs diff=lfs merge=lfs -text"
         let current = FileManager.default.fileExists(atPath: attributes.path) ? try String(contentsOf: attributes, encoding: .utf8) : ""

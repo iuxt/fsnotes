@@ -11,12 +11,12 @@ import Carbon.HIToolbox
 
 class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelegate {
 
-    public var editorViewController: EditorViewController?
+    public weak var editorViewController: EditorViewController?
     public var textStorageProcessor: TextStorageProcessor?
     public var note: Note?
-    public var viewDelegate: ViewController?
+    public weak var viewDelegate: ViewController?
 
-    let storage = Storage.shared()
+    lazy var storage = Storage.shared()
     let caretWidth: CGFloat = 2
     var downView: MPreviewView?
 

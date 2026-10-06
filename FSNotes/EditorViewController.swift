@@ -55,7 +55,18 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
     }
 
     deinit {
+        stopEditorTimers()
         NotificationCenter.default.removeObserver(self)
+    }
+
+    public func stopEditorTimers() {
+        previewResizeTimer.invalidate()
+        rowUpdaterTimer.invalidate()
+        breakUndoTimer.invalidate()
+        snapshotsTimer.invalidate()
+        pullTimer.invalidate()
+        vcEditor?.timer?.invalidate()
+        vcEditor?.tagsTimer?.invalidate()
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {

@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F54000000000000000000002 /* ApplicationRelaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54000000000000000000001 /* ApplicationRelaunch.swift */; };
+		F54000000000000000000003 /* ApplicationRelaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54000000000000000000001 /* ApplicationRelaunch.swift */; };
 		F53000000000000000001001 /* GitConflictDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = F53000000000000000000001 /* GitConflictDocument.swift */; };
 		F53000000000000000001101 /* GitConflictDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = F53000000000000000000001 /* GitConflictDocument.swift */; };
 		F53000000000000000001201 /* GitConflictDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = F53000000000000000000001 /* GitConflictDocument.swift */; };
@@ -924,6 +926,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		F54000000000000000000001 /* ApplicationRelaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationRelaunch.swift; sourceTree = "<group>"; };
 		F53000000000000000000001 /* GitConflictDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitConflictDocument.swift; sourceTree = "<group>"; };
 		F53000000000000000000002 /* GitMergeSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitMergeSession.swift; sourceTree = "<group>"; };
 		F53000000000000000000003 /* GitConflictWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitConflictWindowController.swift; sourceTree = "<group>"; };
@@ -1906,6 +1909,7 @@
 		D7E6D9D520808652003ECAFC /* Helpers */ = {
 			isa = PBXGroup;
 			children = (
+				F54000000000000000000001 /* ApplicationRelaunch.swift */,
 				A1B2C3D32F56789000112233 /* GlobalShortcut.swift */,
 				D7DD5A871F88D4EA00CE947E /* FileWatcher.swift */,
 				D7DD5A891F88D50000CE947E /* FileWatcherEvent.swift */,
@@ -2792,6 +2796,7 @@
 				D726DE8A287ACC1E00F8406C /* NSWindow+.swift in Sources */,
 				D75EE8002078E0C60055F159 /* SidebarItemType.swift in Sources */,
 				D7793C731F211C6000CA39B7 /* AppDelegate.swift in Sources */,
+				F54000000000000000000002 /* ApplicationRelaunch.swift in Sources */,
 				11F018B22EF8415600F07580 /* MPreviewContainerView.swift in Sources */,
 				D73BCCC828EB5EC4008B3BBC /* KeyAuthentication.swift in Sources */,
 				11D6C0FB2EE22E00006017F0 /* Assembly.swift in Sources */,
@@ -3060,6 +3065,7 @@
 				11D943232E643F410010CC2B /* Php.swift in Sources */,
 				D7E81C341F925B5F00416A91 /* EditTextView.swift in Sources */,
 				D7E81C361F925B5F00416A91 /* AppDelegate.swift in Sources */,
+				F54000000000000000000003 /* ApplicationRelaunch.swift in Sources */,
 				D73BCCE128EB5EC4008B3BBC /* Index.swift in Sources */,
 				D7CDE9DD2161767B00DC5978 /* AppearanceType.swift in Sources */,
 				11ABE5E32EEEFD0E00E7C9EB /* NotesCounterView.swift in Sources */,

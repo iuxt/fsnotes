@@ -69,7 +69,12 @@ func renderMarkdownHTML(markdown: String) -> String? {
 
     cmark_parser_feed(parser, markdown, markdown.utf8.count)
     guard let node = cmark_parser_finish(parser) else { return nil }
-    return String(cString: cmark_render_html(node, CMARK_OPT_HARDBREAKS | CMARK_OPT_UNSAFE, nil))
+    defer { cmark_node_free(node) }
+
+    guard let buffer = cmark_render_html(node, CMARK_OPT_HARDBREAKS | CMARK_OPT_UNSAFE, nil) else { return nil }
+    defer { cmark_get_default_mem_allocator().pointee.free(UnsafeMutableRawPointer(buffer)) }
+
+    return String(cString: buffer)
 }
 
 func generateAlphabeticalString(length: Int) -> String {

@@ -50,7 +50,16 @@ class NoteViewController: EditorViewController, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        AppDelegate.noteWindows.removeAll(where: { ($0.contentViewController as? NoteViewController)?.editor.note === editor.note  })
+        if editor.tagsTimer?.isValid == true {
+            editor.scanTagsAndAutoRename()
+        }
+        // Scheduled timers retain their targets until invalidated.
+        stopEditorTimers()
+        editor.markdownView?.webView.stopLoading()
+        editor.markdownView?.webView.removeFromSuperview()
+        editor.markdownView?.removeFromSuperview()
+        editor.markdownView = nil
+        AppDelegate.noteWindows.removeAll(where: { $0.contentViewController === self })
     }
 
     func windowWillReturnUndoManager(_ window: NSWindow) -> UndoManager? {

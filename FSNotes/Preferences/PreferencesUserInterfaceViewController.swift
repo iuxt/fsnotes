@@ -101,12 +101,7 @@ class PreferencesUserInterfaceViewController: NSViewController {
     @IBAction func horizontalOrientation(_ sender: NSButton) {
         UserDefaultsManagement.horizontalOrientation = (sender.state == .on)
         
-        let task = Process()
-        task.launchPath = "/usr/bin/open"
-        task.arguments = [Bundle.main.bundlePath]
-        try? task.run()
-
-        NSApp.terminate(nil)
+        (NSApp.delegate as? AppDelegate)?.restart()
     }
     
     @IBAction func showDockIcon(_ sender: NSButton) {

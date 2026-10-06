@@ -15,7 +15,7 @@ import AVKit
 #endif
 
 class TextStorageProcessor: NSObject, NSTextStorageDelegate {
-    public var editor: EditTextView?
+    public weak var editor: EditTextView?
     public var detector = CodeBlockDetector()
 
 #if os(iOS)
