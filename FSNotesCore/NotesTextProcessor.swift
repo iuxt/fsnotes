@@ -841,39 +841,45 @@ public class NotesTextProcessor {
             }
         }
 
-        guard UserDefaultsManagement.codeBlockHighlight else { return }
+        if UserDefaultsManagement.codeBlockHighlight {
 
-        // Code span removed
-        attributedString.enumerateAttribute(.backgroundColor, in: paragraphRange) { (value, innerRange, _) in
-            if value != nil {
-                let font = UserDefaultsManagement.noteFont
-                attributedString.removeAttribute(.backgroundColor, range: innerRange)
-                attributedString.addAttribute(.font, value: font, range: innerRange)
-                attributedString.fixAttributes(in: innerRange)
+            // Code span removed
+            attributedString.enumerateAttribute(.backgroundColor, in: paragraphRange) { (value, innerRange, _) in
+                if value != nil {
+                    let font = UserDefaultsManagement.noteFont
+                    attributedString.removeAttribute(.backgroundColor, range: innerRange)
+                    attributedString.addAttribute(.font, value: font, range: innerRange)
+                    attributedString.fixAttributes(in: innerRange)
+                }
+            }
+
+            NotesTextProcessor.codeSpanRegex.matches(string, range: paragraphRange) { (result) -> Void in
+                guard let range = result?.range else { return }
+
+                if attributedString.mutableString.substring(with: range).startsWith(string: "```") {
+                    return
+                }
+
+                attributedString.addAttribute(.font, value: codeFont, range: range)
+                attributedString.fixAttributes(in: range)
+
+                attributedString.addAttribute(.backgroundColor, value: NotesTextProcessor.codeSpanBackground, range: range)
+
+                NotesTextProcessor.codeSpanOpeningRegex.matches(string, range: range) { (innerResult) -> Void in
+                    guard let innerRange = innerResult?.range else { return }
+                    attributedString.addAttribute(.foregroundColor, value: NotesTextProcessor.syntaxColor, range: innerRange)
+                }
+                NotesTextProcessor.codeSpanClosingRegex.matches(string, range: range) { (innerResult) -> Void in
+                    guard let innerRange = innerResult?.range else { return }
+                    attributedString.addAttribute(.foregroundColor, value: NotesTextProcessor.syntaxColor, range: innerRange)
+                }
             }
         }
-
-        NotesTextProcessor.codeSpanRegex.matches(string, range: paragraphRange) { (result) -> Void in
-            guard let range = result?.range else { return }
-
-            if attributedString.mutableString.substring(with: range).startsWith(string: "```") {
-                return
-            }
-
-            attributedString.addAttribute(.font, value: codeFont, range: range)
-            attributedString.fixAttributes(in: range)
-
-            attributedString.addAttribute(.backgroundColor, value: NotesTextProcessor.codeSpanBackground, range: range)
-
-            NotesTextProcessor.codeSpanOpeningRegex.matches(string, range: range) { (innerResult) -> Void in
-                guard let innerRange = innerResult?.range else { return }
-                attributedString.addAttribute(.foregroundColor, value: NotesTextProcessor.syntaxColor, range: innerRange)
-            }
-            NotesTextProcessor.codeSpanClosingRegex.matches(string, range: range) { (innerResult) -> Void in
-                guard let innerRange = innerResult?.range else { return }
-                attributedString.addAttribute(.foregroundColor, value: NotesTextProcessor.syntaxColor, range: innerRange)
-            }
-        }
+        #if os(macOS)
+        MarkdownPresentation.parse(string).applyStyles(to: attributedString, in: paragraphRange,
+            font: font, codeFont: codeFont, textColor: fontColor,
+            codeBackground: codeBackground, codeSpanBackground: codeSpanBackground)
+        #endif
     }
 
     public static func isLink(attributedString: NSAttributedString, range: NSRange) -> Bool {

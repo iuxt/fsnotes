@@ -31,6 +31,9 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     public var attributesCachingQueue = OperationQueue.init()
 
     private var preview = false
+    var tableEditorViews: [Int: InlineTableEditorView] = [:]
+    var isTableEditorsUpdateScheduled = false
+    var isApplyingTableChange = false
 
     public var isScrollPositionSaverLocked = false
 
@@ -43,7 +46,35 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             loadSelectedRange()
         }
 
-        return super.becomeFirstResponder()
+        let result = super.becomeFirstResponder()
+        refreshInlineTables()
+        return result
+    }
+
+    override func accessibilityChildren() -> [Any]? {
+        var children = super.accessibilityChildren() ?? []
+        for view in tableEditorViews.values.sorted(by: { $0.table.range.location < $1.table.range.location }) {
+            if !children.contains(where: { ($0 as? NSView) === view }) { children.append(view) }
+        }
+        return children
+    }
+
+    override func setSelectedRanges(_ ranges: [NSValue], affinity: NSSelectionAffinity, stillSelecting: Bool) {
+        super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
+        clearTableSelections()
+        refreshInlineTables()
+        enterTableForSelection()
+    }
+
+    func refreshInlineTables() {
+        (layoutManager as? LayoutManager)?.refreshInlineMarkdown()
+        (layoutManager as? LayoutManager)?.refreshInlineTables()
+        scheduleTableEditorsUpdate()
+    }
+
+    override func layout() {
+        super.layout()
+        updateTableEditors()
     }
 
     private func isMouseDownInsideEditor() -> Bool {
@@ -77,6 +108,9 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
                 guard attributes.index(forKey: .tag) != nil,
                       let font = attributes[.font] as? NSFont
                 else { return }
+
+                if let manager = layoutManager as? LayoutManager,
+                   manager.inlineTables.contains(where: { NSIntersectionRange($0.range, range).length > 0 }) { return }
 
                 let tag = attributedString().attributedSubstring(from: range).string
                 let tagAttributes = attributedString().attributes(at: range.location, effectiveRange: nil)
@@ -198,6 +232,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     // MARK: Overrides
 
     override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
+        guard !hasTableSelection else { return }
         var newRect = rect
         newRect.size.width = caretWidth
 
@@ -341,9 +376,23 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
         let index = manager.characterIndex(for: properPoint, in: container, fractionOfDistanceBetweenInsertionPoints: nil)
 
-        let glyphRect = manager.boundingRect(forGlyphRange: NSRange(location: index, length: 1), in: container)
+        guard index < (textStorage?.length ?? 0) else { return false }
+        let glyphRange = manager.glyphRange(forCharacterRange: NSRange(location: index, length: 1), actualCharacterRange: nil)
+        let glyphRect = manager.boundingRect(forGlyphRange: glyphRange, in: container)
 
         guard glyphRect.contains(properPoint) else { return false }
+
+        if let manager = manager as? LayoutManager,
+           let element = manager.markdownPresentation.elements.first(where: { element in
+               guard NSLocationInRange(index, element.hidden[0]), case .text(let label) = element.decoration else { return false }
+               return label == "☐" || label == "☑"
+           }), manager.markdownDecorations[element.anchor] != nil {
+            let marker = (string as NSString).substring(with: element.hidden[0])
+            let updated = marker.contains("[ ]") ? marker.replacingOccurrences(of: "[ ]", with: "[x]")
+                : marker.replacingOccurrences(of: "[x]", with: "[ ]").replacingOccurrences(of: "[X]", with: "[ ]")
+            insertText(updated, replacementRange: element.hidden[0])
+            return true
+        }
 
         if isTodo(index) {
             guard let f = self.getTextFormatter() else { return false }
@@ -369,7 +418,9 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
         let index = manager.characterIndex(for: properPoint, in: container, fractionOfDistanceBetweenInsertionPoints: nil)
 
-        let glyphRect = manager.boundingRect(forGlyphRange: NSRange(location: index, length: 1), in: container)
+        guard index < (textStorage?.length ?? 0) else { return }
+        let glyphRange = manager.glyphRange(forCharacterRange: NSRange(location: index, length: 1), actualCharacterRange: nil)
+        let glyphRect = manager.boundingRect(forGlyphRange: glyphRange, in: container)
 
         guard glyphRect.contains(properPoint) else { return }
 
@@ -438,6 +489,10 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         }
 
         let point = self.convert(event.locationInWindow, from: nil)
+        if let tableView = tableEditorViews.values.first(where: { !$0.isHidden && $0.frame.contains(point) }) {
+            tableView.updateHover(at: tableView.convert(point, from: self))
+            return
+        }
         let properPoint = NSPoint(
             x: point.x - textContainerInset.width,
             y: point.y - textContainerInset.height
@@ -632,6 +687,21 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         super.copy(sender)
     }
 
+    override func insertText(_ insertString: Any, replacementRange: NSRange) {
+        if note?.isMarkdown() == true, let attributed = insertString as? NSAttributedString {
+            let source = NSMutableAttributedString(attributedString: attributed)
+            source.enumerateAttribute(.attachment, in: NSRange(location: 0, length: source.length)) { value, range, _ in
+                guard value != nil, let meta = source.getMeta(at: range.location),
+                      let data = source.getData(at: range.location),
+                      let saved = note?.save(data: data, preferredName: meta.url.lastPathComponent) else { return }
+                source.addAttributes([.attachmentUrl: saved.1, .attachmentPath: saved.0], range: range)
+            }
+            super.insertText(source.unloadAttachments(), replacementRange: replacementRange)
+        } else {
+            super.insertText(insertString, replacementRange: replacementRange)
+        }
+    }
+
     override func paste(_ sender: Any?) {
         guard let note = self.note else { return }
 
@@ -640,7 +710,6 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
            let attributed = Self.unarchiveAttributedText(from: rtfdData) {
 
             let mutable = NSMutableAttributedString(attributedString: attributed)
-            mutable.loadTasks()
 
             breakUndoCoalescing()
             insertText(mutable, replacementRange: selectedRange())
@@ -654,7 +723,6 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
             NSPasteboard.general.string(forType: NSPasteboard.PasteboardType.fileURL) == nil {
 
             let attributed = NSMutableAttributedString(string: clipboard.trim())
-            attributed.loadTasks()
 
             breakUndoCoalescing()
             insertText(attributed, replacementRange: selectedRange())
@@ -759,6 +827,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     }
 
     func fill(note: Note, highlight: Bool = false, force: Bool = false) {
+        removeTableEditors()
         isScrollPositionSaverLocked = true
 
         if !note.isLoaded {
@@ -823,10 +892,18 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         if note.isMarkdown(), let content = note.content.mutableCopy() as? NSMutableAttributedString {
             textStorageProcessor?.detector = CodeBlockDetector()
 
-            storage.setAttributedString(content)
+            (layoutManager as? LayoutManager)?.markdownImages.removeAll()
+            (layoutManager as? LayoutManager)?.missingMarkdownImages.removeAll()
+            (layoutManager as? LayoutManager)?.pendingMarkdownImages.removeAll()
+            let source = content.unloadAttachments()
+            source.removeAttribute(.attachment, range: NSRange(location: 0, length: source.length))
+            source.removeAttribute(.todo, range: NSRange(location: 0, length: source.length))
+            storage.setAttributedString(source)
         } else {
             storage.setAttributedString(note.content)
         }
+
+        refreshInlineTables()
 
         if highlight {
             textStorage?.highlightKeyword(search: getSearchText())
@@ -867,6 +944,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     }
 
     public func clear() {
+        removeTableEditors()
         textStorage?.setAttributedString(NSAttributedString())
         markdownView?.removeFromSuperview()
         markdownView = nil
@@ -1015,6 +1093,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         defer {
             saveSelectedRange()
         }
+        if handleTableKeyDown(event) { return }
 
         // Insert the third Markdown fence backtick literally, but leave other backtick
         // input to AppKit so French accent grave composition continues to work.
@@ -1189,6 +1268,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
     override func didChangeText() {
         super.didChangeText()
+        refreshInlineTables()
 
         if suppressCompletion {
             suppressCompletion = false
@@ -1588,6 +1668,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
     public func updateTextContainerInset() {
         textContainerInset.width = getInsetWidth()
+        scheduleTableEditorsUpdate()
     }
 
     public func getInsetWidth() -> CGFloat {
@@ -1762,7 +1843,9 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     override func resignFirstResponder() -> Bool {
         userActivity?.needsSave = true
 
-        return super.resignFirstResponder()
+        let result = super.resignFirstResponder()
+        if result { DispatchQueue.main.async { [weak self] in self?.refreshInlineTables() } }
+        return result
     }
 
     public func registerHandoff(note: Note) {

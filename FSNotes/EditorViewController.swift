@@ -20,7 +20,6 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
     public var vcTitleLabel: TitleTextField?
     public var vcNonSelectedLabel: NSTextField?
 
-    public var vcPreviewButton: NSButton?
     public var vcShareButton: NSButton?
     public var vcEditorScrollView: EditorScrollView?
 
@@ -879,7 +878,6 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
 
     func refillEditArea(force: Bool = false) {
         noteLoading = .incomplete
-        vcPreviewButton?.state = vcEditor?.isPreviewEnabled() == true ? .on : .off
 
         if let note = vcEditor?.note {
             vcEditor?.fill(note: note, force: force)

@@ -12,7 +12,6 @@ import AppKit
 class NoteViewController: EditorViewController, NSWindowDelegate {
 
     @IBOutlet weak var shareButton: NSButton!
-    @IBOutlet weak var previewButton: NSButton!
 
     @IBOutlet weak var titleLabel: TitleTextField!
     @IBOutlet weak var editor: EditTextView!
@@ -63,6 +62,9 @@ class NoteViewController: EditorViewController, NSWindowDelegate {
     }
 
     func windowWillReturnUndoManager(_ window: NSWindow) -> UndoManager? {
+        if let cell = window.firstResponder as? TableCellTextView {
+            return cell.tableView?.owner?.editorViewController?.editorUndoManager
+        }
         if let fr = window.firstResponder,
             fr.isKind(of: EditTextView.self),
             editor.isEditable {

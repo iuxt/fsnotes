@@ -51,6 +51,8 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
             return notesListUndoManager
         }
         
+        if let cell = fr as? TableCellTextView { return cell.tableView?.owner?.editorViewController?.editorUndoManager }
+
         if fr.isKind(of: NotesTableView.self) {
             return notesListUndoManager
         }

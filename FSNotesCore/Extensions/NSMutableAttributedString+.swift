@@ -110,6 +110,8 @@ extension NSMutableAttributedString {
             let gfm = todoValue == 1 ? "- [x]" : "- [ ]"
             let adjustedRange = NSRange(location: range.location + offset, length: range.length)
 
+            result.removeAttribute(.attachment, range: adjustedRange)
+            result.removeAttribute(.todo, range: adjustedRange)
             result.replaceCharacters(in: adjustedRange, with: gfm)
             offset += gfm.count - range.length
         }

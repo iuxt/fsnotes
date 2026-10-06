@@ -8,7 +8,7 @@
 
 import Cocoa
 
-fileprivate extension NSRange {
+extension NSRange {
     /// Clamp range to fit inside given maxRange
     func clamped(to maxRange: NSRange) -> NSRange {
         if maxRange.length == 0 { return NSRange(location: maxRange.location, length: 0) }
@@ -22,6 +22,38 @@ fileprivate extension NSRange {
 
 class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
     weak var processor: TextStorageProcessor?
+    var markdownSource: String?
+    var markdownPresentation = MarkdownPresentation(elements: [])
+    var hiddenMarkdownCharacters = IndexSet()
+    var markdownDecorations: [Int: MarkdownPresentation.Decoration] = [:]
+    var markdownImages: [String: NSImage] = [:]
+    var missingMarkdownImages = Set<String>()
+    var pendingMarkdownImages = Set<String>()
+    var inlineTableSource: String?
+    var markdownTables: [MarkdownTable] = []
+    var inlineTables: [MarkdownTable] = []
+    var inlineTableLayouts: [Int: InlineTableLayout] = [:]
+
+    override func processEditing(for textStorage: NSTextStorage, edited editMask: NSTextStorageEditActions,
+                                 range newCharRange: NSRange, changeInLength delta: Int,
+                                 invalidatedRange invalidatedCharRange: NSRange) {
+        super.processEditing(for: textStorage, edited: editMask, range: newCharRange,
+                             changeInLength: delta, invalidatedRange: invalidatedCharRange)
+        if editMask.contains(.editedCharacters) {
+            (firstTextView as? EditTextView)?.refreshInlineTables()
+        }
+    }
+
+    override func drawGlyphs(forGlyphRange glyphsToShow: NSRange, at origin: NSPoint) {
+        super.drawGlyphs(forGlyphRange: glyphsToShow, at: origin)
+        guard let container = textContainers.first else { return }
+        let visible = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
+        drawInlineMarkdown(in: visible, at: origin, container: container)
+        for table in inlineTables where NSIntersectionRange(table.range, visible).length > 0 {
+            let rect = inlineTableRect(table, in: container)
+            inlineTableLayout(table, in: container).draw(at: NSPoint(x: origin.x + rect.minX, y: origin.y + rect.minY))
+        }
+    }
     
     override init() {
         super.init()
@@ -89,6 +121,14 @@ class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
         return lineHeight
     }
 
+    private var inlineCodeBlockRanges: [NSRange] {
+        guard (firstTextView as? EditTextView)?.note?.isMarkdown() == true else { return [] }
+        return markdownPresentation.styles.compactMap { styled in
+            if case .codeBlock = styled.style { return styled.range }
+            return nil
+        }
+    }
+
     private func isInCodeBlock(characterIndex: Int) -> Bool {
         guard let textStorage = self.textStorage else {
             return false
@@ -101,8 +141,7 @@ class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
             return false
         }
         
-        guard let codeBlocks = processor?.editor?.note?.codeBlockRangesCache else { return false }
-        return codeBlocks.contains { NSLocationInRange(characterIndex, $0) }
+        return inlineCodeBlockRanges.contains { NSLocationInRange(characterIndex, $0) }
     }
     
     // MARK: - Drawing
@@ -131,7 +170,7 @@ class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
         }
 
         let storageFullRange = NSRange(location: 0, length: textStorage.length)
-        guard let allCodeBlocks = processor?.editor?.note?.codeBlockRangesCache else { return }
+        let allCodeBlocks = inlineCodeBlockRanges
         guard let textContainer = self.textContainers.first else { return }
         
         let visibleCharRange = self.characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
@@ -189,12 +228,23 @@ class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
             in textContainer: NSTextContainer,
             forGlyphRange glyphRange: NSRange) -> Bool {
 
+        let characterRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+        if let table = inlineTables.first(where: { NSLocationInRange($0.range.location, characterRange) }) {
+            let size = inlineTableLayout(table, in: textContainer).blockSize
+            lineFragmentRect.pointee.size.height = size.height
+            lineFragmentUsedRect.pointee.size = size
+            baselineOffset.pointee = 0
+            return true
+        }
+
         // Get the font for the current range of glyphs
         let currentFont = font(for: glyphRange)
         let fontLineHeight = layoutManager.defaultLineHeight(for: currentFont)
         let standardLineHeight = fontLineHeight * lineHeightMultiple
         
         let attachmentInfo = hasAttachment(in: glyphRange)
+        let decorationHeight = markdownDecorations.filter { NSLocationInRange($0.key, characterRange) }
+            .map { markdownDecorationSize($0.value, in: textContainer).height }.max() ?? 0
         
         var finalLineHeight: CGFloat
         var baselineNudge: CGFloat
@@ -214,6 +264,7 @@ class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
             baselineNudge = extraSpace * 0.5
         }
 
+        finalLineHeight = max(finalLineHeight, decorationHeight)
         var rect = lineFragmentRect.pointee
         rect.size.height = ceil(finalLineHeight)
 
