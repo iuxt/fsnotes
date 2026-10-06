@@ -10,8 +10,6 @@ enum SidebarItemType: Int {
     case Label = 0x00
     case All = 0x01
     case Trash = 0x02    
-    case Todo = 0x06
-    case Inbox = 0x07
     case Tag = 0x08
     case Project = 0x09
     case Header = 0x10
@@ -23,8 +21,6 @@ enum SidebarItemType: Int {
         case .Label: return nil
         case .All: return "sidebar_notes"
         case .Trash: return "sidebar_trash"
-        case .Todo: return "sidebar_todo"
-        case .Inbox: return "sidebar_inbox"
         case .Tag: return "sidebar_tag"
         case .Project: return "sidebar_project"
         case .Header: return "sidebar_icloud_drive"

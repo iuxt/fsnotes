@@ -47,9 +47,7 @@ extension ViewController: UIDocumentPickerDelegate {
 
         var popoverActions = [FolderPopoverActions]()
         switch sidebarItem.type {
-        case .Inbox:
-            popoverActions = [.importNote, .settingsFolder, .createFolder, .multipleSelection, .openInFiles, .settingsRepository]
-        case .All, .Todo:
+        case .All:
             popoverActions = [.settingsFolder, .createFolder, .multipleSelection]
         case .Trash:
             popoverActions = [.settingsFolder, .multipleSelection, .openInFiles]
@@ -177,9 +175,7 @@ extension ViewController: UIDocumentPickerDelegate {
         var actions = [FolderPopoverActions]()
 
         switch type {
-        case .Inbox:
-            actions = [.importNote, .settingsFolder, .createFolder, .multipleSelection, .openInFiles, .settingsRepository]
-        case .All, .Todo:
+        case .All:
             actions = [.settingsFolder, .multipleSelection]
         case .Trash:
             actions = [.settingsFolder, .multipleSelection, .openInFiles]
@@ -368,9 +364,9 @@ extension ViewController: UIDocumentPickerDelegate {
             currentProject = storage.getCurrentProject()
         }
 
-        // Virtual projects Notes and Todo
+        // Virtual Notes project
 
-        if sidebarItem?.type == .Todo || sidebarItem?.type == .All {
+        if sidebarItem?.type == .All {
             currentProject = sidebarItem?.project
         }
 

@@ -1088,18 +1088,6 @@ public class UserDefaultsManagement {
         }
     }
 
-    static var sidebarVisibilityInbox: Bool {
-        get {
-            if let result = shared?.object(forKey: "sidebarVisibilityInbox") as? Bool {
-                return result
-            }
-            return true
-        }
-        set {
-            shared?.set(newValue, forKey: "sidebarVisibilityInbox")
-        }
-    }
-
     static var sidebarVisibilityNotes: Bool {
         get {
             if let result = shared?.object(forKey: "sidebarVisibilityNotes") as? Bool {
@@ -1109,18 +1097,6 @@ public class UserDefaultsManagement {
         }
         set {
             shared?.set(newValue, forKey: "sidebarVisibilityNotes")
-        }
-    }
-
-    static var sidebarVisibilityTodo: Bool {
-        get {
-            if let result = shared?.object(forKey: "sidebarVisibilityTodo") as? Bool {
-                return result
-            }
-            return true
-        }
-        set {
-            shared?.set(newValue, forKey: "sidebarVisibilityTodo")
         }
     }
 

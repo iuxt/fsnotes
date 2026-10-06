@@ -11,8 +11,6 @@ import UIKit
 class SidebarViewController: UITableViewController {
     private var rows = [
         NSLocalizedString("Notes", comment: ""),
-        NSLocalizedString("Inbox", comment: ""),
-        NSLocalizedString("Todo", comment: ""),
         NSLocalizedString("Untagged", comment: ""),
         NSLocalizedString("Trash", comment: ""),
     ]
@@ -47,15 +45,9 @@ class SidebarViewController: UITableViewController {
             uiSwitch.isOn = UserDefaultsManagement.sidebarVisibilityNotes
             break
         case 1:
-            uiSwitch.isOn = UserDefaultsManagement.sidebarVisibilityInbox
-            break
-        case 2:
-            uiSwitch.isOn = UserDefaultsManagement.sidebarVisibilityTodo
-            break
-        case 3:
             uiSwitch.isOn = UserDefaultsManagement.sidebarVisibilityUntagged
             break
-        case 4:
+        case 2:
             uiSwitch.isOn = UserDefaultsManagement.sidebarVisibilityTrash
             break
         default:
@@ -82,12 +74,8 @@ class SidebarViewController: UITableViewController {
         case 0:
             UserDefaultsManagement.sidebarVisibilityNotes = uiSwitch.isOn
         case 1:
-            UserDefaultsManagement.sidebarVisibilityInbox = uiSwitch.isOn
-        case 2:
-            UserDefaultsManagement.sidebarVisibilityTodo = uiSwitch.isOn
-        case 3:
             UserDefaultsManagement.sidebarVisibilityUntagged = uiSwitch.isOn
-        case 4:
+        case 2:
             UserDefaultsManagement.sidebarVisibilityTrash = uiSwitch.isOn
         default:
             return

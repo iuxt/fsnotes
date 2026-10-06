@@ -8335,78 +8335,78 @@
         }
       }
     },
-    "Show Notes in \"Notes\" and \"Todo\"" : {
+    "Show Notes in \"Notes\"" : {
       "localizations" : {
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zobrazit poznámky v „Poznámkách“ a „Úkolech“"
+            "value" : "Zobrazit poznámky v seznamu „Poznámky“"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Notizen in \"Notizen\" und \"Todo\" anzeigen"
+            "value" : "Notizen in der Liste \"Notizen\" anzeigen"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Afficher les notes dans \"Notes\" et \"Tâches\""
+            "value" : "Afficher les notes dans \"Notes\""
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "\"नोट्स\" और \"टुडू\" में नोट्स दिखाएं"
+            "value" : "\"नोट्स\" सूची में नोट्स दिखाएं"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Visualizza le note negli elenchi \"Note\" e \"Da Fare\""
+            "value" : "Mostra le note nell’elenco \"Note\""
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "\"すべて\" と \"タスク\" にノートを表示"
+            "value" : "\"すべて\" にノートを表示"
           }
         },
         "nl-NL" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Toon notities in \"Notes\" en \"Todo\" lijsten"
+            "value" : "Toon notities in de lijst \"Notes\""
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mostrar notas nas listas \"Notas\" e \"Tarefas\""
+            "value" : "Mostrar notas na lista \"Notas\""
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Показывать в \"Заметках\" и \"Тодо\""
+            "value" : "Показывать заметки в списке \"Заметки\""
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Notları \"Notlar\" ve \"Yapılacaklar\"da göster"
+            "value" : "Notları \"Notlar\" listesinde göster"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Включити у \"Нотатки/завдання\""
+            "value" : "Показувати у \"Нотатках\""
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "显示笔记在 \"笔记\" 和 \"待办\""
+            "value" : "在“笔记”列表中显示笔记"
           }
         }
       }

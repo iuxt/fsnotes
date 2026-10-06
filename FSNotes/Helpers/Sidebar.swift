@@ -39,30 +39,6 @@ class Sidebar {
             Storage.shared().allNotesProject = fakeNotesProject
         }
 
-        if UserDefaultsManagement.sidebarVisibilityInbox {
-            let project = Storage.shared().getDefault()
-            let notes = SidebarItem(name: NSLocalizedString("Inbox", comment: ""), project: project, type: .Inbox)
-            system.append(notes)
-        }
-
-        if UserDefaultsManagement.sidebarVisibilityTodo {
-            let todoUrl = defaultURL.appendingPathComponent("Fake Virtual Todo Dir")
-            let todoLabel = NSLocalizedString("Todo", comment: "")
-            let fakeTodoProject =
-                Project(
-                    storage: Storage.shared(),
-                    url: todoUrl,
-                    label: todoLabel,
-                    isVirtual: true
-                )
-            
-            let todo =
-                SidebarItem(name: NSLocalizedString("Todo", comment: ""), project: fakeTodoProject, type: .Todo)
-            system.append(todo)
-
-            Storage.shared().todoProject = fakeTodoProject
-        }
-
         if UserDefaultsManagement.sidebarVisibilityUntagged {
             let todoUrl = defaultURL.appendingPathComponent("Fake Virtual Utagged Dir")
             let untaggedLabel = NSLocalizedString("Untagged", comment: "")

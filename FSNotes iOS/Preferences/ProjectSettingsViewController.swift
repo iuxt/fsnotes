@@ -176,7 +176,7 @@ class ProjectSettingsViewController: UITableViewController {
                     && !project.isTrash
                     && !project.isVirtual
 
-                cell.textLabel?.text = NSLocalizedString("Show Notes in \"Notes\" and \"Todo\"", comment: "")
+                cell.textLabel?.text = NSLocalizedString("Show Notes in \"Notes\"", comment: "")
             case 1:
                 cell.accessoryView = uiSwitch
                 uiSwitch.isOn = project.settings.showInSidebar

@@ -65,7 +65,6 @@ class Storage {
 
     // Virtual projects
     public var allNotesProject: Project?
-    public var todoProject: Project?
     public var untaggedProject: Project?
 
     public var welcomeProject: Project?
@@ -107,8 +106,8 @@ class Storage {
         }
     }
 
-    public func loadInboxAndTrash() {
-        // Inbox
+    public func loadWorkspaceNotes() {
+        // Workspace
         _ = getDefault()?.loadNotes()
 
         // Trash
@@ -954,7 +953,7 @@ class Storage {
         for project in projects {
             if project == projects.first {
                 project.isDefault = true
-                project.label = NSLocalizedString("Inbox", comment: "") 
+                project.label = getDefaultName(url: project.url)
             }
 
             insertProject(project: project)
@@ -1534,8 +1533,6 @@ class Storage {
                 project = self.allNotesProject
             case .Untagged:
                 project = self.untaggedProject
-            case .Todo:
-                project = self.todoProject
             default:
                 project = self.allNotesProject
             }

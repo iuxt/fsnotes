@@ -226,7 +226,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
             UIBarButtonItem(systemImageName: "gear", target: self, selector: #selector(openSettings))
         ]
 
-        setNavTitle(folder: NSLocalizedString("Inbox", comment: ""))
+        setNavTitle(folder: NSLocalizedString("Notes", comment: ""))
 
         sidebarTableView.backgroundColor = UIColor.sidebar
         sidebarTableView.dropDelegate = sidebarTableView
@@ -1239,9 +1239,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
 
         let settings = NSLocalizedString("Settings", comment: "Sidebar settings")
         let untagged = NSLocalizedString("Untagged", comment: "Sidebar settings")
-        let inbox = NSLocalizedString("Inbox", comment: "Inbox in sidebar")
         let notes = NSLocalizedString("Notes", comment: "Notes in sidebar")
-        let todo = NSLocalizedString("Todo", comment: "Todo in sidebar")
         let trash = NSLocalizedString("Trash", comment: "Trash in sidebar")
 
         var sidebarItems = [(label: String, depth: Int)]()
@@ -1268,7 +1266,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
 
                 return (project.label, depth)
             }
-            + [settings, inbox, notes, todo, trash, untagged].map { ($0, 0) }
+            + [settings, notes, trash, untagged].map { ($0, 0) }
 
         for item in sidebarItems {
             guard let font = font else { continue }
@@ -1385,9 +1383,7 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
 
                 if item.type == .All ||
                     item.type == .Untagged ||
-                    item.type == .Todo ||
-                    item.type == .Trash ||
-                    item.type == .Inbox {
+                    item.type == .Trash {
 
                     type = item.type
                 }

@@ -448,7 +448,7 @@ public class Project: NSObject {
         var result = String()
 
         while let current = project {
-            // The workspace is represented by Inbox, not a folder in the sidebar.
+            // Omit the workspace root from nested folder labels.
             if current.isDefault && current !== self {
                 break
             }

@@ -51,41 +51,6 @@ class Sidebar {
             )
         }
 
-        // Inbox
-        if UserDefaultsManagement.sidebarVisibilityInbox,
-            let project = Storage.shared().getDefault() {
-            system.append(
-                SidebarItem(
-                    name: NSLocalizedString("Inbox", comment: ""),
-                    project: project,
-                    type: .Inbox
-                )
-            )
-        }
-
-        // Todo
-        if UserDefaultsManagement.sidebarVisibilityTodo {
-            let todoUrl = defaultURL.appendingPathComponent("Fake Virtual Todo Dir")
-            let todoLabel = NSLocalizedString("Todo", comment: "Sidebar items")
-            let fakeTodoProject =
-                Project(
-                    storage: Storage.shared(),
-                    url: todoUrl,
-                    label: todoLabel,
-                    isVirtual: true
-                )
-
-            system.append(
-                SidebarItem(
-                    name: NSLocalizedString("Todo", comment: ""),
-                    project: fakeTodoProject,
-                    type: .Todo
-                )
-            )
-
-            Storage.shared().todoProject = fakeTodoProject
-        }
-
         // Untagged
         if UserDefaultsManagement.sidebarVisibilityUntagged {
             let todoUrl = defaultURL.appendingPathComponent("Fake Virtual Utagged Dir")

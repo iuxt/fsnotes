@@ -161,12 +161,8 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
                 }
             case "showInSidebar":
                 switch menuItem.tag {
-                case 1:
-                    menuItem.state = UserDefaultsManagement.sidebarVisibilityInbox ? .on : .off
                 case 2:
                     menuItem.state = UserDefaultsManagement.sidebarVisibilityNotes ? .on : .off
-                case 3:
-                    menuItem.state = UserDefaultsManagement.sidebarVisibilityTodo ? .on : .off
                 case 5:
                     menuItem.state = UserDefaultsManagement.sidebarVisibilityTrash ? .on : .off
                 case 6:
@@ -1010,10 +1006,6 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
         let inlineTags = vc.sidebarOutlineView.getSelectedInlineTags()
         if !inlineTags.isEmpty {
             text.append(inlineTags)
-        }
-
-        if let type = vc.getSidebarType(), type == .Todo, content.count == 0 {
-            text = "- [ ] "
         }
 
         let note = Note(name: name, project: project)

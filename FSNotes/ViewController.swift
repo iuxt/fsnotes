@@ -193,7 +193,7 @@ class ViewController: EditorViewController,
         notesTableView.doubleAction = #selector(self.doubleClickOnNotesTable)
 
         DispatchQueue.global().async {
-            self.storage.loadInboxAndTrash()
+            self.storage.loadWorkspaceNotes()
 
             DispatchQueue.main.async {
                 self.buildSearchQuery()
@@ -1349,9 +1349,7 @@ class ViewController: EditorViewController,
                 if let item = sidebarTableView.item(atRow: indexPath) as? SidebarItem {
                     if item.type == .All ||
                         item.type == .Untagged ||
-                        item.type == .Todo ||
-                        item.type == .Trash ||
-                        item.type == .Inbox {
+                        item.type == .Trash {
 
                         type = item.type
                     }
@@ -1360,8 +1358,7 @@ class ViewController: EditorViewController,
         }
 
         if projects.count == 0 && type == nil {
-            let firstSidebarItem = sidebarOutlineView.sidebarItems?.first as? SidebarItem
-            type = firstSidebarItem?.type == .Inbox && filter.isEmpty ? .Inbox : .All
+            type = .All
         }
 
         searchQuery.projects = projects
@@ -1673,12 +1670,8 @@ class ViewController: EditorViewController,
         let isChecked = sender.state == .on
 
         switch sender.tag {
-            case 1:
-                UserDefaultsManagement.sidebarVisibilityInbox = isChecked
             case 2:
                 UserDefaultsManagement.sidebarVisibilityNotes = isChecked
-            case 3:
-                UserDefaultsManagement.sidebarVisibilityTodo = isChecked
             case 5:
                 UserDefaultsManagement.sidebarVisibilityTrash = isChecked
             case 6:

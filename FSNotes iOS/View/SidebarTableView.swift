@@ -394,7 +394,7 @@ class SidebarTableView: UITableView,
                 guard let note = Storage.shared().getBy(url: url) else { continue }
 
                 switch sidebarItem.type {
-                case .Project, .Inbox:
+                case .Project:
                     guard let project = sidebarItem.project else { break }
                     self.move(note: note, in: project)
                 case .Trash:
@@ -604,11 +604,6 @@ class SidebarTableView: UITableView,
             case .All:
                 notes = Storage.shared().noteList
                 break
-            case .Inbox:
-                notes = Storage.shared().noteList.filter({ $0.project.isDefault })
-                break
-            case .Todo:
-                notes = Storage.shared().noteList.filter({ $0.content.string.contains("- [ ] ") })
             default:
                 break
             }

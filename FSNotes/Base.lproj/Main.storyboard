@@ -667,18 +667,6 @@ CA
                                                             <action selector="sidebarItemVisibility:" target="L4m-js-agn" id="9eO-fj-M9I"/>
                                                         </connections>
                                                     </menuItem>
-                                                    <menuItem title="Inbox" state="on" tag="1" id="IHG-4U-pF1">
-                                                        <modifierMask key="keyEquivalentModifierMask"/>
-                                                        <connections>
-                                                            <action selector="sidebarItemVisibility:" target="Ady-hI-5gd" id="fCX-Hw-xKB"/>
-                                                        </connections>
-                                                    </menuItem>
-                                                    <menuItem title="Todo" state="on" tag="3" id="e0G-y0-N0C">
-                                                        <modifierMask key="keyEquivalentModifierMask"/>
-                                                        <connections>
-                                                            <action selector="sidebarItemVisibility:" target="L4m-js-agn" id="vD4-T3-64C"/>
-                                                        </connections>
-                                                    </menuItem>
                                                     <menuItem title="Untagged" state="on" tag="6" id="BX0-nb-tVk">
                                                         <modifierMask key="keyEquivalentModifierMask"/>
                                                         <connections>
@@ -2516,7 +2504,7 @@ Olena Hlushcneko</string>
                             </button>
                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DQw-2B-ocF">
                                 <rect key="frame" x="120" y="344" width="259" height="16"/>
-                                <buttonCell key="cell" type="check" title="Show notes in &quot;Notes&quot; and &quot;Todo&quot; lists" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="Zzw-01-JH7">
+                                <buttonCell key="cell" type="check" title="Show notes in &quot;Notes&quot; list" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="Zzw-01-JH7">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>

@@ -11444,126 +11444,6 @@
         }
       }
     },
-    "e0G-y0-N0C.title" : {
-      "comment" : "Class = \"NSMenuItem\"; title = \"Todo\"; ObjectID = \"e0G-y0-N0C\";",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "ar-IQ" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "قائمة المهام"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Úkoly"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Todo"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Todo"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pendientes"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tâches"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "מטלות"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "टुडू"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Da Fare"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "タスク"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "할 일"
-          }
-        },
-        "nl-NL" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Te Doen"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A fazer"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tarefa"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Задачи"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yapılacaklar"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Завдання"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "待办事项"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "待辦事項"
-          }
-        }
-      }
-    },
     "E1U-fG-XBw.title" : {
       "comment" : "Class = \"NSTextFieldCell\"; title = \"SSH configuration:\"; ObjectID = \"E1U-fG-XBw\";",
       "extractionState" : "extracted_with_value",
@@ -17886,126 +17766,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "服務"
-          }
-        }
-      }
-    },
-    "IHG-4U-pF1.title" : {
-      "comment" : "Class = \"NSMenuItem\"; title = \"Inbox\"; ObjectID = \"IHG-4U-pF1\";",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "ar-IQ" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الوارد"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Příchozí"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Posteingang"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Inbox"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Entrada"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Boîte de réception"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "תיבת דואר נכנס"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "इनबॉक्स"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In Entrata"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未整理"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "받은 편지함"
-          }
-        },
-        "nl-NL" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Postvak In"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Caixa de entrada"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Caixa de entrada"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Входящие"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gelen kutusu"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Вхідні"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "收集箱"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "收件匣"
           }
         }
       }
@@ -39756,121 +39516,121 @@
       }
     },
     "Zzw-01-JH7.title" : {
-      "comment" : "Class = \"NSButtonCell\"; title = \"Show notes in \\\"Notes\\\" and \\\"Todo\\\" lists\"; ObjectID = \"Zzw-01-JH7\";",
+      "comment" : "Class = \"NSButtonCell\"; title = \"Show notes in \\\"Notes\\\" list\"; ObjectID = \"Zzw-01-JH7\";",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar-IQ" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "إظهار الملاحظات في قائمة \"ملاحظات\" و \"قائمة المهام\""
+            "value" : "إظهار الملاحظات في قائمة \"ملاحظات\""
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zobrazit poznámky v seznamech „Poznámky“ a „Úkoly“"
+            "value" : "Zobrazit poznámky v seznamu „Poznámky“"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Notizen in den Listen \"Notizen\" und \"Todo\" anzeigen"
+            "value" : "Notizen in der Liste \"Notizen\" anzeigen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Show notes in \"Notes\" and \"Todo\" lists"
+            "value" : "Show notes in \"Notes\" list"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mostras las notas en las listas \"Notas\" y \"Pendientes\""
+            "value" : "Mostrar las notas en la lista \"Notas\""
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Voir les notes dans \"Notes\" et \"Tâches\""
+            "value" : "Afficher les notes dans \"Notes\""
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "הצג פתקים ברשימות ״פתקים״ ו-״מטלות״"
+            "value" : "הצג פתקים ברשימת ״פתקים״"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "\"नोट्स\" और \"टुडू\" सूचियों में नोट्स दिखाएं"
+            "value" : "\"नोट्स\" सूची में नोट्स दिखाएं"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mostra le note negli elenchi \"Note\" e \"Da Fare\""
+            "value" : "Mostra le note nell’elenco \"Note\""
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "\"すべて\" と \"タスク\" にノートを表示"
+            "value" : "\"すべて\" にノートを表示"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "\"모든 노트\"와 \"할 일\"에 있는 노트 보기"
+            "value" : "\"모든 노트\"에 노트 표시"
           }
         },
         "nl-NL" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Toon notities in \"Notes\" en \"Todo\" lijsten"
+            "value" : "Toon notities in de lijst \"Notes\""
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mostrar notas em \\\"Notes\\\" and \\\"Todo\\\" listas"
+            "value" : "Mostrar notas na lista \"Notas\""
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mostrar notas nas listas \"Notas\" e \"Tarefas\""
+            "value" : "Mostrar notas na lista \"Notas\""
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Показывать заметки в общих"
+            "value" : "Показывать заметки в списке \"Заметки\""
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Notları “Notlar” ve “Yapılacaklar” listelerinde gösterme"
+            "value" : "Notları \"Notlar\" listesinde göster"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Показувати у \"Нотатках\" і \"Завданнях\""
+            "value" : "Показувати у \"Нотатках\""
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在\"笔记\"和\"待办事项\"列表中显示备注"
+            "value" : "在“笔记”列表中显示笔记"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在「筆記」與「待辦事項」清單中顯示筆記"
+            "value" : "在「筆記」清單中顯示筆記"
           }
         }
       }

@@ -29,7 +29,6 @@ extension ViewController {
         let tagSelected = tags?.isEmpty == false
 
         let isFirstSidebar = evc.view.window?.firstResponder?.isKind(of: SidebarOutlineView.self) == true
-        let isInbox = vc.sidebarOutlineView.getSidebarItems()?.first?.type == .Inbox
         let isTrash = vc.sidebarOutlineView.getSidebarItems()?.first?.type == .Trash
 
         // Notes
@@ -55,14 +54,8 @@ extension ViewController {
             return true
 
         case "\(menuId).backup":
-            var title = NSLocalizedString("Inbox", comment: "")
-
             if let gitProject = vc.getGitProject() {
-                title = gitProject.label
-
-                if gitProject.isDefault {
-                    title = NSLocalizedString("Inbox", comment: "")
-                }
+                let title = gitProject.label
 
                 menuItem.title =  String(format: NSLocalizedString("Commit & Push “%@”", comment: "Menu Library"), title)
                 return true
@@ -129,7 +122,7 @@ extension ViewController {
         case "\(menuId).reveal":
             if isFirstSidebar {
                 menuItem.title = NSLocalizedString("Reveal in Finder", comment: "Menu Library")
-                return projectSelected || isInbox
+                return projectSelected
             }
 
             menuItem.title = NSLocalizedString("Reveal in Finder", comment: "File Menu")
@@ -212,7 +205,6 @@ extension ViewController {
         let isFirstResponder = view.window?.firstResponder?.isKind(of: SidebarOutlineView.self) == true
 
         let isTrash = vc.sidebarOutlineView.getSidebarItems()?.first?.type == .Trash
-        let isInbox = vc.sidebarOutlineView.getSidebarItems()?.first?.type == .Inbox
         let isSystem = vc.sidebarOutlineView.getSidebarItems()?.first?.isSystem() == true
 
         switch id {
@@ -240,7 +232,7 @@ extension ViewController {
 
         case "\(menuId).reveal":
             menuItem.title = NSLocalizedString("Reveal in Finder", comment: "Menu Library")
-            return isFirstResponder && (projectSelected || isInbox)
+            return isFirstResponder && projectSelected
 
         case "\(menuId).options":
             menuItem.title = NSLocalizedString("Show Options", comment: "Menu Library")

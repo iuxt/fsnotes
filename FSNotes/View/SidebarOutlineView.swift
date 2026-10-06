@@ -247,10 +247,6 @@ class SidebarOutlineView: NSOutlineView,
             maybeProject = sidebarProject
         }
 
-        if let sidebarItem = item as? SidebarItem, sidebarItem.type == .Inbox {
-            maybeProject = Storage.shared().getDefault()
-        }
-
         guard let project = maybeProject else { return false }
 
         if urls.count > 0, Storage.shared().getBy(url: urls.first!) != nil {
@@ -371,8 +367,6 @@ class SidebarOutlineView: NSOutlineView,
 
         guard let sidebarItem = item as? SidebarItem else { return NSDragOperation() }
         switch sidebarItem.type {
-        case .Inbox:
-            return .move
         case .Trash:
             if isLocalNote {
                 return .move
@@ -624,13 +618,6 @@ class SidebarOutlineView: NSOutlineView,
 
     // MARK: Actions
     @IBAction func revealInFinder(_ sender: Any) {
-        if getSidebarItems()?.first?.type == .Inbox {
-            if let url = Storage.shared().getDefault()?.url {
-                NSWorkspace.shared.activateFileViewerSelecting([url])
-            }
-            return
-        }
-
         guard let projects = getSelectedProjects() else { return }
 
         let urls = projects.map { $0.metadataStore?.root ?? $0.url }
@@ -1271,10 +1258,6 @@ class SidebarOutlineView: NSOutlineView,
         }
 
         if let sidebarItem = v.item(atRow: v.selectedRow) as? SidebarItem {
-            if sidebarItem.type == .Inbox {
-                return vc.storage.getDefault()
-            }
-
             if let project = sidebarItem.project {
                 return project
             }
