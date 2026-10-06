@@ -584,11 +584,6 @@ class EditorViewController: UIViewController,
 
         UIApplication.getVC().sidebarTableView.loadTags(notes: [note])
 
-        if let title = note.getAutoRenameTitle() {
-            UIApplication.getVC().notesTable.rename(note: note, to: title)
-
-            UIApplication.getEVC().updateTitle()
-        }
     }
 
     private func deleteBackwardPressed(text: String) -> Bool {

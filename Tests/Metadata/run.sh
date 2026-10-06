@@ -9,6 +9,7 @@ swiftc "$repo_root/FSNotesCore/Business/MetadataStore.swift" \
 
 swiftc "$repo_root/FSNotesCore/Business/MetadataStore.swift" \
     "$repo_root/FSNotesCore/Business/MetadataLibrary.swift" \
+    "$repo_root/FSNotesCore/NameHelper.swift" \
     "$repo_root/Tests/Metadata/AppSupport.swift" \
     "$repo_root/Tests/Metadata/AppIntegration.swift" -o "$test_build/adapter"
 "$test_build/adapter"

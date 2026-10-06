@@ -133,8 +133,27 @@ extension LayoutManager {
                     (imageLabel(title, destination) as NSString).draw(in: rect,
                         withAttributes: [.font: UserDefaultsManagement.noteFont, .foregroundColor: NSColor.secondaryLabelColor])
                 }
+                if let editor = firstTextView as? EditTextView, editor.window?.firstResponder === editor,
+                   let element = markdownPresentation.elements.first(where: { $0.anchor == index }),
+                   editor.selectedRanges.contains(where: { NSIntersectionRange($0.rangeValue, element.range).length > 0 }) {
+                    NSColor.controlAccentColor.setStroke()
+                    let border = NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 1),
+                                              xRadius: MarkdownEditorStyle.cornerRadius, yRadius: MarkdownEditorStyle.cornerRadius)
+                    border.lineWidth = 2
+                    border.stroke()
+                }
             }
         }
+    }
+
+    func inlineImageRect(_ element: MarkdownPresentation.Element, in container: NSTextContainer) -> NSRect {
+        guard case .image = element.decoration, let decoration = markdownDecorations[element.anchor] else { return .zero }
+        ensureLayout(for: container)
+        let glyph = glyphIndexForCharacter(at: element.anchor)
+        let line = lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+        let position = location(forGlyphAt: glyph)
+        return NSRect(origin: NSPoint(x: line.minX + position.x, y: line.minY),
+                      size: markdownDecorationSize(decoration, in: container, at: element.anchor))
     }
     private func drawTaskCheckbox(checked: Bool, in rect: NSRect) {
         let size = min(14, rect.height - 4)

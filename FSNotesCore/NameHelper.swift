@@ -9,25 +9,19 @@
 import Foundation
 
 class NameHelper {
-    public static func getUniqueFileName(name: String, postfix: Int = 1, project: Project, ext: String) -> URL {
+    public static func getUniqueFileName(name: String, postfix: Int = 1, project: Project, ext: String) throws -> URL {
 
+        let requestedName = try MetadataStore.validatedNoteName(name)
         if let store = project.metadataStore {
             return store.notesURL.appendingPathComponent(UUID().uuidString.lowercased() + "." + ext)
         }
-        var defaultName = UUID().uuidString
-        if let naming = SettingsFilesNaming(rawValue: UserDefaultsManagement.naming.rawValue) {
-            defaultName = naming.getName()
-        }
-
         var postfix = postfix
-        var name = name
+        var name = requestedName
             .trimmingCharacters(in: CharacterSet.whitespaces)
             .replacingOccurrences(of: ":", with: "")
             .replacingOccurrences(of: "/", with: "")
 
-        if name.isEmpty {
-            name = defaultName
-        }
+        name = try MetadataStore.validatedNoteName(name)
 
         var fileUrl = project.url
         fileUrl.appendPathComponent(name + "." + ext, isDirectory: false)
@@ -53,7 +47,7 @@ class NameHelper {
 
             let increment = postfix + 1
             let newName = name + " " + String(increment)
-            return NameHelper.getUniqueFileName(name: newName, postfix: increment, project: project, ext: ext)
+            return try NameHelper.getUniqueFileName(name: newName, postfix: increment, project: project, ext: ext)
         }
 
         return fileUrl

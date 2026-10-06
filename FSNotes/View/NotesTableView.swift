@@ -55,7 +55,12 @@ class NotesTableView: NSTableView,
         }
 
         if item.action == #selector(delete(_:)) {
-            return getSelectedNotes()?.contains(where: { !$0.isTrash() }) == true
+            if let menuItem = item as? NSMenuItem {
+                menuItem.title = getSelectedNotes()?.allSatisfy({ $0.isTrash() }) == true
+                    ? NSLocalizedString("Delete Permanently", comment: "Delete menu")
+                    : NSLocalizedString("Delete", comment: "Delete menu")
+            }
+            return getSelectedNotes()?.isEmpty == false
         }
         if item.action == #selector(copy(_:)) {
             return selectedRowIndexes.count > 0
@@ -398,7 +403,10 @@ class NotesTableView: NSTableView,
         guard edge == .trailing else { return [] }
         guard noteList.indices.contains(row) else { return [] }
 
-        let deleteAction = NSTableViewRowAction(style: .destructive, title: NSLocalizedString("Delete", comment: "")) { [weak self] (action, row) in
+        let title = noteList[row].isTrash()
+            ? NSLocalizedString("Delete Permanently", comment: "Delete menu")
+            : NSLocalizedString("Delete", comment: "Delete menu")
+        let deleteAction = NSTableViewRowAction(style: .destructive, title: title) { [weak self] (action, row) in
             guard let self = self else { return }
             guard self.noteList.indices.contains(row) else { return }
             let noteToDelete = self.noteList[row]

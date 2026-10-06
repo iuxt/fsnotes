@@ -137,9 +137,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 } catch { NSLog("%@", error.localizedDescription) }
                 return
             }
-            let dst = NameHelper.getUniqueFileName(name: "", project: inbox, ext: url.pathExtension)
-
             do {
+                let dst = try NameHelper.getUniqueFileName(name: url.deletingPathExtension().lastPathComponent, project: inbox, ext: url.pathExtension)
                 try FileManager.default.copyItem(at: url, to: dst)
 
                 if let note = storage.importNote(url: dst) {

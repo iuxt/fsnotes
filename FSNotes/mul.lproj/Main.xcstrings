@@ -7413,121 +7413,121 @@
       }
     },
     "B7t-9v-bSk.placeholderString" : {
-      "comment" : "Class = \"NSSearchFieldCell\"; placeholderString = \"Search or create\"; ObjectID = \"B7t-9v-bSk\";",
+      "comment" : "Class = \"NSSearchFieldCell\"; placeholderString = \"Search\"; ObjectID = \"B7t-9v-bSk\";",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar-IQ" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "بحث او انشاء"
+            "value" : "بحث"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hledat / vytvořit"
+            "value" : "Hledat"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Suchen oder erstellen"
+            "value" : "Suchen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Search or create"
+            "value" : "Search"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buscar o crear"
+            "value" : "Buscar"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rechercher ou créer"
+            "value" : "Rechercher"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "חיפוש ויצירה"
+            "value" : "חיפוש"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "खोजें या बनाएं"
+            "value" : "खोजें"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cerca o crea"
+            "value" : "Cerca"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "検索/新規作成"
+            "value" : "検索"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "검색 및 추가"
+            "value" : "검색"
           }
         },
         "nl-NL" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zoek of maak"
+            "value" : "Zoeken"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pesquisar ou criar"
+            "value" : "Pesquisar"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Procurar ou criar"
+            "value" : "Pesquisar"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Найти или создать"
+            "value" : "Поиск"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ara veya oluştur"
+            "value" : "Ara"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Знайти або створити"
+            "value" : "Пошук"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "搜索或创建（按下回车即可创建）"
+            "value" : "搜索"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "搜尋或新增"
+            "value" : "搜尋"
           }
         }
       }
@@ -16811,121 +16811,121 @@
       }
     },
     "hPY-aY-QOE.title" : {
-      "comment" : "Class = \"NSMenuItem\"; title = \"Search and Create\"; ObjectID = \"hPY-aY-QOE\";",
+      "comment" : "Class = \"NSMenuItem\"; title = \"Search\"; ObjectID = \"hPY-aY-QOE\";",
       "extractionState" : "extracted_with_value",
       "localizations" : {
         "ar-IQ" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "بحث وانشاء"
+            "value" : "بحث"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hledat a vytvořit"
+            "value" : "Hledat"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Suchen und ersetzen"
+            "value" : "Suchen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Search and Create"
+            "value" : "Search"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buscar y crear"
+            "value" : "Buscar"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rechercher et créer"
+            "value" : "Rechercher"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "חיפוש יצירה"
+            "value" : "חיפוש"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "खोजें और बनाएं"
+            "value" : "खोजें"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cerca e crea"
+            "value" : "Cerca"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "検索または新規作成"
+            "value" : "検索"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "검색 및 추가"
+            "value" : "검색"
           }
         },
         "nl-NL" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zoek en creëer"
+            "value" : "Zoeken"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pesquisar e criar"
+            "value" : "Pesquisar"
           }
         },
         "pt-PT" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pesquisar e criar"
+            "value" : "Pesquisar"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Найти и создать"
+            "value" : "Поиск"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ara ve oluştur"
+            "value" : "Ara"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Знайти або створити"
+            "value" : "Пошук"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "搜索或创建（按下回车即可创建）"
+            "value" : "搜索"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "搜尋並新增"
+            "value" : "搜尋"
           }
         }
       }
@@ -19345,126 +19345,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "格式"
-          }
-        }
-      }
-    },
-    "K4N-le-FPU.title" : {
-      "comment" : "Class = \"NSMenuItem\"; title = \"Delete Web Page\"; ObjectID = \"K4N-le-FPU\";",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "ar-IQ" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "حذف صفحة الويب"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Smazat webovou stránku"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Geteilte löschen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Delete Web Page"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eliminar página web"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Supprimer la page Web"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "מחק דף אינטרנט"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "वेब पेज हटाएं"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Elimina pagina web"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete Web Page"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "웹 페이지 삭제"
-          }
-        },
-        "nl-NL" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Webpagina verwijderen"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Deletar página Web"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Excluir página da Web"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Удалить веб-страницу"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Web sayfasını Sil"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Видалити веб-сторінку"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "删除网页"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "刪除網頁"
           }
         }
       }
@@ -24122,126 +24002,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無 (使用全域設定)"
-          }
-        }
-      }
-    },
-    "oL6-fG-vHv.title" : {
-      "comment" : "Class = \"NSMenuItem\"; title = \"Create Web Page\"; ObjectID = \"oL6-fG-vHv\";",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "ar-IQ" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إنشاء صفحة ويب"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vytvořit webovou stránku"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Web-Seite erstellen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Create Web Page"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Crear página web"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Créer une page Web"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "צור דף אינטרנט"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "वेब पेज बनाएं"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Crea pagina web"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ウェブページの作成"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "웹 페이지 만들기"
-          }
-        },
-        "nl-NL" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Webpagina maken"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Criar página Web"
-          }
-        },
-        "pt-PT" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Criar página da Web"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Создать веб-страницу"
-          }
-        },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Web Sayfası Oluştur"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Створити веб-сторінку"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "创建为网页URL"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "建立網頁"
           }
         }
       }

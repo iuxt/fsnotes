@@ -14,6 +14,9 @@ final class EditTextView: NSTextView {
     var tableEditorViews: [Int: InlineTableEditorView] = [:]
     var isTableEditorsUpdateScheduled = false
     var isApplyingTableChange = false
+    var imagePopover: NSPopover?
+    var codeCopyButtons: [Int: InlineCodeCopyButton] = [:]
+    var previewEnabled = false
     var suppressCompletion = false
     var isScrollPositionSaverLocked = false
     var savedRange: NSRange?
@@ -28,7 +31,8 @@ final class EditTextView: NSTextView {
     }
 
     override func setSelectedRanges(_ ranges: [NSValue], affinity: NSSelectionAffinity, stillSelecting: Bool) {
-        super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
+        super.setSelectedRanges(imageSelectionRanges(ranges), affinity: affinity, stillSelecting: stillSelecting)
+        needsDisplay = true
         clearTableSelections()
         refreshInlineTables()
         enterTableForSelection()
@@ -42,10 +46,10 @@ final class EditTextView: NSTextView {
         if !hasTableSelection { super.drawInsertionPoint(in: rect, color: color, turnedOn: flag) }
     }
     override func keyDown(with event: NSEvent) {
-        if !handleTableKeyDown(event) { super.keyDown(with: event) }
+        if !handleImageKeyDown(event) && !handleTableKeyDown(event) { super.keyDown(with: event) }
     }
     override func mouseDown(with event: NSEvent) {
-        if !handleClickBelowTable(event) { super.mouseDown(with: event) }
+        if !handleImageClick(event) && !handleClickBelowTable(event) { super.mouseDown(with: event) }
     }
     override func mouseMoved(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
@@ -54,7 +58,7 @@ final class EditTextView: NSTextView {
         } else { super.mouseMoved(with: event) }
     }
     func saveSelectedRange() { savedRange = selectedRange() }
-    func isPreviewEnabled() -> Bool { false }
+    func isPreviewEnabled() -> Bool { previewEnabled }
     @objc func boldMenu(_ sender: Any) {}
     @objc func italicMenu(_ sender: Any) {}
     @objc func strikeMenu(_ sender: Any) {}

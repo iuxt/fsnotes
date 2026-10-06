@@ -606,7 +606,7 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
             let dst = NameHelper.generateCopy(file: note.url)
 
             let name = dst.deletingPathExtension().lastPathComponent
-            let noteDupe = Note(name: name, project: note.project, type: note.type)
+            guard let noteDupe = try? Note(name: name, project: note.project, type: note.type) else { continue }
             noteDupe.content = NSMutableAttributedString(string: note.content.string)
 
             // Clone images
@@ -703,6 +703,11 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
     public func removeNotes(notes: [Note], rows: IndexSet? = nil) {
         guard let vc = ViewController.shared() else { return }
 
+        if !notes.isEmpty && notes.allSatisfy({ $0.isTrash() }) {
+            deleteNotesPermanently(notes: notes, rows: rows)
+            return
+        }
+
         let notes = notes.filter { !$0.isTrash() }
         guard !notes.isEmpty else { return }
 
@@ -758,6 +763,63 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
         if let cvc = NSApplication.shared.keyWindow?.contentViewController,
            cvc.isKind(of: ViewController.self) {
             NSApp.mainWindow?.makeFirstResponder(vc.notesTableView)
+        }
+    }
+
+    private func deleteNotesPermanently(notes: [Note], rows: IndexSet?) {
+        guard let vc = ViewController.shared(), let window = vc.view.window else { return }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = NSLocalizedString("Delete Permanently", comment: "Delete menu")
+        alert.informativeText = String(format: NSLocalizedString("Permanently delete %ld selected notes and their attachments? This action cannot be undone.", comment: "Delete confirmation"), notes.count)
+        alert.addButton(withTitle: NSLocalizedString("Delete Permanently", comment: "Delete menu"))
+        alert.addButton(withTitle: NSLocalizedString("Cancel", comment: "Delete menu"))
+        alert.buttons.first?.hasDestructiveAction = true
+        alert.beginSheetModal(for: window) { response in
+            guard response == .alertFirstButtonReturn else { return }
+            var deleted = [Note]()
+            var errors = [String]()
+            for note in notes {
+                do {
+                    try note.deletePermanently()
+                    deleted.append(note)
+                } catch {
+                    errors.append(note.fileName + ": " + error.localizedDescription)
+                    // Metadata may already be published if staged-file cleanup failed.
+                    if note.metadataEntry == nil {
+                        vc.storage.removeBy(note: note)
+                        deleted.append(note)
+                    }
+                }
+            }
+            for note in deleted {
+                note.removeCacheForPreviewImages()
+                note.undoManager.removeAllActions()
+            }
+            for editor in AppDelegate.getEditTextViews() {
+                guard let note = editor.note, deleted.contains(where: { $0 === note }) else { continue }
+                editor.timer?.invalidate()
+                editor.tagsTimer?.invalidate()
+                editor.editorViewController?.editorUndoManager.removeAllActions()
+                editor.clear()
+                if let controller = editor.editorViewController as? NoteViewController {
+                    controller.view.window?.close()
+                }
+            }
+            vc.notesTableView.history.removeAll { url in deleted.contains { $0.url == url } }
+            vc.notesTableView.historyPosition = min(vc.notesTableView.historyPosition, max(0, vc.notesTableView.history.count - 1))
+            vc.notesTableView.removeRows(notes: deleted)
+            if let minRow = rows?.min(), vc.notesTableView.countNotes() > 0 {
+                vc.notesTableView.selectRow(min(minRow, vc.notesTableView.countNotes() - 1))
+            }
+            NSApp.mainWindow?.makeFirstResponder(vc.notesTableView)
+            if !errors.isEmpty {
+                let errorAlert = NSAlert()
+                errorAlert.alertStyle = .warning
+                errorAlert.messageText = NSLocalizedString("Unable to delete notes permanently", comment: "Delete error")
+                errorAlert.informativeText = errors.joined(separator: "\n")
+                errorAlert.beginSheetModal(for: window)
+            }
         }
     }
 
@@ -859,11 +921,7 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
     public func updateTitle(note: Note) {
         guard let vcTitleLabel = vcTitleLabel else { return }
 
-        var titleString = note.getFileName()
-
-        if titleString.isValidUUID {
-            titleString = String()
-        }
+        let titleString = note.getFileName()
 
         if titleString.count > 0 {
             vcTitleLabel.stringValue = note.project.getNestedLabel() + " › " + titleString
@@ -973,8 +1031,18 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
         }
     }
 
-    public func createNote(name: String = "", content: String = "", folderName: String? = nil, openInNewWindow: Bool = false) -> Note? {
+    public func createNote(name: String? = nil, content: String = "", folderName: String? = nil, openInNewWindow: Bool = false) -> Note? {
         guard let vc = ViewController.shared() else { return nil }
+
+        let requestedName = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let name: String
+        if requestedName.isEmpty {
+            let prompt = NewNoteNamePrompt()
+            guard let enteredName = withExtendedLifetime(prompt, { prompt.run() }) else { return nil }
+            name = enteredName
+        } else {
+            name = requestedName
+        }
 
         var text = String()
         var project: Project?
@@ -993,10 +1061,6 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
 
         guard let project = sidebarProject else { return nil }
 
-        if !name.isEmpty, [.autoRename, .autoRenameNew].contains(UserDefaultsManagement.naming) && UserDefaultsManagement.autoInsertHeader {
-            text.append("# " + name + "\n\n")
-        }
-
         if !content.isEmpty {
             text.append(content)
         }
@@ -1006,7 +1070,13 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
             text.append(inlineTags)
         }
 
-        let note = Note(name: name, project: project)
+        let note: Note
+        do {
+            note = try Note(name: name, project: project)
+        } catch {
+            NSAlert(error: error).runModal()
+            return nil
+        }
         note.content = NSMutableAttributedString(string: text)
         if note.save() {
             Storage.shared().add(note)
@@ -1048,5 +1118,27 @@ class EditorViewController: NSViewController, NSTextViewDelegate, NSMenuItemVali
         }
 
         return note
+    }
+}
+
+private final class NewNoteNamePrompt: NSObject, NSTextFieldDelegate {
+    private let alert = NSAlert()
+    private let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+
+    func run() -> String? {
+        alert.messageText = NSLocalizedString("New Note", comment: "")
+        field.placeholderString = NSLocalizedString("Note name:", comment: "")
+        field.delegate = self
+        alert.accessoryView = field
+        alert.addButton(withTitle: NSLocalizedString("Create", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
+        alert.buttons.first?.isEnabled = false
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        return try? MetadataStore.validatedNoteName(field.stringValue)
+    }
+
+    func controlTextDidChange(_ notification: Notification) {
+        alert.buttons.first?.isEnabled = (try? MetadataStore.validatedNoteName(field.stringValue)) != nil
     }
 }

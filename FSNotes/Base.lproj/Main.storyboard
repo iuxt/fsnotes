@@ -105,9 +105,9 @@
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="pvu-vt-MCq"/>
-                                        <menuItem title="Search and Create" image="magnifyingglass" catalog="system" keyEquivalent="l" localization="NO" mirroring="NO" identifier="fileMenu.searchAndCreate" id="hPY-aY-QOE">
+                                        <menuItem title="Search" image="magnifyingglass" catalog="system" keyEquivalent="l" localization="NO" mirroring="NO" identifier="fileMenu.search" id="hPY-aY-QOE">
                                             <connections>
-                                                <action selector="searchAndCreate:" target="L4m-js-agn" id="ChM-Mj-Rdf"/>
+                                                <action selector="focusSearch:" target="L4m-js-agn" id="ChM-Mj-Rdf"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="DJZ-Sf-cos"/>
@@ -969,42 +969,6 @@ CA
                                     <action selector="defaultExtension:" target="NHv-lG-vxt" id="Pgm-OZ-qRz"/>
                                 </connections>
                             </popUpButton>
-                            <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1" translatesAutoresizingMaskIntoConstraints="NO" id="UbX-Sa-Jtd">
-                                <rect key="frame" x="246" y="339" width="187" height="24"/>
-                                <popUpButtonCell key="cell" type="push" title="Autoname by Title (30s)" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="5" imageScaling="proportionallyDown" inset="2" selectedItem="y5T-sb-gw4" id="3k2-O8-Jza">
-                                    <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" usesAppearanceFont="YES"/>
-                                    <menu key="menu" id="Ilk-gp-eEJ">
-                                        <items>
-                                            <menuItem title="Autoname by Title (30s)" state="on" tag="5" id="y5T-sb-gw4">
-                                                <modifierMask key="keyEquivalentModifierMask"/>
-                                            </menuItem>
-                                            <menuItem title="Auto Rename By Title" tag="1" id="wW6-4n-sve"/>
-                                            <menuItem title="Format: UUID" id="cmH-fQ-bVK"/>
-                                            <menuItem title="Format: Untitled Note" tag="2" id="IWL-lp-G1M">
-                                                <modifierMask key="keyEquivalentModifierMask"/>
-                                            </menuItem>
-                                            <menuItem title="Format: yyyyMMddHHmmss" tag="3" id="aVa-yH-IpC">
-                                                <modifierMask key="keyEquivalentModifierMask"/>
-                                            </menuItem>
-                                            <menuItem title="Format: yyyy-MM-dd hh.mm.ss a" tag="4" id="qn1-vy-8oB">
-                                                <modifierMask key="keyEquivalentModifierMask"/>
-                                            </menuItem>
-                                        </items>
-                                    </menu>
-                                </popUpButtonCell>
-                                <connections>
-                                    <action selector="filesNaming:" target="NHv-lG-vxt" id="dK7-H3-kSu"/>
-                                </connections>
-                            </popUpButton>
-                            <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="JjB-78-ifK">
-                                <rect key="frame" x="137" y="343" width="86" height="16"/>
-                                <textFieldCell key="cell" lineBreakMode="clipping" title="Files Naming:" id="FS0-ZJ-WvJ">
-                                    <font key="font" metaFont="system"/>
-                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                </textFieldCell>
-                            </textField>
                             <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="0MX-CO-c4Y">
                                 <rect key="frame" x="172" y="407" width="51" height="16"/>
                                 <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Format:" id="ctD-Qn-kDS">
@@ -1085,10 +1049,8 @@ CA
                             <constraint firstItem="1vW-Wi-nGt" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="4Xk-4f-czc" secondAttribute="leading" constant="20" symbolic="YES" id="HRT-0a-6w7"/>
                             <constraint firstItem="XZf-Ag-G2L" firstAttribute="centerY" secondItem="dkg-Hb-c1w" secondAttribute="centerY" id="IWB-ar-OkH"/>
                             <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="TXq-y1-xzw" secondAttribute="trailing" constant="35" id="J5R-MR-9PH"/>
-                            <constraint firstItem="UbX-Sa-Jtd" firstAttribute="firstBaseline" secondItem="JjB-78-ifK" secondAttribute="firstBaseline" id="JyW-lo-2O0"/>
                             <constraint firstItem="4Kr-dW-0Jm" firstAttribute="leading" secondItem="4Xk-4f-czc" secondAttribute="leading" constant="20" symbolic="YES" id="KAC-HP-TqR"/>
                             <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="qW8-n9-YAx" secondAttribute="trailing" constant="35" id="LXA-gs-LZg"/>
-                            <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="UbX-Sa-Jtd" secondAttribute="trailing" constant="35" id="M4E-yE-pX1"/>
                             <constraint firstItem="UaP-4D-ZNN" firstAttribute="top" secondItem="uTG-yn-jge" secondAttribute="bottom" constant="6" symbolic="YES" id="Nao-g3-xgn"/>
                             <constraint firstItem="qW8-n9-YAx" firstAttribute="top" secondItem="e7K-T3-Vtb" secondAttribute="bottom" constant="20" id="OY4-tg-MIm"/>
                             <constraint firstItem="1T1-iH-jib" firstAttribute="top" secondItem="XYa-Po-O09" secondAttribute="bottom" constant="20" id="OuF-xZ-5S8"/>
@@ -1100,7 +1062,6 @@ CA
                             <constraint firstItem="Qf2-ns-Osr" firstAttribute="leading" secondItem="0MX-CO-c4Y" secondAttribute="trailing" constant="25" id="RWh-v8-p4O"/>
                             <constraint firstItem="XZf-Ag-G2L" firstAttribute="leading" secondItem="dkg-Hb-c1w" secondAttribute="trailing" constant="8" symbolic="YES" id="RjQ-Go-XgZ"/>
                             <constraint firstAttribute="bottom" secondItem="b4Q-10-yq8" secondAttribute="bottom" constant="35" id="Rvy-u6-vHK"/>
-                            <constraint firstItem="UbX-Sa-Jtd" firstAttribute="leading" secondItem="JjB-78-ifK" secondAttribute="trailing" constant="25" id="SRJ-V6-CRJ"/>
                             <constraint firstItem="0MX-CO-c4Y" firstAttribute="top" secondItem="4Kr-dW-0Jm" secondAttribute="bottom" constant="20" id="Tx1-0O-4iU"/>
                             <constraint firstItem="B3F-c9-AP8" firstAttribute="leading" secondItem="4Xk-4f-czc" secondAttribute="leading" constant="35" id="VZ8-Qx-dMf"/>
                             <constraint firstItem="bMo-2z-4jT" firstAttribute="leading" secondItem="4Xk-4f-czc" secondAttribute="leading" constant="35" id="Wjx-iB-fU4"/>
@@ -1110,20 +1071,16 @@ CA
                             <constraint firstAttribute="trailing" secondItem="XZf-Ag-G2L" secondAttribute="trailing" constant="35" id="Zxv-L8-7ak"/>
                             <constraint firstItem="1vW-Wi-nGt" firstAttribute="top" secondItem="0MX-CO-c4Y" secondAttribute="bottom" constant="16" id="ZzC-Nz-BlA"/>
                             <constraint firstItem="TXq-y1-xzw" firstAttribute="leading" secondItem="rjd-D6-Jj2" secondAttribute="leading" id="a2E-l8-Myr"/>
-                            <constraint firstItem="JjB-78-ifK" firstAttribute="trailing" secondItem="1vW-Wi-nGt" secondAttribute="trailing" id="b5I-tU-QMY"/>
-                            <constraint firstItem="UbX-Sa-Jtd" firstAttribute="trailing" secondItem="7Hz-R4-h7D" secondAttribute="trailing" id="bL9-gf-K4r"/>
                             <constraint firstItem="dkg-Hb-c1w" firstAttribute="leading" secondItem="81L-hB-Mc1" secondAttribute="leading" id="bgQ-px-vLb"/>
-                            <constraint firstItem="e7K-T3-Vtb" firstAttribute="top" secondItem="UbX-Sa-Jtd" secondAttribute="bottom" constant="20" id="dIC-Qb-4iy"/>
+                            <constraint firstItem="e7K-T3-Vtb" firstAttribute="top" secondItem="1vW-Wi-nGt" secondAttribute="bottom" constant="20" id="dIC-Qb-4iy"/>
                             <constraint firstItem="187-a6-mAR" firstAttribute="leading" secondItem="UaP-4D-ZNN" secondAttribute="leading" id="dgB-wx-7kc"/>
                             <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="187-a6-mAR" secondAttribute="trailing" constant="35" id="eEc-3r-7g0"/>
                             <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="7Hz-R4-h7D" secondAttribute="trailing" constant="35" id="ehY-et-Nz0"/>
                             <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="UaP-4D-ZNN" secondAttribute="trailing" constant="35" id="f2F-B7-7hH"/>
                             <constraint firstAttribute="bottom" secondItem="B3F-c9-AP8" secondAttribute="bottom" constant="35" id="feu-I4-VMb"/>
-                            <constraint firstItem="JjB-78-ifK" firstAttribute="top" secondItem="1vW-Wi-nGt" secondAttribute="bottom" constant="16" id="g4H-bP-ffd"/>
                             <constraint firstItem="b4Q-10-yq8" firstAttribute="leading" secondItem="oAW-vX-xph" secondAttribute="leading" id="gzK-ua-xLU"/>
                             <constraint firstItem="b4Q-10-yq8" firstAttribute="top" secondItem="oAW-vX-xph" secondAttribute="bottom" constant="8" symbolic="YES" id="hhR-5T-sdU"/>
                             <constraint firstItem="dkg-Hb-c1w" firstAttribute="top" secondItem="81L-hB-Mc1" secondAttribute="bottom" constant="8" symbolic="YES" id="iCp-he-DMb"/>
-                            <constraint firstItem="JjB-78-ifK" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="4Xk-4f-czc" secondAttribute="leading" constant="20" symbolic="YES" id="ijN-p7-YPG"/>
                             <constraint firstItem="1T1-iH-jib" firstAttribute="leading" secondItem="4Xk-4f-czc" secondAttribute="leading" constant="35" id="l82-ol-rAX"/>
                             <constraint firstItem="B3F-c9-AP8" firstAttribute="top" secondItem="1T1-iH-jib" secondAttribute="bottom" constant="8" symbolic="YES" id="lH6-E4-5O4"/>
                             <constraint firstItem="UaP-4D-ZNN" firstAttribute="leading" secondItem="qW8-n9-YAx" secondAttribute="leading" id="lxg-a3-oOA"/>
@@ -1149,7 +1106,6 @@ CA
                         <outlet property="workspacePathLabel" destination="81L-hB-Mc1" id="workspace-general-label"/>
                         <outlet property="defaultStoragePath" destination="dkg-Hb-c1w" id="ly3-HH-jj3"/>
                         <outlet property="externalEditorApp" destination="7Hz-R4-h7D" id="2xL-OW-e8B"/>
-                        <outlet property="filesNaming" destination="UbX-Sa-Jtd" id="3L6-jh-WAB"/>
                         <outlet property="hideOnDeactivate" destination="qW8-n9-YAx" id="g1U-XI-JGU"/>
                         <outlet property="newNoteshortcutView" destination="rjd-D6-Jj2" id="Adh-7m-agR"/>
                         <outlet property="quickNote" destination="B3F-c9-AP8" id="VI1-A8-kXk"/>
@@ -1534,7 +1490,7 @@ CA
                                                         <constraints>
                                                             <constraint firstAttribute="height" constant="22" id="Ptr-z2-0T0"/>
                                                         </constraints>
-                                                        <searchFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" borderStyle="bezel" placeholderString="Search or create" usesSingleLineMode="YES" bezelStyle="round" sendsSearchStringImmediately="YES" sendsWholeSearchString="YES" recentsAutosaveName="recentFSearch" id="B7t-9v-bSk">
+                                                        <searchFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" borderStyle="bezel" placeholderString="Search" usesSingleLineMode="YES" bezelStyle="round" sendsSearchStringImmediately="YES" sendsWholeSearchString="YES" recentsAutosaveName="recentFSearch" id="B7t-9v-bSk">
                                                             <font key="font" metaFont="system"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -2030,18 +1986,6 @@ CA
                                 <action selector="copyTitle:" target="rPt-NT-nkU" id="Fwy-yp-nPd"/>
                             </connections>
                         </menuItem>
-                        <menuItem title="Create Web Page" image="globe" catalog="system" localization="NO" mirroring="NO" identifier="popup.uploadOverSSH" id="oL6-fG-vHv">
-                            <modifierMask key="keyEquivalentModifierMask"/>
-                            <connections>
-                                <action selector="uploadWebNote:" target="XfG-lQ-9wD" id="Ea2-MI-Eqh"/>
-                            </connections>
-                        </menuItem>
-                        <menuItem title="Delete Web Page" image="globe.badge.chevron.backward" catalog="system" tag="100" localization="NO" mirroring="NO" identifier="popup.removeOverSSH" id="K4N-le-FPU">
-                            <modifierMask key="keyEquivalentModifierMask"/>
-                            <connections>
-                                <action selector="removeWebNote:" target="XfG-lQ-9wD" id="nC3-xh-zYb"/>
-                            </connections>
-                        </menuItem>
                         <menuItem isSeparatorItem="YES" id="fYh-FK-PdD"/>
                         <menuItem title="Print" image="printer" catalog="system" localization="NO" mirroring="NO" identifier="popup.print" id="nCW-CZ-qC7">
                             <modifierMask key="keyEquivalentModifierMask"/>
@@ -2448,16 +2392,6 @@ Olena Hlushcneko</string>
                                     <action selector="sortDirection:" target="JOV-dV-hyG" id="enk-hU-GOu"/>
                                 </connections>
                             </button>
-                            <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="pbJ-GR-hHs">
-                                <rect key="frame" x="120" y="265" width="142" height="16"/>
-                                <buttonCell key="cell" type="check" title="Use first line as title" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="kbK-Um-cQk">
-                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <connections>
-                                    <action selector="firstLineAsTitle:" target="JOV-dV-hyG" id="6tE-fm-7hd"/>
-                                </connections>
-                            </button>
                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DQw-2B-ocF">
                                 <rect key="frame" x="120" y="344" width="259" height="16"/>
                                 <buttonCell key="cell" type="check" title="Show notes in &quot;Notes&quot; list" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="Zzw-01-JH7">
@@ -2491,14 +2425,6 @@ Olena Hlushcneko</string>
                             <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="KzG-ff-Fkn">
                                 <rect key="frame" x="20" y="242" width="490" height="5"/>
                             </box>
-                            <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="eOj-jC-ndy">
-                                <rect key="frame" x="33" y="265" width="69" height="16"/>
-                                <textFieldCell key="cell" lineBreakMode="clipping" title="Notes List:" id="Scc-aD-CFQ">
-                                    <font key="font" metaFont="system"/>
-                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                </textFieldCell>
-                            </textField>
                             <customView translatesAutoresizingMaskIntoConstraints="NO" id="0l4-ai-Rvk" userLabel="GitView">
                                 <rect key="frame" x="20" y="84" width="490" height="150"/>
                                 <subviews>
@@ -2649,9 +2575,7 @@ Olena Hlushcneko</string>
                             </customView>
                         </subviews>
                         <constraints>
-                            <constraint firstItem="eOj-jC-ndy" firstAttribute="leading" secondItem="MgV-BT-LsD" secondAttribute="leading" constant="35" id="0h7-jj-nf1"/>
                             <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="DQw-2B-ocF" secondAttribute="trailing" constant="20" symbolic="YES" id="2Cq-gV-DJM"/>
-                            <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="pbJ-GR-hHs" secondAttribute="trailing" constant="20" symbolic="YES" id="4Fe-0i-FW0"/>
                             <constraint firstItem="opy-8T-bfQ" firstAttribute="leading" secondItem="MgV-BT-LsD" secondAttribute="leading" constant="20" symbolic="YES" id="4i5-5U-xYf"/>
                             <constraint firstItem="KzG-ff-Fkn" firstAttribute="leading" secondItem="MgV-BT-LsD" secondAttribute="leading" constant="20" symbolic="YES" id="4jT-a2-SBX"/>
                             <constraint firstAttribute="trailing" secondItem="KzG-ff-Fkn" secondAttribute="trailing" constant="20" symbolic="YES" id="6LQ-YH-Kk8"/>
@@ -2661,14 +2585,12 @@ Olena Hlushcneko</string>
                             <constraint firstItem="9Ag-KN-R7v" firstAttribute="leading" secondItem="MgV-BT-LsD" secondAttribute="leading" constant="20" symbolic="YES" id="BqT-se-lOr"/>
                             <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="HIU-aj-0cI" secondAttribute="trailing" constant="20" symbolic="YES" id="CQA-xM-V8s"/>
                             <constraint firstItem="9Ag-KN-R7v" firstAttribute="top" secondItem="Mi8-2x-rJD" secondAttribute="bottom" constant="20" id="DZG-p0-4r5"/>
-                            <constraint firstItem="eOj-jC-ndy" firstAttribute="trailing" secondItem="i67-zB-31s" secondAttribute="trailing" id="Eoq-Ca-gYc"/>
                             <constraint firstItem="0l4-ai-Rvk" firstAttribute="leading" secondItem="KzG-ff-Fkn" secondAttribute="leading" id="HUa-Bw-5sL"/>
                             <constraint firstItem="Mi8-2x-rJD" firstAttribute="leading" secondItem="DQw-2B-ocF" secondAttribute="leading" id="HiY-81-gwL"/>
                             <constraint firstItem="VM6-1W-eJP" firstAttribute="top" secondItem="qfE-2B-PiS" secondAttribute="bottom" constant="6" symbolic="YES" id="Hur-79-TmG"/>
-                            <constraint firstItem="KzG-ff-Fkn" firstAttribute="top" secondItem="eOj-jC-ndy" secondAttribute="bottom" constant="20" id="JB1-Ff-0XL"/>
+                            <constraint firstItem="KzG-ff-Fkn" firstAttribute="top" secondItem="9Ag-KN-R7v" secondAttribute="bottom" constant="20" id="JB1-Ff-0XL"/>
                             <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="qfE-2B-PiS" secondAttribute="trailing" constant="20" symbolic="YES" id="Oa5-sL-45X"/>
                             <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="G4r-zr-CMm" secondAttribute="trailing" constant="20" symbolic="YES" id="PpF-l8-gs6"/>
-                            <constraint firstItem="eOj-jC-ndy" firstAttribute="top" secondItem="9Ag-KN-R7v" secondAttribute="bottom" constant="20" id="QCV-ta-RJE"/>
                             <constraint firstItem="lRQ-kL-8RA" firstAttribute="firstBaseline" secondItem="cFW-mP-L5G" secondAttribute="firstBaseline" id="Suh-7U-ZGt"/>
                             <constraint firstItem="DQw-2B-ocF" firstAttribute="firstBaseline" secondItem="i67-zB-31s" secondAttribute="firstBaseline" id="T18-Id-5Tv"/>
                             <constraint firstAttribute="trailing" secondItem="Xlx-2b-uqS" secondAttribute="trailing" constant="20" symbolic="YES" id="TBs-6d-4ip"/>
@@ -2690,10 +2612,8 @@ Olena Hlushcneko</string>
                             <constraint firstItem="yJO-Hj-7Bf" firstAttribute="trailing" secondItem="cFW-mP-L5G" secondAttribute="trailing" id="hzF-F8-83a"/>
                             <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="lRQ-kL-8RA" secondAttribute="trailing" constant="20" symbolic="YES" id="jFN-9f-Z1Z"/>
                             <constraint firstItem="0l4-ai-Rvk" firstAttribute="trailing" secondItem="KzG-ff-Fkn" secondAttribute="trailing" id="kW0-Nd-SZe"/>
-                            <constraint firstItem="pbJ-GR-hHs" firstAttribute="firstBaseline" secondItem="eOj-jC-ndy" secondAttribute="firstBaseline" id="kcQ-qy-6Ey"/>
                             <constraint firstItem="qfE-2B-PiS" firstAttribute="top" secondItem="lRQ-kL-8RA" secondAttribute="bottom" constant="6" symbolic="YES" id="l94-9A-sf8"/>
                             <constraint firstAttribute="bottom" secondItem="lhi-dw-WFN" secondAttribute="bottom" constant="35" id="muc-tv-HAK"/>
-                            <constraint firstItem="pbJ-GR-hHs" firstAttribute="leading" secondItem="lRQ-kL-8RA" secondAttribute="leading" id="oPb-9M-mG3"/>
                             <constraint firstItem="Xlx-2b-uqS" firstAttribute="leading" secondItem="MgV-BT-LsD" secondAttribute="leading" constant="20" symbolic="YES" id="pN0-Lg-aUw"/>
                             <constraint firstItem="cG6-mW-iPi" firstAttribute="leading" secondItem="lRQ-kL-8RA" secondAttribute="leading" id="qch-1p-XhA"/>
                             <constraint firstItem="i67-zB-31s" firstAttribute="trailing" secondItem="yJO-Hj-7Bf" secondAttribute="trailing" id="raY-iU-Ted"/>
@@ -2710,7 +2630,6 @@ Olena Hlushcneko</string>
                         <outlet property="creationDate" destination="VM6-1W-eJP" id="2gs-eQ-fiQ"/>
                         <outlet property="directionASC" destination="cG6-mW-iPi" id="7o9-GP-Mck"/>
                         <outlet property="directionDESC" destination="HIU-aj-0cI" id="x94-Ms-POU"/>
-                        <outlet property="firstLineAsTitle" destination="pbJ-GR-hHs" id="ue5-hc-jLA"/>
                         <outlet property="gitView" destination="0l4-ai-Rvk" id="b9J-pk-HLI"/>
                         <outlet property="gitViewHeight" destination="y4h-z9-5Bn" id="ZD0-kf-YuX"/>
                         <outlet property="keyStatus" destination="qrS-Vp-k0u" id="cww-aB-UuB"/>

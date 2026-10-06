@@ -126,7 +126,8 @@ class SearchTextField: NSSearchField, NSSearchFieldDelegate {
             textView.deleteBackward(self)
             return true
         case "insertNewline:", "insertNewlineIgnoringFieldEditor:":
-            if let note = vcDelegate.editor.getSelectedNote(), stringValue.utf16.count > 0, note.title.lowercased() == stringValue.lowercased() || note.fileName.lowercased() == stringValue.lowercased() {
+            if let note = vcDelegate.notesTableView.getSelectedNote() ?? vcDelegate.notesTableView.getNoteList().first {
+                vcDelegate.notesTableView.setSelected(note: note)
 
                 if note.title.lowercased() == stringValue.lowercased() && note.title != stringValue {
                     stringValue = note.title
@@ -150,8 +151,6 @@ class SearchTextField: NSSearchField, NSSearchFieldDelegate {
                         self.vcDelegate.focusEditArea()
                     }
                 }
-            } else {
-                vcDelegate.makeNote(self)
             }
 
             addRecent(query: stringValue)
@@ -181,7 +180,6 @@ class SearchTextField: NSSearchField, NSSearchFieldDelegate {
             return true
         case "noop:":
             if let event = NSApp.currentEvent, event.modifierFlags.contains(.command) && event.keyCode == kVK_Return {
-                vcDelegate.makeNote(self)
                 return true
             }
             return false

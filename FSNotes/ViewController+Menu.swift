@@ -75,8 +75,8 @@ extension ViewController {
             menuItem.title = NSLocalizedString("New Folder", comment: "Menu Library")
             return !isTrash
 
-        case "\(menuId).searchAndCreate":
-            menuItem.title = NSLocalizedString("Search and Create", comment: "File Menu")
+        case "\(menuId).search":
+            menuItem.title = NSLocalizedString("Search", comment: "File Menu")
             return true
 
         case "\(menuId).open":
@@ -104,8 +104,10 @@ extension ViewController {
             return isOne && isFirstResponder || (isFirstEditor && !isOpenedWindow)
 
         case "\(menuId).delete":
-            menuItem.title = NSLocalizedString("Delete", comment: "File Menu")
-            return greaterThanZero && isFirstResponder && notes?.contains(where: { !$0.isTrash() }) == true
+            menuItem.title = notes?.allSatisfy({ $0.isTrash() }) == true
+                ? NSLocalizedString("Delete Permanently", comment: "Delete menu")
+                : NSLocalizedString("Delete", comment: "File Menu")
+            return greaterThanZero && isFirstResponder
 
         case "\(menuId).togglePin":
             if let note = notes?.first, note.isPinned {

@@ -1,122 +1,34 @@
-//
-//  DefaultExtensionControllerView.swift
-//  FSNotes iOS
-//
-//  Created by Oleksandr Glushchenko on 2/28/18.
-//  Copyright © 2018 Oleksandr Glushchenko. All rights reserved.
-//
-
+// File format settings; note names are provided when creating a note.
 import UIKit
 
 class DefaultExtensionViewController: UITableViewController {
-    private var sections = [
-        NSLocalizedString("Extension", comment: "Settings"),
-        NSLocalizedString("Files Naming", comment: "Settings"),
-    ]
-
-    private var rowsInSection = [3, 5]
-
-    private var extensions = ["markdown", "md", "txt"]
-
-    private var naming = [
-        NSLocalizedString("Autoname By Title", comment: "Settings"),
-        NSLocalizedString("Auto Rename By Title", comment: "Settings"),
-        NSLocalizedString("Format: Untitled Note", comment: "Settings"),
-        NSLocalizedString("Format: yyyyMMddHHmmss", comment: "Settings"),
-        NSLocalizedString("Format: yyyy-MM-dd hh.mm.ss a", comment: "Settings"),
-    ]
+    private let extensions = ["markdown", "md", "txt"]
 
     override func viewDidLoad() {
-        self.title = NSLocalizedString("Files", comment: "Settings")
-    }
-
-    @objc func cancel() {
-        self.navigationController?.popViewController(animated: true)
-    }
-
-    override func numberOfSections(in tableView: UITableView) -> Int {
-        return sections.count
+        super.viewDidLoad()
+        title = NSLocalizedString("Files", comment: "Settings")
     }
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return rowsInSection[section]
+        extensions.count
     }
 
     override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        return sections[section]
-    }
-
-    override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-        return 50
-    }
-
-    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        if let cell = tableView.cellForRow(at: indexPath), let label = cell.textLabel, let ext = label.text {
-            if indexPath.section == 0 {
-
-                UserDefaultsManagement.noteExtension = ext
-                UserDefaultsManagement.fileFormat = NoteType.withExt(rawValue: ext)
-
-                for index in 0...rowsInSection[indexPath.section] {
-                    let indexPath = IndexPath(row: index, section: 0)
-                    if let cell = tableView.cellForRow(at: indexPath) {
-                        cell.accessoryType = .none
-                        tableView.deselectRow(at: indexPath, animated: false)
-                    }
-                }
-
-                cell.accessoryType = .checkmark
-            } else if indexPath.section == 1 {
-                for index in 0...rowsInSection[indexPath.section] {
-                    let indexPath = IndexPath(row: index, section: 1)
-                    if let cell = tableView.cellForRow(at: indexPath) {
-                        cell.accessoryType = .none
-                        tableView.deselectRow(at: indexPath, animated: false)
-                    }
-                }
-
-                if let id = SettingsFilesNaming(rawValue: cell.tag) {
-                    UserDefaultsManagement.naming = id
-                    cell.accessoryType = .checkmark
-                }
-            }
-        }
-    }
-
-    override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-        guard let text = cell.textLabel?.text else { return }
-
-        if indexPath.section == 0 {
-            if UserDefaultsManagement.noteExtension == text {
-                cell.accessoryType = .checkmark
-            } else {
-                cell.accessoryType = .none
-            }
-        } else if indexPath.section == 1 {
-            if UserDefaultsManagement.naming == SettingsFilesNaming(rawValue: cell.tag) {
-                cell.accessoryType = .checkmark
-            } else {
-                cell.accessoryType = .none
-            }
-        }
+        NSLocalizedString("Extension", comment: "Settings")
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-
         let cell = UITableViewCell()
-        if indexPath.section == 0 {
-            cell.textLabel?.text = extensions[indexPath.row]
-        } else if indexPath.section == 1 {
-            if indexPath.row == 0 {
-                cell.textLabel?.text = naming[0]
-                cell.tag = 5
-            } else {
-                cell.textLabel?.text = naming[indexPath.row]
-                cell.tag = indexPath.row
-            }
-        }
-
+        let ext = extensions[indexPath.row]
+        cell.textLabel?.text = ext
+        cell.accessoryType = UserDefaultsManagement.noteExtension == ext ? .checkmark : .none
         return cell
     }
 
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let ext = extensions[indexPath.row]
+        UserDefaultsManagement.noteExtension = ext
+        UserDefaultsManagement.fileFormat = NoteType.withExt(rawValue: ext)
+        tableView.reloadData()
+    }
 }

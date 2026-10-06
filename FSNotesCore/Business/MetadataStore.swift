@@ -165,7 +165,7 @@ final class MetadataStore {
         var entry = Entry(id: id, name: name, folderID: folderID, fileExtension: ext, legacyPath: legacyPath)
         try mutate { next in
             guard !next.notes.contains(where: { $0.id == id }) else { throw Failure.invalid("duplicate note ID") }
-            entry.name = Self.availableName(name, folderID: folderID, excluding: nil, in: next)
+            entry.name = try Self.availableName(name, folderID: folderID, excluding: nil, in: next)
             next.notes.append(entry)
         }
         return entry
@@ -175,7 +175,7 @@ final class MetadataStore {
         try mutate { next in
             guard let index = next.notes.firstIndex(where: { $0.id == id }) else { throw Failure.invalid("note no longer exists") }
             let folder = next.notes[index].folderID
-            let target = Self.availableName(name, folderID: folder, excluding: id, in: next)
+            let target = try Self.availableName(name, folderID: folder, excluding: id, in: next)
             guard target != next.notes[index].name else { return }
             Self.rememberName(&next.notes[index])
             next.notes[index].name = target
@@ -185,7 +185,7 @@ final class MetadataStore {
     func moveNote(id: String, folderID: String?) throws {
         try mutate { next in
             guard let index = next.notes.firstIndex(where: { $0.id == id }) else { throw Failure.invalid("note no longer exists") }
-            let target = Self.availableName(next.notes[index].name, folderID: folderID, excluding: id, in: next)
+            let target = try Self.availableName(next.notes[index].name, folderID: folderID, excluding: id, in: next)
             if target != next.notes[index].name { Self.rememberName(&next.notes[index]) }
             next.notes[index].folderID = folderID
             next.notes[index].trashed = false
@@ -206,9 +206,14 @@ final class MetadataStore {
         entry.aliases = Array(aliases.suffix(50))
     }
 
-    private static func availableName(_ name: String, folderID: String?, excluding id: String?, in next: Snapshot) -> String {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let base = trimmed.isEmpty ? "Untitled Note" : trimmed
+    static func validatedNoteName(_ name: String) throws -> String {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { throw Failure.invalid("A note name is required") }
+        return name
+    }
+
+    private static func availableName(_ name: String, folderID: String?, excluding id: String?, in next: Snapshot) throws -> String {
+        let base = try validatedNoteName(name)
         var candidate = base
         var number = 2
         while next.notes.contains(where: { !$0.trashed && $0.folderID == folderID && $0.id != id && $0.name.caseInsensitiveCompare(candidate) == .orderedSame }) {
@@ -227,6 +232,76 @@ final class MetadataStore {
 
     func delete(id: String) throws {
         try mutate { $0.notes.removeAll(where: { $0.id == id }) }
+    }
+
+    /// Remove a trashed note and its owned resources, publishing metadata before
+    /// discarding the staged files so a failed snapshot write preserves the note.
+    func deletePermanently(id: String) throws {
+        lock.lock(); defer { lock.unlock() }
+        let manager = FileManager.default
+        let staging = root.appendingPathComponent(".fsnotes-delete-" + UUID().uuidString, isDirectory: true)
+        var moved = [(source: URL, staged: URL)]()
+        do {
+            try mutate { next in
+                guard let index = next.notes.firstIndex(where: { $0.id == id }), next.notes[index].trashed else {
+                    throw Failure.invalid("only trashed notes can be permanently deleted")
+                }
+                let entry = next.notes[index]
+                let resources = try unreferencedResources(for: entry, in: next)
+                try manager.createDirectory(at: staging, withIntermediateDirectories: false)
+                for source in [fileURL(entry)] + resources {
+                    let destination = staging.appendingPathComponent(UUID().uuidString)
+                    do {
+                        try manager.moveItem(at: source, to: destination)
+                        moved.append((source, destination))
+                    } catch let error as NSError where error.domain == NSCocoaErrorDomain && [NSFileNoSuchFileError, NSFileReadNoSuchFileError].contains(error.code) {
+                        // Missing bodies or attachments must not strand a trash record.
+                        continue
+                    }
+                }
+                next.notes.remove(at: index)
+            }
+        } catch {
+            for file in moved.reversed() {
+                try manager.moveItem(at: file.staged, to: file.source)
+            }
+            if manager.fileExists(atPath: staging.path) { try manager.removeItem(at: staging) }
+            throw error
+        }
+        try manager.removeItem(at: staging)
+    }
+
+    private func unreferencedResources(for entry: Entry, in snapshot: Snapshot) throws -> [URL] {
+        let images = imagesURL.standardizedFileURL.resolvingSymlinksInPath()
+        func references(in note: Entry) throws -> Set<URL> {
+            let body = fileURL(note)
+            let data: Data
+            do { data = try Data(contentsOf: body) }
+            catch let error as NSError where error.domain == NSCocoaErrorDomain && [NSFileNoSuchFileError, NSFileReadNoSuchFileError].contains(error.code) { return [] }
+            return Set(Self.localLinkTargets(in: String(decoding: data, as: UTF8.self)).compactMap { target in
+                let path = String(target.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)[0])
+                let resource = body.deletingLastPathComponent().appendingPathComponent(path.removingPercentEncoding ?? path)
+                    .standardizedFileURL.resolvingSymlinksInPath()
+                return resource == images || resource.path.hasPrefix(images.path + "/") ? resource : nil
+            })
+        }
+        func contains(_ parent: URL, _ child: URL) -> Bool {
+            parent == child || child.path.hasPrefix(parent.path + "/")
+        }
+        var candidates = try references(in: entry).filter { $0 != images }
+        let owned = imagesURL.appendingPathComponent(entry.id, isDirectory: true).standardizedFileURL.resolvingSymlinksInPath()
+        if owned.path.hasPrefix(images.path + "/") { candidates.insert(owned) }
+        var shared = Set<URL>()
+        for other in snapshot.notes where other.id != entry.id {
+            shared.formUnion(try references(in: other))
+        }
+        let removable = candidates.filter { candidate in
+            !shared.contains { contains(candidate, $0) || contains($0, candidate) }
+        }
+        // Move a directory once, omitting any of its children already included.
+        return removable.filter { candidate in
+            !removable.contains { $0 != candidate && contains($0, candidate) }
+        }.sorted { $0.path < $1.path }
     }
 
     func createFolder(name: String, parentID: String?) throws -> Folder {
@@ -330,7 +405,7 @@ final class MetadataStore {
             guard !next.folders.contains(where: { $0.id != folder.id && $0.parentID == folder.parentID && $0.name.caseInsensitiveCompare(folder.name) == .orderedSame }) else { throw Failure.invalid("folder name already exists") }
         }
         for entry in next.notes {
-            guard UUID(uuidString: entry.id) != nil, ["md", "markdown", "txt", "fountain"].contains(entry.fileExtension), !entry.name.isEmpty, entry.folderID == nil || folders[entry.folderID!] != nil else { throw Failure.invalid("invalid note") }
+            guard UUID(uuidString: entry.id) != nil, ["md", "markdown", "txt", "fountain"].contains(entry.fileExtension), !entry.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, entry.folderID == nil || folders[entry.folderID!] != nil else { throw Failure.invalid("invalid note") }
         }
     }
 
@@ -359,9 +434,8 @@ final class MetadataStore {
                     if values.isDirectory != true, ["md", "markdown", "txt", "fountain"].contains(file.pathExtension.lowercased()) {
                         var id = UUID(uuidString: file.deletingPathExtension().lastPathComponent)?.uuidString.lowercased() ?? UUID().uuidString.lowercased()
                         if plan.notes.contains(where: { $0.id == id }) { id = UUID().uuidString.lowercased() }
-                        let displayName = Self.availableName(Self.legacyDisplayName(file), folderID: parentID, excluding: nil, in: plan)
-                        var entry = Entry(id: id, name: displayName, folderID: parentID, fileExtension: file.pathExtension.lowercased(), legacyPath: relative)
-                        if let heading = Self.legacyContentTitle(file), heading != displayName { entry.aliases = [heading] }
+                        let displayName = try Self.availableName(file.deletingPathExtension().lastPathComponent, folderID: parentID, excluding: nil, in: plan)
+                        let entry = Entry(id: id, name: displayName, folderID: parentID, fileExtension: file.pathExtension.lowercased(), legacyPath: relative)
                         plan.notes.append(entry)
                     } else if values.isDirectory == true, !["Trash", "trash", "images", "assets", "i", "files"].contains(file.lastPathComponent) {
                         // Nested repositories keep their independent storage and Git root.
@@ -426,29 +500,6 @@ final class MetadataStore {
             }
         }
         if waiting { throw Failure.invalid("iCloud files must finish downloading before migration; original files and metadata have been retained") }
-    }
-
-    private static func legacyDisplayName(_ file: URL) -> String {
-        let filename = file.deletingPathExtension().lastPathComponent
-        return UUID(uuidString: filename) == nil ? filename : legacyContentTitle(file) ?? "Untitled Note"
-    }
-
-    private static func legacyContentTitle(_ file: URL) -> String? {
-        let body = file
-
-        guard let text = try? String(contentsOf: body, encoding: .utf8) else { return nil }
-        var lines = text.components(separatedBy: .newlines)
-        if lines.first == "---", let closing = lines.dropFirst().firstIndex(of: "---") {
-            if let title = lines[1..<closing].first(where: { $0.hasPrefix("title:") }) {
-                let value = String(title.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-                if !value.isEmpty { return value }
-            }
-            lines = Array(lines.dropFirst(closing + 1))
-        }
-        guard var first = lines.first(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
-        while first.hasPrefix("#") { first.removeFirst() }
-        first = first.trimmingCharacters(in: .whitespaces)
-        return first.isEmpty || first.hasPrefix("![") ? nil : String(first.prefix(100))
     }
 
     private func validateMigrationPlan(_ plan: Snapshot) throws {

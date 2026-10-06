@@ -335,4 +335,12 @@ extension Note {
         applyMetadata()
         return true
     }
+
+    func deleteMetadataPermanently() throws {
+        guard let store = metadataStore, let entry = store.entry(at: url) else {
+            throw MetadataStore.Failure.invalid("missing note metadata")
+        }
+        try store.deletePermanently(id: entry.id)
+        project.storage.removeBy(note: self)
+    }
 }

@@ -495,7 +495,7 @@ class ViewController: EditorViewController,
         search.searchesMenu!.popUp(positioning: general, at: NSPoint(x: 5, y: search.frame.height + 7), in: search)
     }
 
-    @IBAction func searchAndCreate(_ sender: Any) {
+    @IBAction func focusSearch(_ sender: Any) {
         AppDelegate.mainWindowController?.window?.makeKeyAndOrderFront(nil)
 
         guard let vc = ViewController.shared() else { return }
@@ -920,17 +920,6 @@ class ViewController: EditorViewController,
         sidebarOutlineView.keyDown(with: nsEvent)
     }
 
-    @IBAction func makeNote(_ sender: SearchTextField) {
-        guard let vc = ViewController.shared() else { return }
-
-        if let type = vc.getSidebarType(), type == .Trash {
-            vc.sidebarOutlineView.deselectAllRows()
-        }
-
-        _ = createNote(name: sender.stringValue)
-        sender.stringValue = String()
-    }
-
     @IBAction func fileMenuNewNote(_ sender: Any) {
         AppDelegate.mainWindowController?.window?.makeKeyAndOrderFront(nil)
 
@@ -1230,11 +1219,6 @@ class ViewController: EditorViewController,
         operation.addExecutionBlock { [weak self, weak operation] in
             guard let self = self, let operation = operation, !operation.isCancelled else { return }
 
-            let projects = Storage.shared().searchQuery.projects
-            for project in projects {
-                self.preLoadNoteTitles(in: project)
-            }
-
             let source = self.storage.noteList
             var notes = [Note]()
 
@@ -1274,22 +1258,6 @@ class ViewController: EditorViewController,
         }
 
         self.searchQueue.addOperation(operation)
-    }
-
-    /*
-     Load titles in cases sort by Title
-     */
-    private func preLoadNoteTitles(in project: Project) {
-        if (UserDefaultsManagement.sort == .title || project.settings.sortBy == .title) && project.settings.isFirstLineAsTitle() {
-            let notes = storage.noteList.filter({ $0.project == project })
-            for note in notes {
-                if !note.isLoaded {
-                    note.load()
-                }
-
-                note.loadPreviewInfo()
-            }
-        }
     }
 
     public func reloadFonts() {

@@ -86,10 +86,10 @@ public class Note: NSObject  {
 
     // Make new
 
-    init(name: String? = nil, project: Project? = nil, type: NoteType? = nil) {
+    init(name: String, project: Project? = nil, type: NoteType? = nil) throws {
         let project = project ?? Storage.shared().getDefault()!
 
-        let name = name ?? String()
+        let name = try MetadataStore.validatedNoteName(name)
 
         self.project = project
         self.name = name
@@ -98,17 +98,14 @@ public class Note: NSObject  {
 
         let ext = self.type.getExtension()
 
-        url = NameHelper.getUniqueFileName(name: name, project: project, ext: ext)
+        url = try NameHelper.getUniqueFileName(name: name, project: project, ext: ext)
 
         super.init()
 
         self.parseURL()
         if let store = project.metadataStore {
-            do {
-                let displayName = name.isEmpty && [.date, .altDate].contains(UserDefaultsManagement.naming) ? UserDefaultsManagement.naming.getName() : name
-                _ = try store.register(id: url.deletingPathExtension().lastPathComponent, name: displayName, folderID: project.metadataFolderID, ext: ext)
-                applyMetadata()
-            } catch { NSLog("%@", error.localizedDescription) }
+            _ = try store.register(id: url.deletingPathExtension().lastPathComponent, name: name, folderID: project.metadataFolderID, ext: ext)
+            applyMetadata()
         }
     }
 
@@ -224,55 +221,16 @@ public class Note: NSObject  {
         }
     }
 
-    private func readTitleAndPreview() -> (String?, String?) {
-        guard let fileHandle = FileHandle(forReadingAtPath: url.path) else {
-            print("Can not open the file.")
-            return (nil, nil)
-        }
-        defer { fileHandle.closeFile() }
-
-        var saveChars = false
-        var title = String()
-        var preview = String()
-
-        while let char = String(data: fileHandle.readData(ofLength: 1), encoding: .utf8) {
-            if char == "\n" {
-                if saveChars {
-                    preview += " "
-                } else {
-                    saveChars = true
-                }
-                continue
-            }
-
-            if saveChars {
-                preview += char
-                if preview.count >= 100 {
-                    break
-                }
-            } else {
-                title += char
-            }
-        }
-
-        preview = preview.trimmingCharacters(in: .whitespacesAndNewlines)
-        title = title.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        return (title, preview)
-    }
-
     public func uiLoad() {
         if metadataStore != nil { load(tags: true); return }
         if let size = fileSize(atPath: self.url.path), size > 100000 {
             loadFileName()
 
-            let data = readTitleAndPreview()
-            if let title = data.0 {
-                self.title = title.trimMDSyntax()
-            }
-
-            if let preview = data.1 {
-                self.preview = preview.trimMDSyntax()
+            loadTitle()
+            if let handle = FileHandle(forReadingAtPath: url.path) {
+                defer { handle.closeFile() }
+                let data = handle.readData(ofLength: 1024)
+                preview = String(decoding: data, as: UTF8.self).trimMDSyntax().condenseWhitespace()
             }
 
             return
@@ -414,7 +372,7 @@ public class Note: NSObject  {
                 guard let project = project ?? sharedStorage.getProjectByNote(url: to) else { return false }
 
                 let ext = url.pathExtension
-                destination = NameHelper.getUniqueFileName(name: title, project: project, ext: ext)
+                destination = try NameHelper.getUniqueFileName(name: title, project: project, ext: ext)
             }
 
             try FileManager.default.moveItem(at: url, to: destination)
@@ -455,6 +413,13 @@ public class Note: NSObject  {
     @discardableResult public func remove() -> Bool {
         guard !isTrash() else { return false }
         return removeFile() != nil
+    }
+
+    func deletePermanently() throws {
+        writeLock.lock()
+        defer { writeLock.unlock() }
+        try deleteMetadataPermanently()
+        autosave.discardPending()
     }
 
     public func isEmpty() -> Bool {
@@ -762,14 +727,7 @@ public class Note: NSObject  {
 
     private func loadTitle() {
         if let entry = metadataEntry { title = entry.name; return }
-        if !project.settings.isFirstLineAsTitle() {
-            title = url
-                .deletingPathExtension()
-                .pathComponents
-                .last!
-                .replacingOccurrences(of: ":", with: "")
-                .replacingOccurrences(of: "/", with: "")
-        }
+        title = url.deletingPathExtension().lastPathComponent
     }
 
     private func loadFileName() {
@@ -837,7 +795,7 @@ public class Note: NSObject  {
         writeLock.lock()
         defer { writeLock.unlock() }
 
-        if project.metadataUnavailable || (project.metadataStore != nil && metadataEntry == nil) { return false }
+        if project.metadataUnavailable || (metadataStore != nil && metadataEntry == nil) { return false }
         let attributes = getFileAttributes()
 
         do {
@@ -920,10 +878,6 @@ public class Note: NSObject  {
         let title = url.deletingPathExtension().pathComponents.last!
             .replacingOccurrences(of: ":", with: "")
             .replacingOccurrences(of: "/", with: "")
-
-        if title.isValidUUID {
-            return ""
-        }
 
         return title
     }
@@ -1074,7 +1028,7 @@ public class Note: NSObject  {
             endName += " Copy"
         }
 
-        let dstUrl = NameHelper.getUniqueFileName(name: endName, project: project, ext: ext)
+        guard let dstUrl = try? NameHelper.getUniqueFileName(name: endName, project: project, ext: ext) else { return nil }
 
         return dstUrl.deletingPathExtension().lastPathComponent
     }
@@ -1097,28 +1051,7 @@ public class Note: NSObject  {
             isParsed = true
         }
 
-        if content.string.hasPrefix("---") {
-            if parseYAMLBlock() {
-                return
-            }
-        }
-
-        if project.settings.isFirstLineAsTitle() {
-            let lines = getNonEmptyLines()
-            if !lines.isEmpty {
-                title = lines.first!.trim()
-
-                let result = lines.dropFirst()
-                preview =
-                    result.joined(separator: " ")
-                        .trimMDSyntax()
-                        .condenseWhitespace()
-
-                return
-            }
-        }
-
-        loadTitleFromFileName()
+        loadTitle()
         preview = getPreviewLabel()
     }
 
@@ -1165,11 +1098,7 @@ public class Note: NSObject  {
     }
 
     @objc public func getName() -> String {
-        if title.isValidUUID {
-            return "Untitled Note"
-        }
-
-        return title
+        return getFileName()
     }
 
     public func getCacheForPreviewImage(at url: URL) -> URL? {
@@ -1212,43 +1141,12 @@ public class Note: NSObject  {
     }
 
     public func getShortTitle() -> String {
-        let fileName = getFileName()
-
-        if fileName.isValidUUID {
-            return "▽"
-        }
-
-        return fileName
+        return getFileName()
     }
 
     public func getTitle() -> String? {
-
-        #if os(iOS)
-        if !project.settings.isFirstLineAsTitle() {
-            return getFileName()
-        }
-        #endif
-
-        if title.count > 0 {
-            if title.isValidUUID && project.settings.isFirstLineAsTitle() {
-                return nil
-            }
-
-            if title.starts(with: "![") {
-                return nil;
-            }
-
-            return title
-        }
-
-        if getFileName().isValidUUID {
-            let previewCharsQty = preview.count
-            if previewCharsQty > 0 {
-                return "Untitled Note"
-            }
-        }
-
-        return nil
+        let name = getFileName()
+        return name.isEmpty ? nil : name
     }
 
     public func rename(to name: String) {
@@ -1350,38 +1248,6 @@ public class Note: NSObject  {
         return uploadPath != nil
     }
 
-    public func getAutoRenameTitle() -> String? {
-        if metadataStore != nil {
-            guard [.autoRename, .autoRenameNew].contains(UserDefaultsManagement.naming) else { return nil }
-            if UserDefaultsManagement.naming == .autoRenameNew && isOlderThan30Seconds(from: creationDate) { return nil }
-            let proposed = (content.string.hasPrefix("---") ? loadYaml(components: content.string.components(separatedBy: .newlines))?.0 : getNonEmptyLines().first)?.trim().trunc(length: 64) ?? ""
-            return proposed.isEmpty || proposed == fileName ? nil : proposed
-        }
-        if UserDefaultsManagement.naming != .autoRename && UserDefaultsManagement.naming != .autoRenameNew {
-            return nil
-        }
-
-        if UserDefaultsManagement.naming == .autoRenameNew && isOlderThan30Seconds(from: creationDate) {
-            return nil
-        }
-
-        if content.string.startsWith(string: "---") {
-            loadPreviewInfo()
-        }
-
-        let title = title.trunc(length: 64)
-
-        if fileName == title || title.count == 0 {
-            return nil
-        }
-
-        if project.fileExist(fileName: title, ext: url.pathExtension) {
-            return nil
-        }
-
-        return title
-    }
-
     public func setSelectedRange(range: NSRange? = nil) {
         selectedRange = range
     }
@@ -1401,13 +1267,6 @@ public class Note: NSObject  {
     public func getRelatedPath() -> String {
         if let store = metadataStore { return store.root.path.md5 + "/" + url.deletingPathExtension().lastPathComponent }
         return project.getNestedPath() + "/" + name
-    }
-
-    func isOlderThan30Seconds(from date: Date? = nil) -> Bool {
-        guard let date = date else { return false }
-
-        let thirtySecondsAgo = Date().addingTimeInterval(-30)
-        return date < thirtySecondsAgo //Returns false if date is not older than 30 seconds
     }
 
     public func loadPreviewState() {

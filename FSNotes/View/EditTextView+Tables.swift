@@ -12,6 +12,7 @@ extension EditTextView {
     }
 
     func updateTableEditors() {
+        updateCodeCopyButtons()
         guard let manager = layoutManager as? LayoutManager, let container = textContainer else { return }
         manager.ensureLayout(for: container)
         let starts = Set(manager.inlineTables.map { $0.range.location })
@@ -40,6 +41,7 @@ extension EditTextView {
     }
 
     func removeTableEditors() {
+        removeCodeCopyButtons()
         for view in tableEditorViews.values {
             view.finishEditing(returnToEditor: false)
             view.removeFromSuperview()

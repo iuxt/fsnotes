@@ -21,5 +21,11 @@ The second executable compiles the production MetadataLibrary adapter with minim
 UI/model scaffolding and exercises actual file import, attachment copying, whole
 directory links, rename, note and folder moves (including subtree identity and cross-library rejection),
 duplication, persistent trash (including repeated deletion, empty notes),
+permanent deletion of bodies and unshared attachments (including shared images and pasted resources), active-note protection,
+missing bodies, malformed metadata, and rollback after failed metadata publication,
 case-insensitive title collisions, restoration, reopening and snapshot recovery.
 It does not replace the macOS/iOS application build checks or a live UI smoke test.
+
+Explicit naming coverage rejects blank creation and rename without publishing metadata,
+preserves source filenames during migration, and keeps stored names unchanged when
+images, Markdown headings, or YAML titles change. Manual rename still persists aliases.

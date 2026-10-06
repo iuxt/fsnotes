@@ -16,6 +16,30 @@ import Foundation
         let storage = Storage()
         let root = Project(storage: storage, url: store.root)
         root.isDefault = true; root.metadataStore = store
+        let physicalProject = Project(storage: storage, url: temporary.appendingPathComponent("physical"))
+        try manager.createDirectory(at: physicalProject.url, withIntermediateDirectories: true)
+        for project in [root, physicalProject] {
+            for blank in ["", " ", "\t\n"] {
+                do {
+                    _ = try NameHelper.getUniqueFileName(name: blank, project: project, ext: "md")
+                    throw NSError(domain: "blank name accepted", code: 1)
+                } catch MetadataStore.Failure.invalid(let reason) {
+                    try expect(reason == "A note name is required", "physical and UUID paths require an explicit name")
+                }
+            }
+        }
+        do {
+            _ = try NameHelper.getUniqueFileName(name: "/:", project: physicalProject, ext: "md")
+            throw NSError(domain: "empty sanitized filename accepted", code: 1)
+        } catch MetadataStore.Failure.invalid { checks += 1 }
+        let namedURL = try NameHelper.getUniqueFileName(name: "  独立名称  ", project: physicalProject, ext: "md")
+        try expect(namedURL.lastPathComponent == "独立名称.md", "physical notes use the provided name")
+        try "# Different body title".write(to: namedURL, atomically: true, encoding: .utf8)
+        let duplicateURL = try NameHelper.getUniqueFileName(name: "独立名称", project: physicalProject, ext: "md")
+        try expect(duplicateURL.lastPathComponent == "独立名称 2.md", "explicit duplicate names are made unique")
+        let uuidURL = try NameHelper.getUniqueFileName(name: "独立名称", project: root, ext: "md")
+        try expect(UUID(uuidString: uuidURL.deletingPathExtension().lastPathComponent) != nil && uuidURL.deletingLastPathComponent() == store.notesURL,
+                   "metadata notes retain UUID paths independent of explicit names")
         let trash = Project(storage: storage, url: rootURL.appendingPathComponent("Trash"))
         trash.isTrash = true
         storage.projects = [root, trash]; storage.metadataStores[store.root.path] = store
@@ -163,6 +187,66 @@ import Foundation
         _ = emptyNote.removeMetadataFile()
         _ = emptyNote.removeMetadataFile()
         try expect(manager.fileExists(atPath: emptyURL.path) && emptyNote.metadataEntry?.trashed == true, "empty note is retained in trash")
+        var permanentRejected = false
+        do { try replacement.deleteMetadataPermanently() } catch { permanentRejected = true }
+        try expect(permanentRejected, "permanent deletion rejects active notes")
+        try expect(replacement.metadataEntry != nil && manager.fileExists(atPath: replacementURL.path), "active note survives rejected deletion")
+
+        let beforePermanentDeletion = try Data(contentsOf: store.manifestURL)
+        try Data("invalid metadata".utf8).write(to: store.manifestURL, options: .atomic)
+        permanentRejected = false
+        do { try note.deleteMetadataPermanently() } catch { permanentRejected = true }
+        try expect(permanentRejected, "invalid metadata blocks permanent deletion")
+        try expect(manager.fileExists(atPath: imported.path) && manager.fileExists(atPath: imageURL.path), "invalid metadata preserves body and attachments")
+        try beforePermanentDeletion.write(to: store.manifestURL, options: .atomic)
+
+        try manager.setAttributes([.immutable: true], ofItemAtPath: store.manifestURL.path)
+        permanentRejected = false
+        do { try note.deleteMetadataPermanently() } catch { permanentRejected = true }
+        try manager.setAttributes([.immutable: false], ofItemAtPath: store.manifestURL.path)
+        try expect(permanentRejected, "failed metadata publication rejects permanent deletion")
+        try expect(try Data(contentsOf: store.manifestURL) == beforePermanentDeletion, "failed publication preserves metadata")
+        try expect(try String(contentsOf: imported, encoding: .utf8) == copiedBody, "failed publication restores the staged body")
+        try expect(try Data(contentsOf: imageURL) == Data([1,2,3]), "failed publication restores staged attachments")
+
+        try note.deleteMetadataPermanently()
+        try expect(!manager.fileExists(atPath: imported.path), "permanent deletion removes body")
+        try expect(!manager.fileExists(atPath: store.imagesURL.appendingPathComponent(identity).path), "permanent deletion removes owned attachment directory")
+        try expect(store.entry(id: identity) == nil && storage.getBy(url: imported) == nil, "permanent deletion removes metadata and memory entry")
+        try expect(!trash.metadataNotes().contains { $0.url == imported }, "deleted note disappears from trash")
+        try expect(!(try note.restoreMetadataFile()), "permanent deletion cannot be undone as a trash restore")
+        try expect(try String(contentsOf: replacementURL, encoding: .utf8) == replacementBody, "deletion preserves other notes with the same title")
+        let duplicateImageURL = duplicate.deletingLastPathComponent().appendingPathComponent(duplicateImage)
+        try expect(try Data(contentsOf: duplicateImageURL) == Data([1,2,3]), "deletion preserves other notes' resources")
+        try emptyNote.deleteMetadataPermanently()
+        try expect(!manager.fileExists(atPath: emptyURL.path), "permanent deletion supports empty notes without attachments")
+        let pastedURL = try storage.importMetadataFile(empty, to: root, name: "Pasted attachments")
+        let sharedURL = try storage.importMetadataFile(empty, to: root, name: "Shared attachments")
+        let pastedNote = storage.getBy(url: pastedURL)!
+        let sharedNote = storage.getBy(url: sharedURL)!
+        let uniqueAsset = store.imagesURL.appendingPathComponent("unique asset.png")
+        let sharedAsset = store.imagesURL.appendingPathComponent("shared.png")
+        try Data([4,5,6]).write(to: uniqueAsset)
+        try Data([7,8,9]).write(to: sharedAsset)
+        try "![unique](../images/unique%20asset.png)\n![shared](../images/shared.png)\n[external](../../sources/assets/p.png)".write(to: pastedURL, atomically: true, encoding: .utf8)
+        try "![shared](../images/shared.png)".write(to: sharedURL, atomically: true, encoding: .utf8)
+        _ = pastedNote.removeMetadataFile()
+        _ = sharedNote.removeMetadataFile()
+        try pastedNote.deleteMetadataPermanently()
+        try expect(!manager.fileExists(atPath: uniqueAsset.path), "permanent deletion removes unshared pasted resources")
+        try expect(try Data(contentsOf: sharedAsset) == Data([7,8,9]), "shared attachments remain for another trashed note")
+        try expect(manager.fileExists(atPath: source.appendingPathComponent("assets/p.png").path), "deletion leaves linked files outside the library images directory intact")
+        try sharedNote.deleteMetadataPermanently()
+        try expect(!manager.fileExists(atPath: sharedAsset.path), "deleting the last referencing note removes a shared attachment")
+        let missingURL = try storage.importMetadataFile(empty, to: child, name: "Missing body")
+        let missingNote = storage.getBy(url: missingURL)!
+        _ = missingNote.removeMetadataFile()
+        try manager.removeItem(at: missingURL)
+        try missingNote.deleteMetadataPermanently()
+        try expect(store.entry(at: missingURL) == nil, "missing files do not strand trash records")
+        let afterPermanentDeletion = try MetadataStore(root: rootURL)
+        try expect(afterPermanentDeletion.entry(id: identity) == nil, "permanent deletion persists after reopening")
+        try expect(!(try manager.contentsOfDirectory(atPath: rootURL.path)).contains { $0.hasPrefix(".fsnotes-delete-") }, "permanent deletion and rollback leave no staged files")
         let moveDestination = try storage.createMetadataFolder(in: root, name: "Move destination")!
         let moveParent = try storage.createMetadataFolder(in: root, name: "Move parent")!
         let moving = try storage.createMetadataFolder(in: moveParent, name: "Moving")!

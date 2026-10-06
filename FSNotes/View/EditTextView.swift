@@ -34,6 +34,8 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     var tableEditorViews: [Int: InlineTableEditorView] = [:]
     var isTableEditorsUpdateScheduled = false
     var isApplyingTableChange = false
+    var imagePopover: NSPopover?
+    var codeCopyButtons: [Int: InlineCodeCopyButton] = [:]
 
     public var isScrollPositionSaverLocked = false
 
@@ -56,11 +58,15 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         for view in tableEditorViews.values.sorted(by: { $0.table.range.location < $1.table.range.location }) {
             if !children.contains(where: { ($0 as? NSView) === view }) { children.append(view) }
         }
+        for button in codeCopyButtons.values.sorted(by: { $0.tag < $1.tag }) where !button.isHidden {
+            if !children.contains(where: { ($0 as? NSView) === button }) { children.append(button) }
+        }
         return children
     }
 
     override func setSelectedRanges(_ ranges: [NSValue], affinity: NSSelectionAffinity, stillSelecting: Bool) {
-        super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
+        super.setSelectedRanges(imageSelectionRanges(ranges), affinity: affinity, stillSelecting: stillSelecting)
+        needsDisplay = true
         clearTableSelections()
         refreshInlineTables()
         enterTableForSelection()
@@ -357,6 +363,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         }
 
         dragDetected = false
+        if handleImageClick(event) { return }
         if handleClickBelowTable(event) { return }
         super.mouseDown(with: event)
         saveSelectedRange()
@@ -490,6 +497,14 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         }
 
         let point = self.convert(event.locationInWindow, from: nil)
+        if codeCopyButtons.values.contains(where: { !$0.isHidden && $0.frame.contains(point) }) {
+            NSCursor.pointingHand.set()
+            return
+        }
+        if inlineImage(at: point) != nil {
+            NSCursor.pointingHand.set()
+            return
+        }
         if let tableView = tableEditorViews.values.first(where: { !$0.isHidden && $0.frame.contains(point) }) {
             tableView.updateHover(at: tableView.convert(point, from: self))
             return
@@ -828,6 +843,8 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     }
 
     func fill(note: Note, highlight: Bool = false, force: Bool = false) {
+        imagePopover?.close()
+        imagePopover = nil
         removeTableEditors()
         isScrollPositionSaverLocked = true
 
@@ -945,6 +962,8 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     }
 
     public func clear() {
+        imagePopover?.close()
+        imagePopover = nil
         removeTableEditors()
         textStorage?.setAttributedString(NSAttributedString())
         markdownView?.removeFromSuperview()
@@ -1074,7 +1093,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         defer {
             saveSelectedRange()
         }
-        if handleTableKeyDown(event) { return }
+        if handleImageKeyDown(event) || handleTableKeyDown(event) { return }
 
         // Insert the third Markdown fence backtick literally, but leave other backtick
         // input to AppKit so French accent grave composition continues to work.
@@ -1300,7 +1319,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         return calculateCompletionRange()
     }
 
-    @objc public func scanTagsAndAutoRename() {
+    @objc public func scanTags() {
         guard let vc = ViewController.shared() else { return }
         let notes = vc.tagsScannerQueue
 
@@ -1323,15 +1342,6 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
 
             if added.count > 0 {
                 outline.addTags(added)
-            }
-
-            if let title = note.getAutoRenameTitle() {
-                note.rename(to: title)
-
-                if let editorViewController = getEVC() {
-                    editorViewController.vcTitleLabel?.updateNotesTableView()
-                    editorViewController.updateTitle(note: note)
-                }
             }
 
             ViewController.shared()?.tagsScannerQueue.removeAll(where: { $0 === note })
@@ -1739,6 +1749,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
+        if let imageMenu = makeImageContextMenu(for: event) { return imageMenu }
         let menu = (super.menu(for: event)?.copy() as? NSMenu) ?? NSMenu()
 
         let editTitle = NSLocalizedString("Edit Link…", comment: "")
@@ -1833,7 +1844,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         tagsTimer = Timer.scheduledTimer(
             timeInterval: 2.5,
             target: self,
-            selector: #selector(scanTagsAndAutoRename),
+            selector: #selector(scanTags),
             userInfo: nil,
             repeats: false
         )

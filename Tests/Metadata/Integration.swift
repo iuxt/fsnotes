@@ -138,10 +138,52 @@ import Foundation
         try expect(try store.allFolders().first { $0.id == duplicate.id }?.name == "Another", "folder move preserves concurrent metadata updates")
     }
 
+    static func checkExplicitNames(in temporary: URL) throws {
+        let root = temporary.appendingPathComponent("explicit-names")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let uuidName = "2972690b-0b5c-43cc-9463-df948282b965"
+        let original = "---\ntitle: YAML title\n---\n# Content heading\n![](../images/photo.png)\n"
+        try original.write(to: root.appendingPathComponent(uuidName + ".md"), atomically: true, encoding: .utf8)
+        let store = try MetadataStore(root: root)
+        let migrated = try store.allEntries().first!
+        try expect(migrated.name == uuidName && migrated.aliases == nil, "UUID source names are preserved without reading YAML or headings")
+        let before = try Data(contentsOf: store.manifestURL)
+        for name in ["", " ", "\t\n "] {
+            do {
+                _ = try store.register(name: name, folderID: nil, ext: "md")
+                throw FailureForTest.unexpectedSuccess
+            } catch MetadataStore.Failure.invalid(let reason) {
+                try expect(reason == "A note name is required", "blank creation requires a name")
+            }
+            try expect(try Data(contentsOf: store.manifestURL) == before, "blank creation publishes no metadata")
+            do {
+                try store.renameNote(id: migrated.id, name: name)
+                throw FailureForTest.unexpectedSuccess
+            } catch MetadataStore.Failure.invalid(let reason) {
+                try expect(reason == "A note name is required", "blank rename is rejected")
+            }
+            try expect(try Data(contentsOf: store.manifestURL) == before, "blank rename retains the name and aliases")
+        }
+        let entry = try store.register(name: "  个人化数据生成问题  ", folderID: nil, ext: "md")
+        try expect(entry.name == "个人化数据生成问题", "explicit names are trimmed at creation")
+        let body = store.fileURL(entry)
+        for content in ["![](../images/6f6b050f-b76b-4f93-b01b-02107165abcd.png)", "# Changed heading", "---\ntitle: Changed YAML title\n---\nBody"] {
+            try content.write(to: body, atomically: true, encoding: .utf8)
+            let reopened = try MetadataStore(root: root)
+            try expect(reopened.entry(id: entry.id)?.name == entry.name && reopened.entry(id: entry.id)?.aliases == nil,
+                       "images, headings and YAML do not change the stored name")
+        }
+        try store.renameNote(id: entry.id, name: "手动设置的新名称")
+        try expect(store.entry(id: entry.id)?.name == "手动设置的新名称", "manual rename updates the stored name")
+        try expect(store.entry(id: entry.id)?.aliases == [entry.name], "only manual rename remembers the previous name")
+    }
+    enum FailureForTest: Error { case unexpectedSuccess }
+
     static func main() throws {
         let manager = FileManager.default
         let temporary = manager.temporaryDirectory.appendingPathComponent("fsnotes-metadata-tests-" + UUID().uuidString)
         defer { try? manager.removeItem(at: temporary) }
+        try checkExplicitNames(in: temporary)
         let root = temporary.appendingPathComponent("library")
         try manager.createDirectory(at: root.appendingPathComponent("技术/Git/assets"), withIntermediateDirectories: true)
         try manager.createDirectory(at: root.appendingPathComponent("Empty"), withIntermediateDirectories: true)
@@ -167,7 +209,7 @@ import Foundation
         let note = initial.first { $0.name == "笔记" }!
         let other = initial.first { $0.name == "Other" }!
         try expect(initial.count == 2, "ordinary notes migrate")
-        try expect(note.aliases?.contains("Title") == true, "old heading remains a link alias")
+        try expect(note.aliases == nil, "migration does not read headings into names or aliases")
         try expect(try store!.allFolders().count == 3, "nested and empty folders preserved")
         try expect(!manager.fileExists(atPath: root.appendingPathComponent("技术/Git/笔记.md").path), "legacy file removed after publishing metadata")
         let physical = store!.fileURL(note)

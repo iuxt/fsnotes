@@ -960,6 +960,27 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
     }
 
     public func createNote(content: String? = nil, pasteboard: Bool = false) {
+        let alert = UIAlertController(title: NSLocalizedString("New Note", comment: ""), message: nil, preferredStyle: .alert)
+        alert.addTextField { field in
+            field.placeholder = NSLocalizedString("Note name:", comment: "")
+        }
+        let create = UIAlertAction(title: NSLocalizedString("Create", comment: ""), style: .default) { [weak self, weak alert] _ in
+            guard let name = alert?.textFields?.first?.text,
+                  let name = try? MetadataStore.validatedNoteName(name) else { return }
+            self?.createNote(name: name, content: content, pasteboard: pasteboard)
+        }
+        create.isEnabled = false
+        if let field = alert.textFields?.first {
+            field.addAction(UIAction { [weak field, weak create] _ in
+                create?.isEnabled = (try? MetadataStore.validatedNoteName(field?.text ?? "")) != nil
+            }, for: .editingChanged)
+        }
+        alert.addAction(create)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+        (navigationController?.topViewController ?? self).present(alert, animated: true)
+    }
+
+    private func createNote(name: String, content: String?, pasteboard: Bool) {
         var currentProject: Project
         if let project = storage.getProjects().first {
             currentProject = project
@@ -974,7 +995,15 @@ class ViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizer
             currentProject = project
         }
 
-        let note = Note(name: "", project: currentProject)
+        let note: Note
+        do {
+            note = try Note(name: name, project: currentProject)
+        } catch {
+            let alert = UIAlertController(title: NSLocalizedString("Error", comment: ""), message: error.localizedDescription, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            (navigationController?.topViewController ?? self).present(alert, animated: true)
+            return
+        }
         if let content = content {
             note.content = NSMutableAttributedString(string: content)
         }

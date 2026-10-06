@@ -1,6 +1,91 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+  "Note name:": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "笔记名称："
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "筆記名稱："
+        }
+      }
+    }
+  },
+  "Create": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "创建"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "建立"
+        }
+      }
+    }
+  },
+  "Delete Permanently": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "永久删除"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "永久刪除"
+        }
+      }
+    }
+  },
+  "Permanently delete %ld selected notes and their attachments? This action cannot be undone.": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "永久删除选中的 %ld 篇笔记及其附件？此操作无法撤销。"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "永久刪除選取的 %ld 篇筆記及其附件？此操作無法復原。"
+        }
+      }
+    }
+  },
+  "Unable to delete notes permanently": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "无法永久删除笔记"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "無法永久刪除筆記"
+        }
+      }
+    }
+  },
     "..." : {
       "localizations" : {
         "cs" : {

@@ -13,7 +13,9 @@ struct MarkdownPresentation {
         let anchor: Int
 
         func isEditing(_ selections: [NSRange]) -> Bool {
-            selections.contains { selection in
+            // Images are atomic objects. Their source is edited in a separate panel.
+            if case .image = decoration { return false }
+            return selections.contains { selection in
                 if selection.length > 0 { return NSIntersectionRange(range, selection).length > 0 }
                 return selection.location >= range.location && selection.location <= NSMaxRange(range)
             }
@@ -23,8 +25,37 @@ struct MarkdownPresentation {
         case heading(Int), strong, emphasis, strike, code, codeBlock, link(String)
     }
     struct StyledRange { let range: NSRange; let style: Style }
+    struct CodeBlock { let range: NSRange; let content: String }
     let elements: [Element]
     var styles: [StyledRange] = []
+    var codeBlocks: [CodeBlock] = []
+
+    static func imageSource(altText: String, destination: String, original: String, originalAltText: String) -> String {
+        let alt = altText == originalAltText ? altText : altText
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "[", with: "\\[")
+            .replacingOccurrences(of: "]", with: "\\]")
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+        var path = destination
+        for (character, encoded) in [("\\", "%5C"), ("<", "%3C"), (">", "%3E"), ("\n", "%0A"), ("\r", "%0D")] {
+            path = path.replacingOccurrences(of: character, with: encoded)
+        }
+        // Keep an existing optional Markdown title when changing image properties.
+        var title = ""
+        if let document = cmark_parse_document(original, original.utf8.count, CMARK_OPT_DEFAULT) {
+            defer { cmark_node_free(document) }
+            if let paragraph = cmark_node_first_child(document), let image = cmark_node_first_child(paragraph),
+               cmark_node_get_type(image) == CMARK_NODE_IMAGE, let value = cmark_node_get_title(image) {
+                let text = String(cString: value)
+                if !text.isEmpty {
+                    title = " \"" + text.replacingOccurrences(of: "\\", with: "\\\\")
+                        .replacingOccurrences(of: "\"", with: "\\\"") + "\""
+                }
+            }
+        }
+        return "![" + alt + "](<" + path + ">" + title + ")"
+    }
 
     static func parse(_ source: String) -> Self {
         let text = source as NSString
@@ -42,6 +73,7 @@ struct MarkdownPresentation {
         var literalBlocks: [NSRange] = []
         var contentBlocks: [NSRange] = []
         var styles: [StyledRange] = []
+        var codeBlocks: [CodeBlock] = []
         var expressions: [String: NSRegularExpression] = [:]
         var listNumbers: [UnsafeMutablePointer<cmark_node>: Int] = [:]
         let escapedPunctuation = try! NSRegularExpression(pattern: ##"\\[!\"#$%&'()*+,\-./:;<=>?@\[\]\\^_`{|}~]"##)
@@ -153,6 +185,7 @@ struct MarkdownPresentation {
                 return
             case "code_block":
                 styles.append(StyledRange(range: range, style: .codeBlock))
+                codeBlocks.append(CodeBlock(range: range, content: cmark_node_get_literal(node).map { String(cString: $0) } ?? ""))
                 literalBlocks.append(range)
                 let first = Int(cmark_node_get_start_line(node)), last = Int(cmark_node_get_end_line(node))
                 let opening = lines.content(at: first)
@@ -215,7 +248,7 @@ struct MarkdownPresentation {
             guard !contentBlocks.contains(where: { NSIntersectionRange($0, result.range).length > 0 }) else { continue }
             add(result.range, [text.lineRange(for: result.range)])
         }
-        return Self(elements: elements, styles: styles)
+        return Self(elements: elements, styles: styles, codeBlocks: codeBlocks)
     }
 
     private static func labelRange(in range: NSRange, text: NSString) -> NSRange? {

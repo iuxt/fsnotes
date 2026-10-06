@@ -18,7 +18,6 @@ class ProjectSettingsViewController: SettingsViewController {
     @IBOutlet weak var directionASC: NSButton!
     @IBOutlet weak var directionDESC: NSButton!
     @IBOutlet weak var showInAll: NSButton!
-    @IBOutlet weak var firstLineAsTitle: NSButton!
     @IBOutlet weak var nestedFoldersContent: NSButton!
     @IBOutlet weak var gitView: NSView!
     @IBOutlet weak var gitViewHeight: NSLayoutConstraint!
@@ -58,21 +57,6 @@ class ProjectSettingsViewController: SettingsViewController {
         project?.saveSettings()
     }
 
-    @IBAction func firstLineAsTitle(_ sender: NSButton) {
-        guard let project = self.project else { return }
-
-        project.settings.firstLineAsTitle = sender.state == .on
-        project.saveSettings()
-
-        let notes = Storage.shared().getNotesBy(project: project)
-        for note in notes {
-            note.invalidateCache()
-        }
-
-        guard let vc = ViewController.shared() else { return }
-        vc.notesTableView.reloadData()
-    }
-
     @IBAction func close(_ sender: Any) {
         self.dismiss(nil)
     }
@@ -93,11 +77,9 @@ class ProjectSettingsViewController: SettingsViewController {
         if project.isVirtual {
             showInAll.isEnabled = false
             nestedFoldersContent.isEnabled = false
-            firstLineAsTitle.isEnabled = false
         }
 
         showInAll.state = project.settings.showInCommon ? .on : .off
-        firstLineAsTitle.state = project.settings.isFirstLineAsTitle() ? .on : .off
         nestedFoldersContent.state = project.settings.showNestedFoldersContent ? .on : .off
 
         modificationDate.state = project.settings.sortBy == .modificationDate ? .on : .off

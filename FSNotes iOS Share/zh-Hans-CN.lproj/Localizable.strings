@@ -9,3 +9,10 @@
 
 /* No comment provided by engineer. */
 "Project" = "项目";
+
+/* Explicit name required when creating a shared note. */
+"New Note" = "新笔记";
+"Note name:" = "笔记名称：";
+"Create" = "创建";
+"Cancel" = "取消";
+"Error" = "错误";

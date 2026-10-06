@@ -50,7 +50,7 @@ class NoteViewController: EditorViewController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         if editor.tagsTimer?.isValid == true {
-            editor.scanTagsAndAutoRename()
+            editor.scanTags()
         }
         // Scheduled timers retain their targets until invalidated.
         stopEditorTimers()

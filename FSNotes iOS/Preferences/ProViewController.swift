@@ -21,8 +21,7 @@ class ProViewController: UITableViewController {
     private var rows = [
         [
             NSLocalizedString("Default Keyboard", comment: ""),
-            NSLocalizedString("Use Inline Tags", comment: ""),
-            NSLocalizedString("Use First Line as Title", comment: "")
+            NSLocalizedString("Use Inline Tags", comment: "")
         ], [
             NSLocalizedString("Sort By", comment: ""),
             NSLocalizedString("Library", comment: "")
@@ -66,10 +65,6 @@ class ProViewController: UITableViewController {
             case 1:
                 cell.accessoryView = uiSwitch
                 uiSwitch.isOn = UserDefaultsManagement.inlineTags
-                break
-            case 2:
-                cell.accessoryView = uiSwitch
-                uiSwitch.isOn = UserDefaultsManagement.firstLineAsTitle
                 break
             default:
                 break
@@ -115,10 +110,6 @@ class ProViewController: UITableViewController {
             }
 
             vc.resizeSidebar(withAnimation: true)
-        case 2:
-            guard let uiSwitch = cell.accessoryView as? UISwitch else { return }
-            UserDefaultsManagement.firstLineAsTitle = uiSwitch.isOn
-            UIApplication.getVC().notesTable.reloadData()
         default:
             return
         }

@@ -43,7 +43,6 @@ public class UserDefaultsManagement {
     private struct Constants {
         static let AppearanceTypeKey = "appearanceType"
         static let AskCommitMessage = "askCommitMessage"
-        static let AutoInsertHeader = "autoInsertHeader"
         static let AutoVersioning = "autoVersioning"
         static let AutomaticSpellingCorrection = "automaticSpellingCorrection"
         static let AutomaticQuoteSubstitution = "automaticQuoteSubstitution"
@@ -72,7 +71,6 @@ public class UserDefaultsManagement {
         static let FontSizeKey = "fontsize"
         static let FontColorKey = "fontColorKeyed"
         static let FullScreen = "fullScreen"
-        static let FirstLineAsTitle = "firstLineAsTitle"
         static let MaxChildDirs = "maxChildDirs"
         static let NoteType = "noteType"
         static let NoteExtension = "noteExtension"
@@ -918,19 +916,6 @@ public class UserDefaultsManagement {
         }
     }
 
-    static var firstLineAsTitle: Bool {
-        get {
-            if let result = shared?.object(forKey: Constants.FirstLineAsTitle) as? Bool {
-                return result
-            }
-
-            return true
-        }
-        set {
-            shared?.set(newValue, forKey: Constants.FirstLineAsTitle)
-        }
-    }
-
     static var marginSize: Float {
         get {
             if let result = shared?.object(forKey: Constants.MarginSizeKey) as? Float {
@@ -1153,31 +1138,6 @@ public class UserDefaultsManagement {
         }
         set {
             shared?.set(newValue, forKey: "lastNews")
-        }
-    }
-
-    static var naming: SettingsFilesNaming {
-        get {
-            if let result = shared?.object(forKey: "naming") as? Int, let settings = SettingsFilesNaming(rawValue: result) {
-                return settings
-            }
-
-            return .autoRename
-        }
-        set {
-            shared?.set(newValue.rawValue, forKey: "naming")
-        }
-    }
-
-    static var autoInsertHeader: Bool {
-        get {
-            if let result = shared?.object(forKey: Constants.AutoInsertHeader) as? Bool {
-                return result
-            }
-            return true
-        }
-        set {
-            shared?.set(newValue, forKey: Constants.AutoInsertHeader)
         }
     }
 

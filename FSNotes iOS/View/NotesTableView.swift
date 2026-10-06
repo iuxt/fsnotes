@@ -140,12 +140,12 @@ class NotesTableView: UITableView,
         let note = self.notes[indexPath.row]
 
         // Delete
-        let deleteAction = UIContextualAction(style: .destructive, title: NSLocalizedString("Delete", comment: "Table row action")) { [weak self] _, _, completion in
-            guard let self = self else { return }
-            guard note.remove() else { completion(false); return }
-            self.viewDelegate?.sidebarTableView.removeTags(in: [note])
-            self.removeRows(notes: [note])
-            completion(true)
+        let deleteTitle = note.isTrash()
+            ? NSLocalizedString("Delete Permanently", comment: "Delete menu")
+            : NSLocalizedString("Delete", comment: "Table row action")
+        let deleteAction = UIContextualAction(style: .destructive, title: deleteTitle) { [weak self] _, _, completion in
+            guard let self = self else { completion(false); return }
+            self.removeAction(notes: [note], completion: completion)
         }
         deleteAction.image = UIImage(systemName: "trash")
 
@@ -177,7 +177,7 @@ class NotesTableView: UITableView,
         pinAction.image = note.isPinned ? UIImage(systemName: "pin.slash") : UIImage(systemName: "pin")
         pinAction.backgroundColor = UIColor(red: 0.24, green: 0.59, blue: 0.94, alpha: 1.0)
 
-        let config = UISwipeActionsConfiguration(actions: note.isTrash() ? [pinAction] : [deleteAction, pinAction])
+        let config = UISwipeActionsConfiguration(actions: [deleteAction, pinAction])
         config.performsFirstActionWithFullSwipe = true
         return config
     }
@@ -223,10 +223,6 @@ class NotesTableView: UITableView,
                 break
             case "delete":
                 self.removeAction(notes: [note])
-
-                if editor {
-                    UIApplication.getEVC().cancel()
-                }
             case "calendar":
                 self.dateAction(notes: [note])
             case "duplicate":
@@ -270,10 +266,10 @@ class NotesTableView: UITableView,
 
         var actions = [UIAction]()
 
-        let deleteTitle = NSLocalizedString("Delete", comment: "")
-        if !note.isTrash() {
-            actions.append(UIAction(title: deleteTitle, image: UIImage(systemName: "trash"), identifier: UIAction.Identifier("delete"), attributes: .destructive, handler: handler))
-        }
+        let deleteTitle = note.isTrash()
+            ? NSLocalizedString("Delete Permanently", comment: "Delete menu")
+            : NSLocalizedString("Delete", comment: "")
+        actions.append(UIAction(title: deleteTitle, image: UIImage(systemName: "trash"), identifier: UIAction.Identifier("delete"), attributes: .destructive, handler: handler))
 
         let calendarTitle = NSLocalizedString("Change Creation Date", comment: "")
         let calendarImage = UIImage(systemName: "calendar")
@@ -662,13 +658,70 @@ class NotesTableView: UITableView,
         }
     }
 
-    public func removeAction(notes: [Note]) {
-        guard let vc = viewDelegate else { return }
+    public func removeAction(notes: [Note], completion: ((Bool) -> Void)? = nil) {
+        guard let vc = viewDelegate, !notes.isEmpty else { completion?(false); return }
+
+        if notes.allSatisfy({ $0.isTrash() }) {
+            let presenter = vc.navigationController?.topViewController ?? vc
+            let alert = UIAlertController(
+                title: NSLocalizedString("Delete Permanently", comment: "Delete menu"),
+                message: String(format: NSLocalizedString("Permanently delete %ld selected notes and their attachments? This action cannot be undone.", comment: "Delete confirmation"), notes.count),
+                preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: "Delete menu"), style: .cancel) { _ in completion?(false) })
+            alert.addAction(UIAlertAction(title: NSLocalizedString("Delete Permanently", comment: "Delete menu"), style: .destructive) { _ in
+                var deleted = [Note]()
+                var errors = [String]()
+                for note in notes {
+                    do {
+                        try note.deletePermanently()
+                        deleted.append(note)
+                    } catch {
+                        errors.append(note.fileName + ": " + error.localizedDescription)
+                        if note.metadataEntry == nil {
+                            vc.storage.removeBy(note: note)
+                            deleted.append(note)
+                        }
+                    }
+                }
+                for note in deleted {
+                    note.removeCacheForPreviewImages()
+                    note.undoManager.removeAllActions()
+                }
+                self.finishRemoving(notes: deleted)
+                completion?(!deleted.isEmpty)
+                if !errors.isEmpty {
+                    let errorAlert = UIAlertController(title: NSLocalizedString("Unable to delete notes permanently", comment: "Delete error"), message: errors.joined(separator: "\n"), preferredStyle: .alert)
+                    errorAlert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
+                    let showError = { (vc.navigationController?.topViewController ?? vc).present(errorAlert, animated: true) }
+                    if let transition = vc.navigationController?.transitionCoordinator {
+                        transition.animate(alongsideTransition: nil) { _ in showError() }
+                    } else {
+                        showError()
+                    }
+                }
+            })
+            presenter.present(alert, animated: true)
+            return
+        }
 
         let notes = notes.filter { !$0.isTrash() && $0.remove() }
-        guard !notes.isEmpty else { return }
+        finishRemoving(notes: notes)
+        completion?(!notes.isEmpty)
+    }
+
+    private func finishRemoving(notes: [Note]) {
+        guard let vc = viewDelegate, !notes.isEmpty else { return }
         vc.sidebarTableView.removeTags(in: notes)
         removeRows(notes: notes)
+
+        if let editor = vc.editorViewController, let note = editor.note,
+           notes.contains(where: { $0 === note }) {
+            editor.tagsTimer?.invalidate()
+            editor.rowUpdaterTimer.invalidate()
+            editor.editArea?.undoManager?.removeAllActions()
+            editor.note = nil
+            editor.cancel()
+        }
 
         allowsMultipleSelectionDuringEditing = false
         setEditing(false, animated: true)
@@ -859,7 +912,7 @@ class NotesTableView: UITableView,
             let dst = NameHelper.generateCopy(file: note.url)
 
             let name = dst.deletingPathExtension().lastPathComponent
-            let noteDupe = Note(name: name, project: note.project, type: note.type)
+            guard let noteDupe = try? Note(name: name, project: note.project, type: note.type) else { continue }
             noteDupe.content = NSMutableAttributedString(string: note.content.string)
 
             // Clone images

@@ -14,10 +14,9 @@ class ProjectSettingsViewController: UITableViewController {
     private var sections = [
         NSLocalizedString("Sort By", comment: ""),
         NSLocalizedString("Sort Direction", comment: ""),
-        NSLocalizedString("Visibility", comment: ""),
-        NSLocalizedString("Notes List", comment: "")
+        NSLocalizedString("Visibility", comment: "")
     ]
-    private var rowsInSections = [4, 2, 2, 1]
+    private var rowsInSections = [4, 2, 2]
 
     init(project: Project, dismiss: Bool = false) {
         self.project = project
@@ -91,7 +90,7 @@ class ProjectSettingsViewController: UITableViewController {
     }
 
     override func numberOfSections(in tableView: UITableView) -> Int {
-        return 4
+        return sections.count
     }
 
     override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
@@ -191,14 +190,6 @@ class ProjectSettingsViewController: UITableViewController {
             }
         }
 
-        if indexPath.section == 0x03 {
-            cell.accessoryView = uiSwitch
-            uiSwitch.isOn = project.settings.isFirstLineAsTitle()
-            uiSwitch.isEnabled = !project.isVirtual
-
-            cell.textLabel?.text = NSLocalizedString("Use First Line as Title", comment: "")
-        }
-
         return cell
     }
 
@@ -230,16 +221,6 @@ class ProjectSettingsViewController: UITableViewController {
                     }
                 }
             }
-        } else if indexPath.section == 0x03 {
-            guard let uiSwitch = cell.accessoryView as? UISwitch else { return }
-            project.settings.firstLineAsTitle = uiSwitch.isOn
-
-            let notes = Storage.shared().getNotesBy(project: project)
-            for note in notes {
-                note.invalidateCache()
-            }
-
-            vc.reloadNotesTable()
         }
 
         project.saveSettings()

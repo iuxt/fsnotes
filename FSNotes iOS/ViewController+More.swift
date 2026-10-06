@@ -400,10 +400,12 @@ extension ViewController: UIDocumentPickerDelegate {
 
             if #available(iOS 14.0, *) {
                 var items = [UIBarButtonItem]()
-                if mvc.lastSidebarItem?.type != .Trash {
-                    items.append(UIBarButtonItem(image: deleteImage, style: .plain, target: self, action: #selector(removeNotes)))
-                    items.append(UIBarButtonItem.flexibleSpace())
-                }
+                let deleteButton = UIBarButtonItem(image: deleteImage, style: .plain, target: self, action: #selector(removeNotes))
+                deleteButton.accessibilityLabel = mvc.lastSidebarItem?.type == .Trash
+                    ? NSLocalizedString("Delete Permanently", comment: "Delete menu")
+                    : NSLocalizedString("Delete", comment: "Delete menu")
+                items.append(deleteButton)
+                items.append(UIBarButtonItem.flexibleSpace())
                 items.append(UIBarButtonItem(image: calendarImage, style: .plain, target: self, action: #selector(calendarNotes)))
                 items.append(UIBarButtonItem.flexibleSpace())
                 items.append(UIBarButtonItem(image: duplicateImage, style: .plain, target: self, action: #selector(duplicateNotes)))

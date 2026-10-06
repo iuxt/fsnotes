@@ -275,7 +275,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(newWindow)
 
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: NSLocalizedString("Search and create", comment: ""), action: #selector(AppDelegate.searchAndCreate(_:)), keyEquivalent: "l"))
+        menu.addItem(NSMenuItem(title: NSLocalizedString("Search", comment: ""), action: #selector(AppDelegate.focusSearch(_:)), keyEquivalent: "l"))
         menu.addItem(NSMenuItem(title: NSLocalizedString("Settings", comment: ""), action: #selector(AppDelegate.openPreferences(_:)), keyEquivalent: ","))
 
         menu.addItem(NSMenuItem.separator())
@@ -364,7 +364,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ViewController.shared()?.createInNewWindow(self)
     }
 
-    @IBAction func searchAndCreate(_ sender: Any?) {
+    @IBAction func focusSearch(_ sender: Any?) {
         AppDelegate.mainWindowController?.makeNew()
         NSApp.activate(ignoringOtherApps: true)
 

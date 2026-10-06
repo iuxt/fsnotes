@@ -4,6 +4,7 @@ import Cocoa
 enum MarkdownEditorStyle {
     static let cornerRadius: CGFloat = 9
     static let blockInset: CGFloat = 14
+    static let codeCopyButtonSize: CGFloat = 24
     static let tablePadding: CGFloat = 12
     static let headingScales: [CGFloat] = [1.75, 1.45, 1.25, 1.12, 1.06, 1]
     static var hairline: NSColor { .labelColor.withAlphaComponent(0.09) }
@@ -62,7 +63,10 @@ extension MarkdownPresentation {
                     style.paragraphSpacingBefore = 0
                 }
                 let first = source.paragraphRange(for: NSRange(location: styled.range.location, length: 0))
-                update(first) { $0.paragraphSpacingBefore = font.pointSize * 0.7 }
+                update(first) {
+                    $0.paragraphSpacingBefore = font.pointSize * 0.7
+                    $0.tailIndent = -(MarkdownEditorStyle.blockInset + MarkdownEditorStyle.codeCopyButtonSize + 8)
+                }
                 let last = source.paragraphRange(for: NSRange(location: max(styled.range.location, NSMaxRange(styled.range) - 1), length: 0))
                 update(last) { $0.paragraphSpacing = font.pointSize * 0.7 }
             default: break

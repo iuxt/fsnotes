@@ -42,11 +42,14 @@ class SearchQuery {
     }
 
     public func isFit(note: Note) -> Bool {
+        // Text searches span the library; sidebar filters only apply while browsing.
+        if !filter.isEmpty {
+            guard !note.name.isEmpty, !note.isTrash(), let terms = terms else { return false }
+            return isMatched(note: note, terms: terms)
+        }
+
         return !note.name.isEmpty
             && (
-                self.filter.isEmpty
-                || self.terms != nil && self.isMatched(note: note, terms: self.terms!)
-            ) && (
                 self.type == .All && note.project.isVisibleInCommon()
                 || self.type == .Trash
                 || self.type == .Untagged && note.tags.count == 0

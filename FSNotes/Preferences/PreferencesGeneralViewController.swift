@@ -24,7 +24,6 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
     @IBOutlet weak var workspacePathLabel: NSTextField!
     @IBOutlet weak var searchFocusOnESC: NSButton!
     @IBOutlet weak var defaultExtension: NSPopUpButton!
-    @IBOutlet weak var filesNaming: NSPopUpButton!
     @IBOutlet weak var automaticConflictsResolution: NSButton!
     @IBOutlet weak var textMatchAutoSelection: NSButton!
     @IBOutlet weak var hideOnDeactivate: NSButton!
@@ -50,7 +49,6 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
 
         searchFocusOnESC.state = UserDefaultsManagement.shouldFocusSearchOnESCKeyDown ? .on : .off
 
-        filesNaming.selectItem(withTag: UserDefaultsManagement.naming.tag)
 
         let ext = UserDefaultsManagement.noteExtension
         defaultExtension.selectItem(withTitle: "." + ext)
@@ -87,14 +85,6 @@ class PreferencesGeneralViewController: NSViewController, NSTextFieldDelegate {
 
         UserDefaultsManagement.noteExtension = ext
         UserDefaultsManagement.fileFormat = .Markdown
-    }
-
-    @IBAction func filesNaming(_ sender: NSPopUpButton) {
-        guard let item = sender.selectedItem else { return }
-
-        if let naming = SettingsFilesNaming(rawValue: item.tag) {
-            UserDefaultsManagement.naming = naming
-        }
     }
 
     @IBAction func automaticConflictsResolution(_ sender: NSButton) {

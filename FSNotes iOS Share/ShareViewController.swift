@@ -127,7 +127,24 @@ class ShareViewController: SLComposeServiceViewController {
     }
 
     override func didSelectPost() {
-        saveNote()
+        let alert = UIAlertController(title: NSLocalizedString("New Note", comment: ""), message: nil, preferredStyle: .alert)
+        alert.addTextField { field in
+            field.placeholder = NSLocalizedString("Note name:", comment: "")
+        }
+        let create = UIAlertAction(title: NSLocalizedString("Create", comment: ""), style: .default) { [weak self, weak alert] _ in
+            guard let name = alert?.textFields?.first?.text,
+                  let name = try? MetadataStore.validatedNoteName(name) else { return }
+            self?.saveNote(name: name)
+        }
+        create.isEnabled = false
+        if let field = alert.textFields?.first {
+            field.addAction(UIAction { [weak field, weak create] _ in
+                create?.isEnabled = (try? MetadataStore.validatedNoteName(field?.text ?? "")) != nil
+            }, for: .editingChanged)
+        }
+        alert.addAction(create)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel))
+        present(alert, animated: true)
     }
 
     override func configurationItems() -> [Any]! {
@@ -136,18 +153,24 @@ class ShareViewController: SLComposeServiceViewController {
 
     // MARK: - Save Note
 
-    private func saveNote() {
+    private func saveNote(name: String) {
         guard let inputItems = extensionContext?.inputItems as? [NSExtensionItem] else {
             closeExtension()
             return
         }
 
-        let note = createNote()
-        processAttachments(from: inputItems, note: note)
+        do {
+            let note = try createNote(name: name)
+            processAttachments(from: inputItems, note: note)
+        } catch {
+            let alert = UIAlertController(title: NSLocalizedString("Error", comment: ""), message: error.localizedDescription, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+        }
     }
 
-    private func createNote() -> Note {
-        let note = Note()
+    private func createNote(name: String) throws -> Note {
+        let note = try Note(name: name)
         Storage.shared().add(note)
 
         var urls = UserDefaultsManagement.importURLs
