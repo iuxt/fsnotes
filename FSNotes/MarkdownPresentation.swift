@@ -303,16 +303,13 @@ import Cocoa
 
 extension MarkdownPresentation {
     func applyStyles(to content: NSMutableAttributedString, in affected: NSRange,
-                     font: NSFont, codeFont: NSFont, textColor: NSColor,
-                     codeBackground: NSColor, codeSpanBackground: NSColor) {
+                     font: NSFont, codeFont: NSFont, textColor: NSColor) {
         for styled in styles {
             let range = NSIntersectionRange(styled.range, affected)
             guard range.length > 0 else { continue }
             switch styled.style {
             case .heading(let level):
-                let scales: [CGFloat] = [2, 1.7, 1.4, 1.2, 1.1, 1.05]
-                let size = font.pointSize * scales[min(5, max(0, level - 1))]
-                let header = NSFontManager.shared.convert(NSFontManager.shared.convert(font, toSize: size), toHaveTrait: .boldFontMask)
+                let header = MarkdownEditorStyle.headingFont(level: level, base: font)
                 content.addAttribute(.font, value: header, range: range)
             case .strong, .emphasis:
                 let trait: NSFontTraitMask = { if case .strong = styled.style { return .boldFontMask }; return .italicFontMask }()
@@ -325,12 +322,12 @@ extension MarkdownPresentation {
                 content.addAttributes([.font: codeFont, .foregroundColor: textColor], range: range)
                 content.removeAttribute(.strikethroughStyle, range: range)
                 content.removeAttribute(.link, range: range)
-                let background = { if case .codeBlock = styled.style { return codeBackground }; return codeSpanBackground }()
-                content.addAttribute(.backgroundColor, value: background, range: range)
+                content.addAttribute(.backgroundColor, value: MarkdownEditorStyle.surface, range: range)
             case .link(let destination):
                 content.addAttributes([.font: font, .foregroundColor: NSColor.linkColor, .link: destination], range: range)
             }
         }
+        applyParagraphStyles(to: content, in: affected, font: font)
     }
 }
 #endif

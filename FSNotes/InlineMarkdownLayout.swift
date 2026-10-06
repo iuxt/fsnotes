@@ -40,9 +40,11 @@ extension LayoutManager {
         let height = defaultLineHeight(for: font)
         let width = max(1, container.size.width - container.lineFragmentPadding * 2)
         switch decoration {
-        case .text(let value): return NSSize(width: (value as NSString).size(withAttributes: [.font: font]).width + 8, height: height)
+        case .text(let value):
+            if value == "☐" || value == "☑" { return NSSize(width: 22, height: height) }
+            return NSSize(width: (value as NSString).size(withAttributes: [.font: font]).width + 8, height: height)
         case .literal(let value), .footnote(let value): return NSSize(width: (value as NSString).size(withAttributes: [.font: font]).width, height: height)
-        case .quote: return NSSize(width: 14, height: height)
+        case .quote: return NSSize(width: 20, height: height)
         case .rule: return NSSize(width: width, height: height)
         case .image(let destination, let title):
             if let image = markdownImage(destination) {
@@ -105,19 +107,28 @@ extension LayoutManager {
                               width: size.width, height: size.height)
             switch decoration {
             case .text(let text), .literal(let text), .footnote(let text):
+                if case .text = decoration, text == "☐" || text == "☑" {
+                    drawTaskCheckbox(checked: text == "☑", in: rect)
+                    continue
+                }
                 var color = textStorage?.attribute(.foregroundColor, at: index, effectiveRange: nil) as? NSColor ?? NSColor.labelColor
                 if case .text = decoration { color = .labelColor }
                 (text as NSString).draw(at: NSPoint(x: rect.minX, y: rect.minY),
                     withAttributes: [.font: markdownDecorationFont(decoration, at: index), .foregroundColor: color])
             case .quote:
-                NSColor.separatorColor.setFill()
-                NSRect(x: rect.minX + 2, y: rect.minY, width: 3, height: line.height).fill()
+                let range = markdownPresentation.elements.first { $0.anchor == index && $0.decoration == .quote }?.range
+                let height = range.map { boundingRect(forGlyphRange: glyphRange(forCharacterRange: $0, actualCharacterRange: nil), in: container).height } ?? line.height
+                NSColor.labelColor.withAlphaComponent(0.19).setFill()
+                NSBezierPath(roundedRect: NSRect(x: rect.minX + 2, y: rect.minY + 2, width: 2.5, height: max(1, height - 4)), xRadius: 1.25, yRadius: 1.25).fill()
             case .rule:
-                NSColor.separatorColor.setFill()
+                MarkdownEditorStyle.hairline.setFill()
                 NSRect(x: rect.minX, y: rect.midY, width: rect.width, height: 1).fill()
             case .image(let destination, let title):
                 if let image = markdownImage(destination) {
+                    NSGraphicsContext.saveGraphicsState()
+                    NSBezierPath(roundedRect: rect, xRadius: MarkdownEditorStyle.cornerRadius, yRadius: MarkdownEditorStyle.cornerRadius).addClip()
                     image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+                    NSGraphicsContext.restoreGraphicsState()
                 } else {
                     (imageLabel(title, destination) as NSString).draw(in: rect,
                         withAttributes: [.font: UserDefaultsManagement.noteFont, .foregroundColor: NSColor.secondaryLabelColor])
@@ -125,4 +136,27 @@ extension LayoutManager {
             }
         }
     }
+    private func drawTaskCheckbox(checked: Bool, in rect: NSRect) {
+        let size = min(14, rect.height - 4)
+        let box = NSRect(x: rect.minX + 1, y: rect.minY + (rect.height - size) / 2, width: size, height: size)
+        let shape = NSBezierPath(roundedRect: box, xRadius: 3, yRadius: 3)
+        if checked {
+            NSColor.controlAccentColor.setFill()
+            shape.fill()
+            NSColor.white.setStroke()
+            let check = NSBezierPath()
+            check.move(to: NSPoint(x: box.minX + 3, y: box.midY))
+            check.line(to: NSPoint(x: box.minX + 6, y: box.maxY - 4))
+            check.line(to: NSPoint(x: box.maxX - 3, y: box.minY + 4))
+            check.lineWidth = 1.5
+            check.lineCapStyle = .round
+            check.lineJoinStyle = .round
+            check.stroke()
+        } else {
+            NSColor.labelColor.withAlphaComponent(0.28).setStroke()
+            shape.lineWidth = 1
+            shape.stroke()
+        }
+    }
+
 }

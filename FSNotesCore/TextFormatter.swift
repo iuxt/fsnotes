@@ -84,7 +84,7 @@ public class TextFormatter {
                 var resultFound = false
                 let string = getAttributedString().string
 
-                NotesTextProcessor.boldRegex.matches(string, range: NSRange(0..<string.count)) { (result) -> Void in
+                NotesTextProcessor.boldRegex.matches(string, range: NSRange(0..<string.utf16.count)) { (result) -> Void in
                     guard let range = result?.range else { return }
 
                     if range.intersection(self.range) != nil {
@@ -108,7 +108,7 @@ public class TextFormatter {
 
             var selectRange = NSMakeRange(range.location + 2, 0)
             let string = attributedString.string
-            let length = string.count
+            let length = string.utf16.count
 
             if length != 0 {
                 selectRange = NSMakeRange(range.location, length + 4)
@@ -127,7 +127,7 @@ public class TextFormatter {
                 var resultFound = false
                 let string = getAttributedString().string
 
-                NotesTextProcessor.italicRegex.matches(string, range: NSRange(0..<string.count)) { (result) -> Void in
+                NotesTextProcessor.italicRegex.matches(string, range: NSRange(0..<string.utf16.count)) { (result) -> Void in
                     guard let range = result?.range else { return }
 
                     if range.intersection(self.range) != nil {
@@ -151,7 +151,7 @@ public class TextFormatter {
 
             var selectRange = NSMakeRange(range.location + 1, 0)
             let string = attributedString.string
-            let length = string.count
+            let length = string.utf16.count
 
             if length != 0 {
                 selectRange = NSMakeRange(range.location, length + 2)
@@ -168,7 +168,7 @@ public class TextFormatter {
             .replacingOccurrences(of: "**", with: "")
             .replacingOccurrences(of: "__", with: "")
 
-        let selectRange = NSRange(location: range.location, length: unBold.count)
+        let selectRange = NSRange(location: range.location, length: unBold.utf16.count)
         insertText(unBold, replacementRange: range, selectRange: selectRange)
     }
 
@@ -178,7 +178,7 @@ public class TextFormatter {
             .replacingOccurrences(of: "*", with: "")
             .replacingOccurrences(of: "_", with: "")
 
-        let selectRange = NSRange(location: range.location, length: unItalic.count)
+        let selectRange = NSRange(location: range.location, length: unItalic.utf16.count)
         insertText(unItalic, replacementRange: range, selectRange: selectRange)
     }
 
@@ -187,7 +187,7 @@ public class TextFormatter {
             .string
             .replacingOccurrences(of: "~~", with: "")
 
-        let selectRange = NSRange(location: range.location, length: unStrike.count)
+        let selectRange = NSRange(location: range.location, length: unStrike.utf16.count)
         insertText(unStrike, replacementRange: range, selectRange: selectRange)
     }
     
@@ -201,7 +201,7 @@ public class TextFormatter {
             var resultFound = false
             let string = getAttributedString().string
 
-            NotesTextProcessor.strikeRegex.matches(string, range: NSRange(0..<string.count)) { (result) -> Void in
+            NotesTextProcessor.strikeRegex.matches(string, range: NSRange(0..<string.utf16.count)) { (result) -> Void in
                 guard let range = result?.range else { return }
 
                 if range.intersection(self.range) != nil {
@@ -225,7 +225,7 @@ public class TextFormatter {
 
         var selectRange = NSMakeRange(range.location + 2, 0)
         let string = attributedString.string
-        let length = string.count
+        let length = string.utf16.count
 
         if length != 0 {
             selectRange = NSMakeRange(range.location, length + 4)

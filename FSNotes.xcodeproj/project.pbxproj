@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        F55000000000000000000171 /* MarkdownEditorStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55000000000000000000007 /* MarkdownEditorStyle.swift */; };
+        F55000000000000000000172 /* MarkdownEditorStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55000000000000000000007 /* MarkdownEditorStyle.swift */; };
+		F66000000000000000000001 /* EditTextView+MarkdownMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = F66000000000000000000003 /* EditTextView+MarkdownMenu.swift */; };
+		F66000000000000000000002 /* EditTextView+MarkdownMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = F66000000000000000000003 /* EditTextView+MarkdownMenu.swift */; };
 		F55000000000000000000161 /* InlineMarkdownLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55000000000000000000006 /* InlineMarkdownLayout.swift */; };
 		F55000000000000000000162 /* InlineMarkdownLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55000000000000000000006 /* InlineMarkdownLayout.swift */; };
 		F55000000000000000000151 /* MarkdownPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55000000000000000000005 /* MarkdownPresentation.swift */; };
@@ -936,6 +940,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+        F55000000000000000000007 /* MarkdownEditorStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownEditorStyle.swift; sourceTree = "<group>"; };
+		F66000000000000000000003 /* EditTextView+MarkdownMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditTextView+MarkdownMenu.swift"; sourceTree = "<group>"; };
 		F55000000000000000000006 /* InlineMarkdownLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineMarkdownLayout.swift; sourceTree = "<group>"; };
 		F55000000000000000000005 /* MarkdownPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownPresentation.swift; sourceTree = "<group>"; };
 		F55000000000000000000004 /* InlineTableEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InlineTableEditorView.swift"; sourceTree = "<group>"; };
@@ -1807,6 +1813,7 @@
 				11D702A52E5ADDE2004DBAEC /* LayoutManager.swift */,
 				F55000000000000000000002 /* InlineTableLayout.swift */,
 				F55000000000000000000006 /* InlineMarkdownLayout.swift */,
+				F55000000000000000000007 /* MarkdownEditorStyle.swift */,
 				F55000000000000000000005 /* MarkdownPresentation.swift */,
 				F55000000000000000000001 /* MarkdownTable.swift */,
 				D7E6ACE820832D40003599A2 /* AppDelegate+URLRoutes.swift */,
@@ -1898,6 +1905,7 @@
 				117C0E4C2EEDB9B70086419C /* EditTextView+Clicked.swift */,
 				F55000000000000000000004 /* InlineTableEditorView.swift */,
 				F55000000000000000000003 /* EditTextView+Tables.swift */,
+				F66000000000000000000003 /* EditTextView+MarkdownMenu.swift */,
 				1102DDB02EE4C277005029A6 /* EditTextView+Complete.swift */,
 				110E40A32EA039AA00C62F49 /* EditTextView+DragOperation.swift */,
 				11A6A8F92EF06B90005D000A /* EditTextView+MoveLines.swift */,
@@ -2731,6 +2739,7 @@
 				117C0E4D2EEDB9C30086419C /* EditTextView+Clicked.swift in Sources */,
 				F55000000000000000000141 /* InlineTableEditorView.swift in Sources */,
 				F55000000000000000000131 /* EditTextView+Tables.swift in Sources */,
+				F66000000000000000000001 /* EditTextView+MarkdownMenu.swift in Sources */,
 				D73BCCF228EB5EC4008B3BBC /* TreeEntry.swift in Sources */,
 				11BF067B2EE495C2006C7336 /* Perl.swift in Sources */,
 				D73BCD0428EB5EC4008B3BBC /* Repository+Commit.swift in Sources */,
@@ -2859,6 +2868,7 @@
 				11D702A72E5ADDED004DBAEC /* LayoutManager.swift in Sources */,
 				F55000000000000000000122 /* InlineTableLayout.swift in Sources */,
 				F55000000000000000000162 /* InlineMarkdownLayout.swift in Sources */,
+				F55000000000000000000172 /* MarkdownEditorStyle.swift in Sources */,
 				F55000000000000000000152 /* MarkdownPresentation.swift in Sources */,
 				F55000000000000000000112 /* MarkdownTable.swift in Sources */,
 				D73BCCFB28EB5EC4008B3BBC /* Repository.swift in Sources */,
@@ -2978,6 +2988,7 @@
 				117C0E4E2EEDB9C40086419C /* EditTextView+Clicked.swift in Sources */,
 				F55000000000000000000142 /* InlineTableEditorView.swift in Sources */,
 				F55000000000000000000132 /* EditTextView+Tables.swift in Sources */,
+				F66000000000000000000002 /* EditTextView+MarkdownMenu.swift in Sources */,
 				D73BCCF328EB5EC4008B3BBC /* TreeEntry.swift in Sources */,
 				11BF067C2EE495C2006C7336 /* Perl.swift in Sources */,
 				D73BCD0528EB5EC4008B3BBC /* Repository+Commit.swift in Sources */,
@@ -3106,6 +3117,7 @@
 				11D702A62E5ADDED004DBAEC /* LayoutManager.swift in Sources */,
 				F55000000000000000000121 /* InlineTableLayout.swift in Sources */,
 				F55000000000000000000161 /* InlineMarkdownLayout.swift in Sources */,
+				F55000000000000000000171 /* MarkdownEditorStyle.swift in Sources */,
 				F55000000000000000000151 /* MarkdownPresentation.swift in Sources */,
 				F55000000000000000000111 /* MarkdownTable.swift in Sources */,
 				D73BCCFC28EB5EC4008B3BBC /* Repository.swift in Sources */,

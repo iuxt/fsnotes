@@ -414,7 +414,7 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
 
 #if os(iOS)
         platform = "ios"
-        if UITraitCollection.current.userInterfaceStyle == .dark && archivePath == nil {
+        if UITraitCollection.current.userInterfaceStyle == .dark && archivePath == nil && print == false {
             appearance = "darkmode"
         }
 #else
@@ -429,13 +429,13 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
                 <style>
 
                     article {
-                        max-width: 1280px;
+                        max-width: 880px;
                         margin: 0 auto;
                         margin-bottom: 70px;
                     }
 
                     footer {
-                        max-width: 1280px;
+                        max-width: 880px;
                         margin: 0 auto;
                         background: white;
                         position: fixed;
@@ -509,14 +509,6 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
                           display: inline-block;
                         }
 
-                        h1 {
-                            margin-top: 0px;
-                        }
-
-                        body {
-                            margin: 0 20px;
-                        }
-
                         @media screen and (max-width: 600px) {
                             .share-button .label {
                                 display: none;
@@ -562,35 +554,18 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
     }
 
     public static func getPreviewStyle(print: Bool = false, forceLightTheme: Bool = false) -> String {
-        var theme: String? = nil
-        var fullScreen = false
-        var useFixedImageHeight = true
+        let isDark = !print && !forceLightTheme && UserDataService.instance.isDark
+        let theme = print ? "github-light" : UserDefaultsManagement.codeTheme.getCssName(isDark: isDark)
         var css = "<style>"
 
-        if print {
-            theme = "github-light"
-            fullScreen = true
-            useFixedImageHeight = false
-        }
-
-        css +=
-            useFixedImageHeight
-                ? String("img { max-height: 90vh; }")
-                : String()
-
-        if forceLightTheme {
-            theme = UserDefaultsManagement.codeTheme.getCssName(isDark: false)
-            fullScreen = true
-        } else {
-            let isDark = UserDataService.instance.isDark
-            theme = theme ?? UserDefaultsManagement.codeTheme.getCssName(isDark: isDark)
+        if !print {
+            css += "img:not(footer img, .attachment) { max-height: 90vh; }"
         }
 
         var codeStyle = String()
 
         if let bundleURL = Bundle.main.url(forResource: "MPreview", withExtension: "bundle"),
             let mPreviewBundle = Bundle(url: bundleURL),
-            let theme = theme,
             let cssURL = mPreviewBundle.url(forResource: theme, withExtension: "min.css", subdirectory: "styles"),
             let content = try? String(contentsOf: cssURL, encoding: .utf8) {
 
@@ -599,50 +574,19 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
 
         #if os(iOS)
             let codeFamilyName = UserDefaultsManagement.codeFont.familyName
-            var familyName = UserDefaultsManagement.noteFont.familyName
+            let fontSize = max(16, UserDefaultsManagement.noteFont.pointSize)
+            let codeFontSize = UserDefaultsManagement.codeFont.pointSize
             let tagColor = "#6692cb"
+            let maxImageWidth = "100%"
         #else
-            let codeFamilyName = UserDefaultsManagement.codeFont.familyName ?? ""
-            var familyName = UserDefaultsManagement.noteFont.familyName ?? ""
+            let codeFamilyName = UserDefaultsManagement.codeFont.familyName ?? "Menlo"
+            let fontSize = max(16, UserDefaultsManagement.fontSize)
+            let codeFontSize = UserDefaultsManagement.codeFontSize
             let tagColor = NSColor.tagColor.hexString
+            let maxImageWidth = String(Int(UserDefaultsManagement.imagesWidth)) + "px"
         #endif
 
-        if familyName.starts(with: ".") {
-            familyName = "Helvetica Neue";
-        }
-
-        #if os(iOS)
-            var width = 10
-        #else
-            var width = Int(ViewController.shared()!.editor.getInsetWidth())
-        #endif
-
-        if fullScreen {
-            width = 0
-        }
-
-        let codeBackground = NotesTextProcessor.getHighlighter().options.style.backgroundColor.hexString
-        var maxImageWidth = String(Int(UserDefaultsManagement.imagesWidth)) + "px"
-
-    #if os(iOS)
-        let fontSize = UserDefaultsManagement.noteFont.pointSize
-        let codeFontSize = fontSize
-
-        let tagAttributes = [NSAttributedString.Key.font: UserDefaultsManagement.codeFont]
-        let oneCharSize = ("A" as NSString).size(withAttributes: tagAttributes as [NSAttributedString.Key : Any])
-        let codeLineHeight = UserDefaultsManagement.editorLineSpacing / 2 + Float(oneCharSize.height)
-        let lineHeight = Int(UserDefaultsManagement.editorLineSpacing) + Int(UserDefaultsManagement.noteFont.lineHeight)
-
-        maxImageWidth = "auto"
-    #else
-        let fontSize = UserDefaultsManagement.fontSize
-        let codeFontSize = UserDefaultsManagement.codeFontSize
-
-        let codeLineHeight = computeDefaultLineHeight(for: UserDefaultsManagement.codeFont, lineHeightMultiple: UserDefaultsManagement.lineHeightMultiple)
-        let lineHeight = computeDefaultLineHeight(for: UserDefaultsManagement.noteFont, lineHeightMultiple: UserDefaultsManagement.lineHeightMultiple)
-    #endif
-
-        var result = """
+        let result = """
             @font-face {
                 font-family: 'Source Code Pro';
                 src: url('{WEB_PATH}fonts/SourceCodePro-Regular.ttf')
@@ -655,28 +599,19 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
                 font-weight: bold;
             }
 
-            body {font: \(fontSize)px '\(familyName)', '-apple-system'; margin: 0 \(width + 5)px; -webkit-text-size-adjust: none;}
-            code, pre {font: \(codeFontSize)px '\(codeFamilyName)', Courier, monospace, 'Liberation Mono', Menlo; line-height: \(codeLineHeight + 3)px; -webkit-text-size-adjust: none; }
-            img:not(footer img, .attachment) {display: block; margin: 0 auto; max-width: \(maxImageWidth); }
-
-            img.attachment { height: \(fontSize + 5)px; max-width: auto }
-            a[href^=\"fsnotes://open/?tag=\"] { background: \(tagColor); }
-            p, li, blockquote, dl, ol, ul { line-height: \(lineHeight)px; -webkit-text-size-adjust: none; } \(codeStyle) \(css)
-
-            code, .hljs { background: \(codeBackground); }
+            :root {
+                --preview-font-size: \(fontSize)px;
+                --preview-code-size: \(codeFontSize)px;
+                --preview-code-font: '\(codeFamilyName)', 'SFMono-Regular', Menlo, Consolas, monospace;
+                --preview-image-width: \(maxImageWidth);
+            }
+            a[href^="fsnotes://open/?tag="] { background: \(tagColor); }
+            \(codeStyle)
 
             #MathJax_Message+* {
                 margin-top: 0 !important;
             }
         """
-
-        if print {
-            result += """
-                body { -webkit-text-size-adjust: none; font-size: 1.0em;}
-                pre, code { border: 1px solid #c0c4ce; border-radius: 3px; }
-                pre, pre code { word-wrap: break-word; }
-            """
-        }
 
         css += result
         css += "</style>"

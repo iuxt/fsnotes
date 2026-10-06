@@ -12,3 +12,8 @@ cover table editing and attachment-to-source serialization.
 
 Set `FSNOTES_MARKDOWN_PREVIEW` to an absolute PNG path to capture the actual
 TextKit rendering for visual inspection.
+
+Run `bash Tests/InlineMarkdown/visual.sh` to capture the production document and
+native table editor in light and dark appearances, both reading and editing.
+Images are written to `.build/MarkdownPreviews` by default; set
+`FSNOTES_VISUAL_OUTPUT` to choose another output directory.

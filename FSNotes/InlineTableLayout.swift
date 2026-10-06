@@ -8,10 +8,10 @@ struct InlineTableLayout {
     let widths: [CGFloat]
     let heights: [CGFloat]
     let cells: [[NSAttributedString]]
-    static let padding: CGFloat = 8
-    static let side: CGFloat = 24
-    static let top: CGFloat = 22
-    static let bottom: CGFloat = 50
+    static let padding = MarkdownEditorStyle.tablePadding
+    static let side: CGFloat = 22
+    static let top: CGFloat = 24
+    static let bottom: CGFloat = 48
 
     var size: NSSize { NSSize(width: widths.reduce(0, +), height: heights.reduce(0, +)) }
     var blockSize: NSSize { NSSize(width: size.width + Self.side * 2, height: size.height + Self.top + Self.bottom) }
@@ -29,7 +29,7 @@ struct InlineTableLayout {
         return (row, column)
     }
 
-    init(table: MarkdownTable, availableWidth: CGFloat, font: NSFont) {
+    init(table: MarkdownTable, availableWidth: CGFloat, font: NSFont, columnWidths: [CGFloat]? = nil) {
         self.table = table
         self.availableWidth = availableWidth
         self.font = font
@@ -79,24 +79,18 @@ struct InlineTableLayout {
                 return NSAttributedString(string: text, attributes: [.font: cellFont])
             }
         }
-        let preferred = table.alignments.indices.map { column in
-            max(60, cellValues.indices.map {
-                max(cellValues[$0][column].size().width, editingValues[$0][column].size().width) + Self.padding * 2
-            }.max() ?? 60)
-        }
-        let total = preferred.reduce(0, +)
         let width = max(1, availableWidth)
-        let minimum = min(60, width / CGFloat(preferred.count))
-        let remaining = max(0, width - minimum * CGFloat(preferred.count))
-        let weights = preferred.map { max(0, $0 - minimum) }
-        let weight = weights.reduce(0, +)
-        let columnWidths = total <= width ? preferred : weights.map {
-            minimum + (weight > 0 ? remaining * $0 / weight : 0)
+        let measured = table.alignments.indices.map { column in
+            max(64, cellValues.indices.map { cellValues[$0][column].size().width + Self.padding * 2 }.max() ?? 64)
         }
+        let mean = measured.reduce(0, +) / CGFloat(measured.count)
+        let weights = measured.map { min(1.5, max(0.75, $0 / mean)) }
+        // Column proportions stay fixed while content is edited; text wraps inside them.
+        let resolvedWidths = columnWidths ?? weights.map { width * $0 / weights.reduce(0, +) }
         let rowHeights = cellValues.indices.map { row in
             max(ceil(font.ascender - font.descender + font.leading),
-                columnWidths.indices.map { column in
-                    let constraint = NSSize(width: max(1, columnWidths[column] - Self.padding * 2), height: CGFloat.greatestFiniteMagnitude)
+                resolvedWidths.indices.map { column in
+                    let constraint = NSSize(width: max(1, resolvedWidths[column] - Self.padding * 2), height: CGFloat.greatestFiniteMagnitude)
                     return ceil(max(cellValues[row][column].boundingRect(with: constraint,
                         options: [.usesLineFragmentOrigin, .usesFontLeading]).height,
                         editingValues[row][column].boundingRect(with: constraint,
@@ -104,32 +98,50 @@ struct InlineTableLayout {
                 }.max() ?? 0) + Self.padding * 2
         }
         cells = cellValues
-        widths = columnWidths
+        widths = resolvedWidths
         heights = rowHeights
     }
 
-    func draw(at origin: NSPoint) {
-        var y = origin.y
+    func draw(at origin: NSPoint, omittingCell editingCell: (row: Int, column: Int)? = nil, clip: NSRect) {
+        let rect = NSRect(origin: origin, size: size)
+        let outline = NSBezierPath(roundedRect: rect, xRadius: MarkdownEditorStyle.cornerRadius, yRadius: MarkdownEditorStyle.cornerRadius)
+        NSGraphicsContext.saveGraphicsState()
+        outline.addClip()
+        NSColor.textBackgroundColor.setFill()
+        rect.fill()
+        MarkdownEditorStyle.headerSurface.setFill()
+        NSRect(x: rect.minX, y: rect.minY, width: rect.width, height: heights[0]).fill()
+        var y = rect.minY
         for (rowIndex, row) in cells.enumerated() {
-            var x = origin.x
-            for (column, cell) in row.enumerated() {
-                let rect = NSRect(x: x, y: y, width: widths[column], height: heights[rowIndex])
-                (rowIndex == 0 ? NSColor.quaternaryLabelColor : NSColor.textBackgroundColor).setFill()
-                rect.fill()
-                NSColor.separatorColor.setStroke()
-                let border = NSBezierPath(rect: rect)
-                border.lineWidth = 0.5
-                border.stroke()
-                let textRect = NSRect(x: rect.minX + Self.padding, y: rect.minY + Self.padding,
-                                      width: max(1, rect.width - Self.padding * 2), height: max(1, rect.height - Self.padding * 2))
-                cell.draw(with: textRect,
-                    options: [.usesLineFragmentOrigin, .usesFontLeading])
-                x += widths[column]
+            if NSIntersectsRect(NSRect(x: rect.minX, y: y, width: rect.width, height: heights[rowIndex]), clip) {
+                var x = rect.minX
+                for (column, cell) in row.enumerated() {
+                    let cellRect = NSRect(x: x, y: y, width: widths[column], height: heights[rowIndex])
+                    if !(editingCell?.row == rowIndex && editingCell?.column == column), NSIntersectsRect(cellRect, clip) {
+                        cell.draw(with: cellRect.insetBy(dx: Self.padding, dy: Self.padding), options: [.usesLineFragmentOrigin, .usesFontLeading])
+                    }
+                    x += widths[column]
+                }
             }
             y += heights[rowIndex]
+            if rowIndex < cells.count - 1 {
+                MarkdownEditorStyle.hairline.setFill()
+                NSRect(x: rect.minX, y: y - 0.25, width: rect.width, height: 0.5).fill()
+            }
         }
+        MarkdownEditorStyle.secondaryLine.setFill()
+        var x = rect.minX
+        for width in widths.dropLast() {
+            x += width
+            NSRect(x: x - 0.25, y: rect.minY, width: 0.5, height: rect.height).fill()
+        }
+        NSGraphicsContext.restoreGraphicsState()
+        MarkdownEditorStyle.hairline.setStroke()
+        let border = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5),
+                                  xRadius: MarkdownEditorStyle.cornerRadius, yRadius: MarkdownEditorStyle.cornerRadius)
+        border.lineWidth = 1
+        border.stroke()
     }
-
 
 }
 
@@ -185,7 +197,11 @@ extension LayoutManager {
         let font = UserDefaultsManagement.noteFont
         if let cached = inlineTableLayouts[table.range.location], cached.table == table,
            cached.availableWidth == width, cached.font == font { return cached }
-        let layout = InlineTableLayout(table: table, availableWidth: width, font: font)
+        let previous = inlineTableLayouts[table.range.location]
+        let columnWidths = previous.flatMap { layout -> [CGFloat]? in
+            layout.availableWidth == width && layout.font == font && layout.widths.count == table.alignments.count ? layout.widths : nil
+        }
+        let layout = InlineTableLayout(table: table, availableWidth: width, font: font, columnWidths: columnWidths)
         inlineTableLayouts[table.range.location] = layout
         return layout
     }
@@ -202,16 +218,21 @@ extension LayoutManager {
     func refreshInlineTables() {
         guard let storage = textStorage else { return }
         let source = storage.string
+        let note = (firstTextView as? EditTextView)?.note
+        let noteChanged = inlineTableNote !== note
+        inlineTableNote = note
+        if noteChanged { inlineTableLayouts.removeAll() }
         let sourceChanged = inlineTableSource != source
         if sourceChanged {
             inlineTableSource = source
             markdownTables = MarkdownTable.parse(source)
         }
         let tables = processor?.editor?.note?.isMarkdown() == true ? markdownTables : []
-        guard sourceChanged || tables != inlineTables else { return }
+        guard sourceChanged || noteChanged || tables != inlineTables else { return }
         let affected = inlineTables + tables
         inlineTables = tables
-        inlineTableLayouts.removeAll()
+        let starts = Set(tables.map { $0.range.location })
+        inlineTableLayouts = inlineTableLayouts.filter { starts.contains($0.key) }
         for table in affected {
             let range = table.range.clamped(to: NSRange(location: 0, length: storage.length))
             if range.length > 0 { invalidateGlyphs(forCharacterRange: range, changeInLength: 0, actualCharacterRange: nil) }

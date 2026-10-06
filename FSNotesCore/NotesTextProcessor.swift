@@ -877,8 +877,7 @@ public class NotesTextProcessor {
         }
         #if os(macOS)
         MarkdownPresentation.parse(string).applyStyles(to: attributedString, in: paragraphRange,
-            font: font, codeFont: codeFont, textColor: fontColor,
-            codeBackground: codeBackground, codeSpanBackground: codeSpanBackground)
+            font: font, codeFont: codeFont, textColor: fontColor)
         #endif
     }
 

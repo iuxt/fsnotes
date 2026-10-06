@@ -29,6 +29,7 @@ class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
     var markdownImages: [String: NSImage] = [:]
     var missingMarkdownImages = Set<String>()
     var pendingMarkdownImages = Set<String>()
+    weak var inlineTableNote: Note?
     var inlineTableSource: String?
     var markdownTables: [MarkdownTable] = []
     var inlineTables: [MarkdownTable] = []
@@ -49,10 +50,7 @@ class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
         guard let container = textContainers.first else { return }
         let visible = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
         drawInlineMarkdown(in: visible, at: origin, container: container)
-        for table in inlineTables where NSIntersectionRange(table.range, visible).length > 0 {
-            let rect = inlineTableRect(table, in: container)
-            inlineTableLayout(table, in: container).draw(at: NSPoint(x: origin.x + rect.minX, y: origin.y + rect.minY))
-        }
+
     }
     
     override init() {
@@ -129,25 +127,11 @@ class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
         }
     }
 
-    private func isInCodeBlock(characterIndex: Int) -> Bool {
-        guard let textStorage = self.textStorage else {
-            return false
-        }
-        
-        let ns = textStorage.string as NSString
-        let storageFullRange = NSRange(location: 0, length: ns.length)
-
-        if characterIndex < 0 || characterIndex >= NSMaxRange(storageFullRange) {
-            return false
-        }
-        
-        return inlineCodeBlockRanges.contains { NSLocationInRange(characterIndex, $0) }
-    }
-    
     // MARK: - Drawing
     
     override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
         drawCodeBlockBackground(forGlyphRange: glyphsToShow, at: origin)
+        drawInlineCodeBackground(forGlyphRange: glyphsToShow, at: origin)
 
         super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
     }
@@ -156,72 +140,61 @@ class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
         let storageLength = self.textStorage?.length ?? 0
         let storageFullRange = NSRange(location: 0, length: storageLength)
         let safeCharRange = charRange.clamped(to: storageFullRange)
-        if color == NSColor.selectedTextBackgroundColor ||
-           color == NSColor.unemphasizedSelectedTextBackgroundColor ||
-           !isInCodeBlock(characterIndex: safeCharRange.location) {
+        if color != MarkdownEditorStyle.surface || !isInMarkdownCode(characterIndex: safeCharRange.location) {
             super.fillBackgroundRectArray(rectArray, count: rectCount, forCharacterRange: charRange, color: color)
         }
     }
     
-    private func drawCodeBlockBackground(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
-        guard let textStorage = self.textStorage,
-              let context = NSGraphicsContext.current?.cgContext else {
-            return
+    private func isInMarkdownCode(characterIndex: Int) -> Bool {
+        guard (firstTextView as? EditTextView)?.note?.isMarkdown() == true else { return false }
+        return markdownPresentation.styles.contains { styled in
+            switch styled.style {
+            case .code, .codeBlock: return NSLocationInRange(characterIndex, styled.range)
+            default: return false
+            }
         }
+    }
 
-        let storageFullRange = NSRange(location: 0, length: textStorage.length)
-        let allCodeBlocks = inlineCodeBlockRanges
-        guard let textContainer = self.textContainers.first else { return }
-        
-        let visibleCharRange = self.characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
-        let relevantCodeBlocks = allCodeBlocks.filter { codeBlock in
-            NSIntersectionRange(codeBlock, visibleCharRange).length > 0
+    private func displayedRange(_ range: NSRange) -> NSRange {
+        guard let storage = textStorage else { return NSRange(location: 0, length: 0) }
+        let safe = range.clamped(to: NSRange(location: 0, length: storage.length))
+        var start = safe.location, end = NSMaxRange(safe)
+        let source = storage.string as NSString
+        while start < end && hiddenMarkdownCharacters.contains(start) { start += 1 }
+        while end > start && (hiddenMarkdownCharacters.contains(end - 1) || source.character(at: end - 1) == 10 || source.character(at: end - 1) == 13) { end -= 1 }
+        return NSRange(location: start, length: end - start)
+    }
+
+    private func drawCodeBlockBackground(forGlyphRange visibleGlyphs: NSRange, at origin: CGPoint) {
+        guard let container = textContainers.first else { return }
+        let visible = characterRange(forGlyphRange: visibleGlyphs, actualGlyphRange: nil)
+        for block in inlineCodeBlockRanges where NSIntersectionRange(block, visible).length > 0 {
+            let range = displayedRange(block)
+            guard range.length > 0 else { continue }
+            let glyphs = glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            let textRect = boundingRect(forGlyphRange: glyphs, in: container)
+            let rect = NSRect(x: container.lineFragmentPadding + origin.x, y: textRect.minY + origin.y - 7,
+                              width: max(1, container.size.width - container.lineFragmentPadding * 2), height: textRect.height + 14)
+            let panel = NSBezierPath(roundedRect: rect, xRadius: MarkdownEditorStyle.cornerRadius, yRadius: MarkdownEditorStyle.cornerRadius)
+            MarkdownEditorStyle.surface.setFill()
+            panel.fill()
         }
-        
-        guard !relevantCodeBlocks.isEmpty else { return }
-        
-        context.saveGState()
-        
-        let backgroundColor = NotesTextProcessor.getHighlighter().options.style.backgroundColor.cgColor
-        let borderColor = NSColor.lightGray.cgColor
-        
-        for codeBlockRange in relevantCodeBlocks {  // ← теперь только релевантные блоки!
-            let sourceRange = codeBlockRange.clamped(to: storageFullRange)
-            var start = sourceRange.location, end = NSMaxRange(sourceRange)
-            while start < end && hiddenMarkdownCharacters.contains(start) { start += 1 }
-            let source = textStorage.string as NSString
-            while end > start && (hiddenMarkdownCharacters.contains(end - 1) || source.character(at: end - 1) == 10 || source.character(at: end - 1) == 13) { end -= 1 }
-            let safeCharRange = NSRange(location: start, length: end - start)
-            if safeCharRange.length == 0 { continue }
-            
-            let glyphRange = self.glyphRange(forCharacterRange: safeCharRange, actualCharacterRange: nil)
-            if glyphRange.length == 0 { continue }
-            
-            let boundingRect = self.boundingRect(forGlyphRange: glyphRange, in: textContainer)
-            if boundingRect.isEmpty { continue }
-            
-            // Padding left/right
-            let horizontalPadding: CGFloat = 5.0
-            let paddedRect = boundingRect
-                .insetBy(dx: -horizontalPadding, dy: 0)
-                .offsetBy(dx: origin.x, dy: origin.y)
-            
-            // Round borders
-            let radius: CGFloat = 5.0
-            let path = CGPath(roundedRect: paddedRect, cornerWidth: radius, cornerHeight: radius, transform: nil)
-            
-            context.setFillColor(backgroundColor)
-            context.addPath(path)
-            context.fillPath()
-            
-            // Border 1px
-            context.addPath(path)
-            context.setStrokeColor(borderColor)
-            context.setLineWidth(1.0)
-            context.strokePath()
+    }
+
+    private func drawInlineCodeBackground(forGlyphRange visibleGlyphs: NSRange, at origin: CGPoint) {
+        guard (firstTextView as? EditTextView)?.note?.isMarkdown() == true, let container = textContainers.first else { return }
+        let visible = characterRange(forGlyphRange: visibleGlyphs, actualGlyphRange: nil)
+        for styled in markdownPresentation.styles {
+            guard case .code = styled.style, NSIntersectionRange(styled.range, visible).length > 0 else { continue }
+            let range = displayedRange(styled.range)
+            guard range.length > 0 else { continue }
+            let glyphs = glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            enumerateEnclosingRects(forGlyphRange: glyphs, withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0), in: container) { rect, _ in
+                let panel = NSBezierPath(roundedRect: rect.insetBy(dx: -3, dy: 1).offsetBy(dx: origin.x, dy: origin.y), xRadius: 4, yRadius: 4)
+                MarkdownEditorStyle.surface.setFill()
+                panel.fill()
+            }
         }
-        
-        context.restoreGState()
     }
 
     public func layoutManager(

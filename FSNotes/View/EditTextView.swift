@@ -1001,26 +1001,6 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         formatter.strike()
     }
 
-    @IBAction func headerMenu(_ sender: NSMenuItem) {
-        guard let note = self.note, isEditable else { return }
-
-        guard let id = sender.identifier?.rawValue else { return }
-
-        let code =
-            Int(id.replacingOccurrences(of: "format.h", with: ""))
-
-        var string = String()
-        for index in [1, 2, 3, 4, 5, 6] {
-            string = string + "#"
-            if code == index {
-                break
-            }
-        }
-
-        let formatter = TextFormatter(textView: self, note: note)
-        formatter.header(string)
-    }
-
     @IBAction func moveSelectedLinesDown(_ sender: NSMenuItem) {
         self.moveSelectedLinesDown()
     }
@@ -1521,54 +1501,6 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         }
     }
 
-    @IBAction func insertCodeBlock(_ sender: NSButton) {
-        guard isEditable else { return }
-
-        let currentRange = selectedRange()
-
-        if currentRange.length > 0 {
-            let mutable = NSMutableAttributedString(string: "```\n")
-            if let substring = attributedSubstring(forProposedRange: currentRange, actualRange: nil) {
-                mutable.append(substring)
-
-                if substring.string.last != "\n" {
-                    mutable.append(NSAttributedString(string: "\n"))
-                }
-            }
-
-            mutable.append(NSAttributedString(string: "```\n"))
-
-            insertText(mutable, replacementRange: currentRange)
-            setSelectedRange(NSRange(location: currentRange.location + 3, length: 0))
-
-            return
-        }
-
-        insertText("```\n\n```\n", replacementRange: currentRange)
-        setSelectedRange(NSRange(location: currentRange.location + 3, length: 0))
-    }
-
-    @IBAction func insertCodeSpan(_ sender: NSMenuItem) {
-        guard isEditable else { return }
-
-        let currentRange = selectedRange()
-
-        if currentRange.length > 0 {
-            let mutable = NSMutableAttributedString(string: "`")
-            if let substring = attributedSubstring(forProposedRange: currentRange, actualRange: nil) {
-                mutable.append(substring)
-            }
-
-            mutable.append(NSAttributedString(string: "`"))
-
-            insertText(mutable, replacementRange: currentRange)
-            return
-        }
-
-        insertText("``", replacementRange: currentRange)
-        setSelectedRange(NSRange(location: currentRange.location + 1, length: 0))
-    }
-
     @IBAction func insertList(_ sender: NSMenuItem) {
         guard let note = self.note, isEditable else { return }
 
@@ -1806,16 +1738,24 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
-        let menu = super.menu(for: event)
+        let menu = (super.menu(for: event)?.copy() as? NSMenu) ?? NSMenu()
 
         let editTitle = NSLocalizedString("Edit Link…", comment: "")
-        if let editLink = menu?.item(withTitle: editTitle) {
-            menu?.removeItem(editLink)
+        if let editLink = menu.item(withTitle: editTitle) {
+            menu.removeItem(editLink)
         }
 
         let removeTitle = NSLocalizedString("Remove Link", comment: "")
-        if let removeLink = menu?.item(withTitle: removeTitle) {
-            menu?.removeItem(removeLink)
+        if let removeLink = menu.item(withTitle: removeTitle) {
+            menu.removeItem(removeLink)
+        }
+
+        if let markdownMenu = makeMarkdownContextMenu() {
+            if !menu.items.isEmpty { menu.insertItem(.separator(), at: 0) }
+            for item in markdownMenu.items.reversed() {
+                markdownMenu.removeItem(item)
+                menu.insertItem(item, at: 0)
+            }
         }
 
         return menu

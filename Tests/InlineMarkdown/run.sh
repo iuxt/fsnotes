@@ -4,7 +4,8 @@ repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 test_build="$(mktemp -d "${TMPDIR:-/tmp}/fsnotes-inline-markdown.XXXXXX")"
 trap 'rm -rf "$test_build"' EXIT
 derived_data="${FSNOTES_DERIVED_DATA:-$repo_root/.build}"
-swiftc "$repo_root/FSNotes/MarkdownPresentation.swift" \
+swiftc "$repo_root/FSNotes/MarkdownEditorStyle.swift" \
+    "$repo_root/FSNotes/MarkdownPresentation.swift" \
     "$repo_root/FSNotes/InlineMarkdownLayout.swift" \
     "$repo_root/FSNotes/MarkdownTable.swift" \
     "$repo_root/FSNotes/InlineTableLayout.swift" \

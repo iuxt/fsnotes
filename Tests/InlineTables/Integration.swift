@@ -83,6 +83,16 @@ func flushEvents() { RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         view.beginEditing(row: 1, column: 0)
         expect(window.firstResponder === view.cellEditor, "native cell editor receives focus")
         let field = view.cellEditor!
+        let beforeSwitch = editor.string
+        let beforeSwitchScroll = scroll.contentView.bounds.origin
+        view.beginEditing(row: 1, column: 1)
+        expect(view.cellEditor === field && field.string == "**bold**", "switching cells reuses native input and reveals only active source")
+        expect(scroll.contentView.bounds.origin == beforeSwitchScroll, "switching visible cells preserves scroll position")
+        view.beginEditing(row: 0, column: 0)
+        expect(NSFontManager.shared.traits(of: field.font!).contains(.boldFontMask), "header input keeps header typography")
+        view.beginEditing(row: 1, column: 0)
+        expect(!NSFontManager.shared.traits(of: field.font!).contains(.boldFontMask), "leaving header restores body typography")
+        expect(!field.drawsBackground && editor.string == beforeSwitch, "focus transitions preserve table surface and source")
         field.insertText("直接 | 编辑", replacementRange: NSRange(location: 0, length: (field.string as NSString).length))
         expect(manager.inlineTables.count == 1 && view.cellEditor === field, "typing keeps table and cell editor")
         expect(view.table.rows[1].cells[0].text == "直接 \\| 编辑", "cell edit serializes escaped Markdown")
@@ -271,6 +281,15 @@ func flushEvents() { RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         scrollField.insertText("x", replacementRange: NSRange(location: (scrollField.string as NSString).length, length: 0))
         expect(abs(scroll.contentView.bounds.origin.y - scrollOrigin.y) < 1, "cell edits do not jump to table end")
         expect(!editor.isScrollPositionSaverLocked, "scroll saving lock restored after edits")
+        let fixedWidths = view.tableLayout.widths
+        let previousHeight = view.tableLayout.heights[1]
+        scrollField.insertText(String(repeating: "较长的单元格内容 ", count: 18), replacementRange: NSRange(location: 0, length: (scrollField.string as NSString).length))
+        expect(view.tableLayout.widths == fixedWidths, "long input wraps without shifting column widths")
+        expect(view.tableLayout.heights[1] > previousHeight && view.cellEditor === scrollField, "long input grows row while keeping native input")
+        expect(scrollField.frame.height >= view.tableLayout.heights[1] - InlineTableLayout.padding * 2 - 1, "growing row keeps input fully visible")
+        view.finishEditing(returnToEditor: false)
+        view.beginEditing(row: 1, column: 1)
+        expect(view.cellEditor === scrollField && !scrollField.isHidden, "reentering table reuses native input")
         view.finishEditing(returnToEditor: false)
         container.containerSize.width = 220
         editor.updateTableEditors()

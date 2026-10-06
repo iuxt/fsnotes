@@ -25,7 +25,11 @@ final class TableCellTextView: NSTextView {
     }
 }
 
-/// Native cell editing and table controls share the table's TextKit geometry.
+private final class TableFocusIndicator: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+/// One native renderer owns both the table surface and its reusable cell editor.
 final class InlineTableEditorView: NSView, NSTextViewDelegate {
     weak var owner: EditTextView?
     weak var note: Note?
@@ -33,6 +37,10 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
     private(set) var tableLayout: InlineTableLayout
     private(set) var editingCell: (row: Int, column: Int)?
     private(set) var cellEditor: TableCellTextView?
+    private var reusableCellEditor: TableCellTextView?
+    private let focusIndicator = TableFocusIndicator()
+    private var focusTarget: NSRect?
+    private var isFocusVisible = false
     private(set) var selectedRow: Int?
     private(set) var selectedColumn: Int?
     private var hoveredRow: Int?
@@ -65,17 +73,25 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
         self.table = table
         self.tableLayout = layout
         super.init(frame: .zero)
+        focusIndicator.wantsLayer = true
+        focusIndicator.alphaValue = 0
+        focusIndicator.layer?.cornerRadius = 6
+        focusIndicator.layer?.borderWidth = 1
+        addSubview(focusIndicator)
+        updateFocusColors()
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
         setAccessibilityLabel(NSLocalizedString("Table", comment: "Inline table"))
         for button in [rowInsertButton, leftRowInsertButton, columnInsertButton, bottomColumnInsertButton, appendRowButton] {
-            button.title = "+"
-            button.font = NSFont.systemFont(ofSize: 16, weight: .medium)
+            button.image = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)
+            button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
+            button.imagePosition = .imageOnly
+            button.font = NSFont.systemFont(ofSize: 11, weight: .medium)
             button.bezelStyle = .smallSquare
             button.isBordered = false
             button.wantsLayer = true
-            button.layer?.cornerRadius = 5
-            button.contentTintColor = .controlAccentColor
+            button.layer?.cornerRadius = 9
+            button.contentTintColor = .secondaryLabelColor
             button.target = self
             button.isHidden = true
             addSubview(button)
@@ -90,6 +106,8 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
             button.toolTip = NSLocalizedString("Insert column here", comment: "Table control")
             button.setAccessibilityLabel(button.toolTip)
         }
+        appendRowButton.title = NSLocalizedString("Add row", comment: "Table control")
+        appendRowButton.imagePosition = .imageLeft
         appendRowButton.action = #selector(appendRow(_:))
         appendRowButton.toolTip = NSLocalizedString("Add row", comment: "Table control")
         appendRowButton.setAccessibilityLabel(appendRowButton.toolTip)
@@ -97,6 +115,19 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func updateFocusColors() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            focusIndicator.layer?.backgroundColor = MarkdownEditorStyle.focusSurface.cgColor
+            focusIndicator.layer?.borderColor = MarkdownEditorStyle.focusBorder.cgColor
+        }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateFocusColors()
+        needsDisplay = true
+    }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -143,27 +174,13 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
             if let event = event { cellEditor?.mouseDown(with: event) }
             return
         }
-        finishEditing(returnToEditor: false)
+        cellEditor?.unmarkText()
         clearSelection()
         editingCell = (row, column)
-        let editor = TableCellTextView(frame: .zero)
-        editor.tableView = self
-        editor.delegate = self
-        editor.isRichText = false
-        editor.allowsUndo = false
-        editor.isAutomaticQuoteSubstitutionEnabled = false
-        editor.isAutomaticDashSubstitutionEnabled = false
-        editor.isAutomaticLinkDetectionEnabled = false
-        editor.isAutomaticTextReplacementEnabled = false
+        let editor = reusableCellEditor ?? makeCellEditor()
+        editor.delegate = nil
+        editor.isHidden = false
         editor.font = row == 0 ? NSFontManager.shared.convert(tableLayout.font, toHaveTrait: .boldFontMask) : tableLayout.font
-        editor.textColor = .labelColor
-        editor.backgroundColor = .textBackgroundColor
-        editor.drawsBackground = true
-        editor.textContainerInset = NSSize(width: 0, height: 0)
-        editor.textContainer?.lineFragmentPadding = 0
-        editor.isHorizontallyResizable = false
-        editor.isVerticallyResizable = false
-        editor.autoresizingMask = []
         editor.string = editingText(row: row, column: column)
         let style = NSMutableParagraphStyle()
         switch table.alignments[column] {
@@ -173,11 +190,11 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
         }
         style.lineBreakMode = .byCharWrapping
         editor.defaultParagraphStyle = style
-        editor.typingAttributes[.paragraphStyle] = style
+        editor.typingAttributes = [.font: editor.font ?? tableLayout.font, .foregroundColor: NSColor.labelColor, .paragraphStyle: style]
+        editor.delegate = self
         editor.setAccessibilityLabel(String(format: NSLocalizedString("Table row %d, column %d", comment: "Table cell"), row + 1, column + 1))
-        addSubview(editor)
         cellEditor = editor
-        positionCellEditor()
+        positionCellEditor(animatedFocus: true)
         owner?.breakUndoCoalescing()
         owner?.isApplyingTableChange = true
         let sourceRow = table.rows[row]
@@ -185,21 +202,53 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
         owner?.setSelectedRange(NSRange(location: index, length: 0))
         owner?.saveSelectedRange()
         owner?.isApplyingTableChange = false
-        window?.makeFirstResponder(editor)
-        _ = scrollToVisible(editor.frame)
+        if window?.firstResponder !== editor { window?.makeFirstResponder(editor) }
+        if !visibleRect.contains(editor.frame) { _ = scrollToVisible(editor.frame) }
         if let event = event { editor.mouseDown(with: event) }
         else { editor.setSelectedRange(NSRange(location: (editor.string as NSString).length, length: 0)) }
         updateControls()
         needsDisplay = true
     }
 
-    private func positionCellEditor() {
+    private func makeCellEditor() -> TableCellTextView {
+        let editor = TableCellTextView(frame: .zero)
+        editor.tableView = self
+        editor.isRichText = false
+        editor.allowsUndo = false
+        editor.isAutomaticQuoteSubstitutionEnabled = false
+        editor.isAutomaticDashSubstitutionEnabled = false
+        editor.isAutomaticLinkDetectionEnabled = false
+        editor.isAutomaticTextReplacementEnabled = false
+        editor.textColor = .labelColor
+        editor.insertionPointColor = .controlAccentColor
+        editor.drawsBackground = false
+        editor.textContainerInset = .zero
+        editor.textContainer?.lineFragmentPadding = 0
+        editor.isHorizontallyResizable = false
+        editor.isVerticallyResizable = false
+        editor.autoresizingMask = []
+        addSubview(editor)
+        reusableCellEditor = editor
+        return editor
+    }
+
+    private func positionCellEditor(animatedFocus: Bool = false) {
         guard let cell = editingCell, let editor = cellEditor else { return }
         let rect = tableLayout.cellRect(row: cell.row, column: cell.column)
             .offsetBy(dx: gridRect.minX, dy: gridRect.minY)
-        editor.frame = NSRect(x: rect.minX + InlineTableLayout.padding, y: rect.minY + InlineTableLayout.padding,
-                              width: max(1, rect.width - InlineTableLayout.padding * 2),
-                              height: max(1, rect.height - InlineTableLayout.padding * 2))
+        let frame = rect.insetBy(dx: InlineTableLayout.padding, dy: InlineTableLayout.padding)
+        if editor.frame != frame { editor.frame = frame }
+        let target = rect.insetBy(dx: 3, dy: 3)
+        if focusTarget != target {
+            focusTarget = target
+            if animatedFocus && isFocusVisible {
+                MarkdownEditorStyle.animate { _ in self.focusIndicator.animator().frame = target }
+            } else { focusIndicator.frame = target }
+        }
+        if !isFocusVisible {
+            isFocusVisible = true
+            MarkdownEditorStyle.animate { _ in self.focusIndicator.animator().alphaValue = 1 }
+        }
         let alignment: NSTextAlignment
         switch table.alignments[cell.column] {
         case .left: alignment = .left
@@ -212,6 +261,7 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
 
     func finishEditing(returnToEditor: Bool) {
         guard let editor = cellEditor else { return }
+        editor.unmarkText()
         cellEditor = nil
         editingCell = nil
         editor.delegate = nil
@@ -220,7 +270,9 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
             window?.makeFirstResponder(returnToEditor ? owner : nil)
             owner?.isApplyingTableChange = false
         }
-        editor.removeFromSuperview()
+        editor.isHidden = true
+        isFocusVisible = false
+        MarkdownEditorStyle.animate { _ in self.focusIndicator.animator().alphaValue = 0 }
         owner?.breakUndoCoalescing()
         updateControls()
         needsDisplay = true
@@ -235,7 +287,7 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
     }
 
     func textDidEndEditing(_ notification: Notification) {
-        // Saving happens on each edit; ending input only removes the native cell editor.
+        // Saving happens on each edit; ending input hides the reusable cell editor.
         DispatchQueue.main.async { [weak self] in
             guard let self = self, self.window?.firstResponder !== self.cellEditor else { return }
             self.finishEditing(returnToEditor: false)
@@ -360,23 +412,25 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
                 button.tag = boundary
                 button.frame = NSRect(x: button === rowInsertButton ? gridRect.maxX + 2 : 2,
                     y: gridRect.minY + tableLayout.heights.prefix(boundary).reduce(0, +) - 10, width: 20, height: 20)
-                button.isHidden = false
-            } else { button.isHidden = true }
+                setControl(button, visible: true)
+            } else { setControl(button, visible: false) }
         }
         for button in [columnInsertButton, bottomColumnInsertButton] {
             if let boundary = hoveredColumnBoundary, enabled {
                 button.tag = boundary
                 let x = gridRect.minX + tableLayout.widths.prefix(boundary).reduce(0, +)
                 button.frame = NSRect(x: x - 10, y: button === columnInsertButton ? 0 : gridRect.maxY + 3, width: 20, height: 20)
-                button.isHidden = false
-            } else { button.isHidden = true }
+                setControl(button, visible: true)
+            } else { setControl(button, visible: false) }
         }
         if columnHandleButtons.count != table.alignments.count * 2 {
             columnHandleButtons.forEach { $0.removeFromSuperview() }
             columnHandleButtons = []
             for column in table.alignments.indices {
                 for _ in 0..<2 {
-                    let button = NSButton(title: "⠿", target: self, action: #selector(selectColumnFromHandle(_:)))
+                    let button = NSButton(image: NSImage(systemSymbolName: "ellipsis", accessibilityDescription: nil)!,
+                                          target: self, action: #selector(selectColumnFromHandle(_:)))
+                    button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
                     button.tag = column
                     button.isBordered = false
                     button.font = NSFont.systemFont(ofSize: 15)
@@ -392,45 +446,52 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
             let column = button.tag
             let x = gridRect.minX + tableLayout.widths.prefix(column).reduce(0, +) + tableLayout.widths[column] / 2
             button.frame = NSRect(x: x - 10, y: index.isMultiple(of: 2) ? 0 : gridRect.maxY + 3, width: 20, height: 20)
-            button.isHidden = !enabled || (column != selectedColumn && (!pointerInside || column != hoveredColumn))
+            setControl(button, visible: enabled && (column == selectedColumn || (pointerInside && column == hoveredColumn)))
             button.contentTintColor = column == selectedColumn ? .controlAccentColor : .secondaryLabelColor
         }
-        appendRowButton.frame = NSRect(x: gridRect.midX - 10, y: gridRect.maxY + 27, width: 20, height: 20)
-        appendRowButton.isHidden = !enabled || (!pointerInside && editingCell == nil && selectedRow == nil && selectedColumn == nil)
+        appendRowButton.frame = NSRect(x: gridRect.minX + 2, y: gridRect.maxY + 25,
+                                      width: max(78, appendRowButton.intrinsicContentSize.width + 10), height: 20)
+        setControl(appendRowButton, visible: enabled && (pointerInside || editingCell != nil || selectedRow != nil || selectedColumn != nil))
+    }
+
+    private func setControl(_ button: NSButton, visible: Bool) {
+        guard visible != !button.isHidden else { return }
+        button.isHidden = !visible
+        if visible {
+            button.alphaValue = 0
+            MarkdownEditorStyle.animate { _ in button.animator().alphaValue = 1 }
+        }
     }
 
     override func draw(_ dirtyRect: NSRect) {
+        tableLayout.draw(at: gridRect.origin, omittingCell: editingCell, clip: dirtyRect)
         if let column = selectedColumn, tableLayout.widths.indices.contains(column) {
-            NSColor.controlAccentColor.withAlphaComponent(0.14).setFill()
+            MarkdownEditorStyle.selectionSurface.setFill()
             NSRect(x: gridRect.minX + tableLayout.widths.prefix(column).reduce(0, +), y: gridRect.minY,
                    width: tableLayout.widths[column], height: gridRect.height).fill()
         }
         if let row = selectedRow, tableLayout.heights.indices.contains(row) {
-            NSColor.controlAccentColor.withAlphaComponent(0.14).setFill()
+            MarkdownEditorStyle.selectionSurface.setFill()
             NSRect(x: gridRect.minX, y: gridRect.minY + tableLayout.heights.prefix(row).reduce(0, +),
                    width: gridRect.width, height: tableLayout.heights[row]).fill()
         }
-        if let cell = editingCell {
-            let rect = tableLayout.cellRect(row: cell.row, column: cell.column).offsetBy(dx: gridRect.minX, dy: gridRect.minY)
-            NSColor.textBackgroundColor.setFill()
-            rect.insetBy(dx: 1, dy: 1).fill()
-            NSColor.controlAccentColor.setStroke()
-            let path = NSBezierPath(rect: rect.insetBy(dx: 0.5, dy: 0.5))
-            path.lineWidth = 1.5
-            path.stroke()
-        }
         for row in table.rows.indices where row == hoveredRow || row == selectedRow || row == draggingRow {
             let y = gridRect.minY + tableLayout.heights.prefix(row).reduce(0, +) + tableLayout.heights[row] / 2
-            let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 15), .foregroundColor: NSColor.secondaryLabelColor]
-            ("⠿" as NSString).draw(at: NSPoint(x: 5, y: y - 10), withAttributes: attrs)
+            NSColor.secondaryLabelColor.withAlphaComponent(0.7).setFill()
+            for column in 0..<2 {
+                for dot in 0..<3 {
+                    NSBezierPath(ovalIn: NSRect(x: 7 + CGFloat(column) * 4, y: y - 5 + CGFloat(dot) * 4,
+                                               width: 2, height: 2)).fill()
+                }
+            }
         }
-        NSColor.controlAccentColor.setStroke()
+        NSColor.controlAccentColor.withAlphaComponent(draggingRow == nil ? 0.25 : 0.8).setStroke()
         if let boundary = dropBoundary ?? hoveredRowBoundary {
             let y = gridRect.minY + tableLayout.heights.prefix(boundary).reduce(0, +)
             let path = NSBezierPath()
             path.move(to: NSPoint(x: gridRect.minX, y: y))
             path.line(to: NSPoint(x: gridRect.maxX, y: y))
-            path.lineWidth = dropBoundary == nil ? 1.5 : 3
+            path.lineWidth = dropBoundary == nil ? 1 : 2
             path.stroke()
         }
         if let boundary = hoveredColumnBoundary, draggingRow == nil {
@@ -438,7 +499,7 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
             let path = NSBezierPath()
             path.move(to: NSPoint(x: x, y: gridRect.minY))
             path.line(to: NSPoint(x: x, y: gridRect.maxY))
-            path.lineWidth = 1.5
+            path.lineWidth = 1
             path.stroke()
         }
     }

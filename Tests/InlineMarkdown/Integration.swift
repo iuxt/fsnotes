@@ -92,11 +92,11 @@ func expect(_ value: @autoclosure () -> Bool, _ message: String) {
         let storage = NSTextStorage(string: source, attributes: [.font: UserDefaultsManagement.noteFont])
         plan.applyStyles(to: storage, in: NSRange(location: 0, length: storage.length),
             font: UserDefaultsManagement.noteFont, codeFont: NSFont.monospacedSystemFont(ofSize: 14, weight: .regular),
-            textColor: .labelColor, codeBackground: .quaternaryLabelColor, codeSpanBackground: .quaternaryLabelColor)
+            textColor: .labelColor)
         let snapshot = NSAttributedString(attributedString: storage)
         let boldFont = storage.attribute(.font, at: range("粗体").location, effectiveRange: nil) as! NSFont
         expect(NSFontManager.shared.traits(of: boldFont).contains(.boldFontMask), "bold presentation style")
-        expect((storage.attribute(.font, at: range("标题").location, effectiveRange: nil) as! NSFont).pointSize == 28, "heading size")
+        expect((storage.attribute(.font, at: range("标题").location, effectiveRange: nil) as! NSFont).pointSize == UserDefaultsManagement.noteFont.pointSize * MarkdownEditorStyle.headingScales[0], "heading size")
         expect(storage.attribute(.link, at: range("reference").location, effectiveRange: nil) as? String == "https://example.com", "reference links stay clickable")
         let manager = LayoutManager()
         manager.delegate = manager
@@ -169,7 +169,7 @@ func expect(_ value: @autoclosure () -> Bool, _ message: String) {
         let taskPlan = MarkdownPresentation.parse(taskSource)
         taskPlan.applyStyles(to: storage, in: NSRange(location: 0, length: storage.length),
             font: UserDefaultsManagement.noteFont, codeFont: UserDefaultsManagement.noteFont,
-            textColor: .labelColor, codeBackground: .gray, codeSpanBackground: .gray)
+            textColor: .labelColor)
         expect(manager.markdownDecorations[0] == .text("☑"), "checked task preview")
         expect(storage.attribute(.strikethroughStyle, at: 6, effectiveRange: nil) as? Int == 1, "checked tasks retain completed styling")
 
@@ -177,7 +177,7 @@ func expect(_ value: @autoclosure () -> Bool, _ message: String) {
             storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: source)
             plan.applyStyles(to: storage, in: NSRange(location: 0, length: storage.length),
                 font: UserDefaultsManagement.noteFont, codeFont: NSFont.monospacedSystemFont(ofSize: 14, weight: .regular),
-                textColor: .labelColor, codeBackground: .quaternaryLabelColor, codeSpanBackground: .quaternaryLabelColor)
+                textColor: .labelColor)
             editor.refreshInlineTables()
             manager.ensureLayout(for: container)
             editor.frame.size.height = manager.usedRect(for: container).height + 30
