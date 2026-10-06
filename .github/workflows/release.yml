@@ -1,0 +1,114 @@
+name: Release macOS app
+
+on:
+  push:
+    tags:
+      - '**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_ARCH: ${{ matrix.arch }}
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check build tools
+        run: |
+          xcodebuild -version
+          git-lfs version
+          echo "GIT_LFS_EXECUTABLE=$(command -v git-lfs)" >> "$GITHUB_ENV"
+
+      - name: Build and package app
+        run: bash Scripts/package-release.sh "$RELEASE_TAG" "$RELEASE_ARCH"
+
+      - name: Upload release files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: macos-${{ matrix.arch }}
+          path: .build/release/dist/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: build-log-${{ matrix.arch }}
+          path: .build/release/build.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.ref_name }}
+
+    steps:
+      - name: Download both app packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: macos-*
+          merge-multiple: true
+          path: dist
+
+      - name: Verify packages and publish
+        run: |
+          cd dist
+          sha256sum --check ./*.sha256
+          files=(./*.zip ./*.sha256)
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
+          else
+            release_flags=()
+            if [[ "$RELEASE_TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+- ]]; then
+              release_flags+=(--prerelease --latest=false)
+            fi
+            cat > release-notes.md <<'NOTES'
+          Requires macOS 15 or later. Download `arm64` for Apple Silicon or `x86_64` for Intel.
+          Extract `FSNotes.app` and drag it into `/Applications`.
+
+          These builds use ad-hoc signatures and are not notarized by Apple.
+          If macOS blocks the app, allow it in System Settings → Privacy & Security → Open Anyway.
+
+          Git and Git LFS are included. SHA-256 checksums are attached alongside each ZIP.
+          NOTES
+            gh release create "$RELEASE_TAG" "${files[@]}" \
+              --verify-tag --title "FSNotes $RELEASE_TAG" \
+              --notes-file release-notes.md --generate-notes "${release_flags[@]}"
+          fi

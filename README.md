@@ -31,3 +31,28 @@ FSNotes is a fast, native notes app for macOS and iOS. It gives you a focused wr
 ## Open source
 
 FSNotes is written in **Swift 5** and released under the MIT license. App Store purchases support its continued development.
+
+## GitHub Actions releases
+
+Push a tag to build macOS apps and publish them to the matching GitHub Release:
+
+```bash
+git tag v7.3.4
+git push origin v7.3.4
+```
+
+The workflow builds with Xcode 26.2 on Apple Silicon and Intel runners. Packages require macOS 15
+or later to cover the bundled Git tools' system requirements. Once both builds succeed,
+it uploads `FSNotes-<tag>-macos-arm64.zip`, `FSNotes-<tag>-macos-x86_64.zip` and SHA-256 checksums.
+No additional secrets are required. Rerunning the workflow replaces assets in the same Release.
+Version tags such as `v7.3.4` or `v7.3.4-beta.1` set the app version to `7.3.4`;
+the Actions run number supplies the build number. Other tags use the project's app version.
+Version tags with a `-` suffix create prereleases. Unsafe filename characters in tags become `_`.
+
+Extract the ZIP for your Mac and drag `FSNotes.app` into `/Applications`. Git and Git LFS are bundled.
+These builds use ad-hoc signatures and are not notarized. If macOS blocks the app, allow it in
+System Settings → Privacy & Security → Open Anyway.
+
+To package locally with Xcode and Git LFS installed, run
+`bash Scripts/package-release.sh v7.3.4 "$(uname -m)"`.
+Packages are written to `.build/release/dist/`; the build log is `.build/release/build.log`.

@@ -68,6 +68,36 @@ FSNotes 使用 **Swift 5** 编写，采用 MIT 许可证开源。
 构建或复制失败时保留旧版本，替换失败时尝试恢复旧版本。更新前会请求运行中的 FSNotes 正常退出。
 首次构建需要下载依赖；日志位于 `.build/build.log`。无需 Apple 开发者证书，安装目录无写权限时会提示输入 `sudo` 密码。
 
+### GitHub Actions 自动打包（macOS）
+
+将包含 `.github/workflows/release.yml` 的提交推送到 GitHub 后，推送任意 tag 即可触发 Release 构建：
+
+```bash
+git tag v7.3.4
+git push origin v7.3.4
+```
+
+Actions 使用 Xcode 26.2，分别在 Apple Silicon 和 Intel 的 macOS runner 上构建。
+发布包要求 macOS 15 或更新版本，以覆盖内置 Git 和 Git LFS 的系统要求。
+两种架构全部构建成功后，自动创建对应 tag 的 GitHub Release，上传
+`FSNotes-<tag>-macos-arm64.zip`、`FSNotes-<tag>-macos-x86_64.zip` 及各自的 SHA-256 校验文件。
+重跑工作流会更新同一 Release 的附件；构建失败时可在 Actions 下载构建日志。
+tag 中不适合文件名的字符会替换为 `_`；`v7.3.4`、`7.3.4` 或 `v7.3.4-beta.1` 这类 tag
+会将应用版本设为 `7.3.4`，构建号使用 Actions 的运行编号。
+其他 tag 使用项目中配置的应用版本；带 `-` 后缀的版本 tag 会发布为预发行版。
+
+无需额外配置 secrets，发布使用 GitHub 自动提供的 `GITHUB_TOKEN`。
+选择对应架构的 ZIP，解压后将 `FSNotes.app` 拖入 `/Applications` 即可运行，Git 和 Git LFS 已包含在应用中。
+构建使用临时签名，未经 Apple 公证；首次打开被 macOS 拦截时，在「系统设置 → 隐私与安全」中选择「仍要打开」。
+
+本地仅打包、不安装或启动应用，可在已安装 Xcode 和 Git LFS 的对应架构 Mac 上运行：
+
+```bash
+bash Scripts/package-release.sh v7.3.4 "$(uname -m)"
+```
+
+产物位于 `.build/release/dist/`，日志位于 `.build/release/build.log`。
+
 ### Git 历史记录与单文件恢复（macOS）
 
 先在「偏好设置 → Git」中初始化笔记目录的 Git 仓库，使用「保存版本」或自动快照生成提交。
