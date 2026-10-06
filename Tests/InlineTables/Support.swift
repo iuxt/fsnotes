@@ -44,6 +44,9 @@ final class EditTextView: NSTextView {
     override func keyDown(with event: NSEvent) {
         if !handleTableKeyDown(event) { super.keyDown(with: event) }
     }
+    override func mouseDown(with event: NSEvent) {
+        if !handleClickBelowTable(event) { super.mouseDown(with: event) }
+    }
     override func mouseMoved(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         if let view = tableEditorViews.values.first(where: { $0.frame.contains(point) }) {
@@ -52,6 +55,14 @@ final class EditTextView: NSTextView {
     }
     func saveSelectedRange() { savedRange = selectedRange() }
     func isPreviewEnabled() -> Bool { false }
+    @objc func boldMenu(_ sender: Any) {}
+    @objc func italicMenu(_ sender: Any) {}
+    @objc func strikeMenu(_ sender: Any) {}
+    @objc func linkMenu(_ sender: Any) {}
+    @objc func insertQuote(_ sender: NSMenuItem) {}
+    @objc func insertList(_ sender: NSMenuItem) {}
+    @objc func insertOrderedList(_ sender: NSMenuItem) {}
+    @objc func todo(_ sender: Any) {}
 }
 enum UserDefaultsManagement {
     static let noteFont = NSFont.systemFont(ofSize: 14)

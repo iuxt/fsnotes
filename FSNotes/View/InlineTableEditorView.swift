@@ -29,6 +29,32 @@ private final class TableFocusIndicator: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
+private func drawTableHandle(at center: NSPoint, color: NSColor) {
+    color.withAlphaComponent(0.7).setFill()
+    for column in 0..<2 {
+        for dot in 0..<3 {
+            NSBezierPath(ovalIn: NSRect(x: center.x - 3 + CGFloat(column) * 4,
+                                       y: center.y - 5 + CGFloat(dot) * 4,
+                                       width: 2, height: 2)).fill()
+        }
+    }
+}
+
+private final class TableColumnHandleButton: NSButton {
+    weak var tableView: InlineTableEditorView?
+
+    override func draw(_ dirtyRect: NSRect) {
+        drawTableHandle(at: NSPoint(x: bounds.midX, y: bounds.midY),
+                        color: contentTintColor ?? .secondaryLabelColor)
+    }
+
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .openHand) }
+
+    override func mouseDown(with event: NSEvent) { tableView?.beginColumnDrag(tag, with: event) }
+    override func mouseDragged(with event: NSEvent) { tableView?.mouseDragged(with: event) }
+    override func mouseUp(with event: NSEvent) { tableView?.mouseUp(with: event) }
+}
+
 /// One native renderer owns both the table surface and its reusable cell editor.
 final class InlineTableEditorView: NSView, NSTextViewDelegate {
     weak var owner: EditTextView?
@@ -49,8 +75,10 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
     private var hoveredColumnBoundary: Int?
     private var pointerInside = false
     private var draggingRow: Int?
+    private var draggingColumn: Int?
     private var dragStart: NSPoint?
     private var dropBoundary: Int?
+    private var dropColumnBoundary: Int?
     private var contextCell = (row: 0, column: 0)
     private var isUpdatingCell = false
     private var tracking: NSTrackingArea?
@@ -59,7 +87,6 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
     let columnInsertButton = NSButton()
     let bottomColumnInsertButton = NSButton()
     private(set) var columnHandleButtons: [NSButton] = []
-    let appendRowButton = NSButton()
 
     override var isFlipped: Bool { true }
     private var gridRect: NSRect {
@@ -82,7 +109,7 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
         setAccessibilityLabel(NSLocalizedString("Table", comment: "Inline table"))
-        for button in [rowInsertButton, leftRowInsertButton, columnInsertButton, bottomColumnInsertButton, appendRowButton] {
+        for button in [rowInsertButton, leftRowInsertButton, columnInsertButton, bottomColumnInsertButton] {
             button.image = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)
             button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
             button.imagePosition = .imageOnly
@@ -106,12 +133,7 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
             button.toolTip = NSLocalizedString("Insert column here", comment: "Table control")
             button.setAccessibilityLabel(button.toolTip)
         }
-        appendRowButton.title = NSLocalizedString("Add row", comment: "Table control")
-        appendRowButton.imagePosition = .imageLeft
-        appendRowButton.action = #selector(appendRow(_:))
-        appendRowButton.toolTip = NSLocalizedString("Add row", comment: "Table control")
-        appendRowButton.setAccessibilityLabel(appendRowButton.toolTip)
-        toolTip = NSLocalizedString("Click a cell to edit. Drag the handle on the left to move a row.", comment: "Table control")
+        toolTip = NSLocalizedString("Click a cell to edit. Drag a handle to move a row or column.", comment: "Table control")
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -299,7 +321,10 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
         switch NSStringFromSelector(commandSelector) {
         case "insertTab:": navigate(row: cell.row, column: cell.column + 1); return true
         case "insertBacktab:": navigate(row: cell.row, column: cell.column - 1); return true
-        case "insertNewline:": navigate(row: cell.row + 1, column: cell.column); return true
+        case "insertNewline:":
+            if cell.row == table.rows.count - 1 { owner?.leaveTable(self) }
+            else { navigate(row: cell.row + 1, column: cell.column) }
+            return true
         case "cancelOperation:": owner?.leaveTable(self); return true
         case "moveLeft:" where textView.selectedRange().location == 0:
             navigate(row: cell.row, column: cell.column - 1); return true
@@ -334,7 +359,6 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
 
     func updateHover(at point: NSPoint) {
         pointerInside = bounds.contains(point)
-        cursor(at: point).set()
         let local = NSPoint(x: point.x - gridRect.minX, y: point.y - gridRect.minY)
         hoveredRow = local.y >= 0 && local.y < gridRect.height ? tableLayout.cell(at: local).row : nil
         hoveredColumn = local.x >= 0 && local.x < gridRect.width ? tableLayout.cell(at: local).column : nil
@@ -357,11 +381,21 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
             if boundary < tableLayout.widths.count { x += tableLayout.widths[boundary] }
         }
         updateControls()
+        cursor(at: point).set()
         needsDisplay = true
     }
 
     /// Borders and control gutters are click targets, while cell interiors accept text.
     func cursor(at point: NSPoint) -> NSCursor {
+        if draggingRow != nil || draggingColumn != nil { return .closedHand }
+        if owner?.isEditable == true {
+            if [rowInsertButton, leftRowInsertButton, columnInsertButton, bottomColumnInsertButton]
+                .contains(where: { !$0.isHidden && $0.frame.contains(point) }) { return .arrow }
+            if columnHandleButtons.contains(where: { !$0.isHidden && $0.frame.contains(point) }) { return .openHand }
+            for row in table.rows.indices where row == hoveredRow || row == selectedRow {
+                if rowHandleRect(row).contains(point) { return .openHand }
+            }
+        }
         guard gridRect.contains(point) else { return .arrow }
         var x = gridRect.minX
         for width in tableLayout.widths + [0] {
@@ -403,6 +437,16 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
                 if rect.width > 0 && rect.height > 0 { addCursorRect(rect, cursor: .iBeam) }
             }
         }
+        if owner?.isEditable == true {
+            for row in table.rows.indices where row == hoveredRow || row == selectedRow {
+                addCursorRect(rowHandleRect(row), cursor: .openHand)
+            }
+        }
+    }
+
+    private func rowHandleRect(_ row: Int) -> NSRect {
+        let y = gridRect.minY + tableLayout.heights.prefix(row).reduce(0, +) + tableLayout.heights[row] / 2
+        return NSRect(x: 0, y: y - 10, width: 20, height: 20)
     }
 
     private func updateControls() {
@@ -428,14 +472,15 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
             columnHandleButtons = []
             for column in table.alignments.indices {
                 for _ in 0..<2 {
-                    let button = NSButton(image: NSImage(systemSymbolName: "ellipsis", accessibilityDescription: nil)!,
-                                          target: self, action: #selector(selectColumnFromHandle(_:)))
-                    button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
+                    let button = TableColumnHandleButton()
+                    button.tableView = self
+                    button.target = self
+                    button.action = #selector(selectColumnFromHandle(_:))
                     button.tag = column
                     button.isBordered = false
                     button.font = NSFont.systemFont(ofSize: 15)
                     button.contentTintColor = .secondaryLabelColor
-                    button.toolTip = String(format: NSLocalizedString("Select column %d", comment: "Table control"), column + 1)
+                    button.toolTip = String(format: NSLocalizedString("Select or drag column %d", comment: "Table control"), column + 1)
                     button.setAccessibilityLabel(button.toolTip)
                     columnHandleButtons.append(button)
                     addSubview(button)
@@ -449,9 +494,7 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
             setControl(button, visible: enabled && (column == selectedColumn || (pointerInside && column == hoveredColumn)))
             button.contentTintColor = column == selectedColumn ? .controlAccentColor : .secondaryLabelColor
         }
-        appendRowButton.frame = NSRect(x: gridRect.minX + 2, y: gridRect.maxY + 25,
-                                      width: max(78, appendRowButton.intrinsicContentSize.width + 10), height: 20)
-        setControl(appendRowButton, visible: enabled && (pointerInside || editingCell != nil || selectedRow != nil || selectedColumn != nil))
+        window?.invalidateCursorRects(for: self)
     }
 
     private func setControl(_ button: NSButton, visible: Bool) {
@@ -476,17 +519,10 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
                    width: gridRect.width, height: tableLayout.heights[row]).fill()
         }
         for row in table.rows.indices where row == hoveredRow || row == selectedRow || row == draggingRow {
-            let y = gridRect.minY + tableLayout.heights.prefix(row).reduce(0, +) + tableLayout.heights[row] / 2
-            NSColor.secondaryLabelColor.withAlphaComponent(0.7).setFill()
-            for column in 0..<2 {
-                for dot in 0..<3 {
-                    NSBezierPath(ovalIn: NSRect(x: 7 + CGFloat(column) * 4, y: y - 5 + CGFloat(dot) * 4,
-                                               width: 2, height: 2)).fill()
-                }
-            }
+            drawTableHandle(at: NSPoint(x: 10, y: rowHandleRect(row).midY), color: .secondaryLabelColor)
         }
-        NSColor.controlAccentColor.withAlphaComponent(draggingRow == nil ? 0.25 : 0.8).setStroke()
-        if let boundary = dropBoundary ?? hoveredRowBoundary {
+        NSColor.controlAccentColor.withAlphaComponent(draggingRow == nil && draggingColumn == nil ? 0.25 : 0.8).setStroke()
+        if draggingColumn == nil, let boundary = dropBoundary ?? hoveredRowBoundary {
             let y = gridRect.minY + tableLayout.heights.prefix(boundary).reduce(0, +)
             let path = NSBezierPath()
             path.move(to: NSPoint(x: gridRect.minX, y: y))
@@ -494,12 +530,12 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
             path.lineWidth = dropBoundary == nil ? 1 : 2
             path.stroke()
         }
-        if let boundary = hoveredColumnBoundary, draggingRow == nil {
+        if draggingRow == nil, let boundary = dropColumnBoundary ?? hoveredColumnBoundary {
             let x = gridRect.minX + tableLayout.widths.prefix(boundary).reduce(0, +)
             let path = NSBezierPath()
             path.move(to: NSPoint(x: x, y: gridRect.minY))
             path.line(to: NSPoint(x: x, y: gridRect.maxY))
-            path.lineWidth = 1
+            path.lineWidth = dropColumnBoundary == nil ? 1 : 2
             path.stroke()
         }
     }
@@ -507,6 +543,10 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
     override func mouseDown(with event: NSEvent) {
         guard owner?.isEditable == true else { return }
         let point = convert(event.locationInWindow, from: nil)
+        if point.y >= gridRect.maxY {
+            owner?.leaveTable(self)
+            return
+        }
         let local = NSPoint(x: point.x - gridRect.minX, y: point.y - gridRect.minY)
         guard local.y >= 0, local.y < gridRect.height else { return }
         let cell = tableLayout.cell(at: local)
@@ -520,6 +560,7 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
 
     func selectRow(_ row: Int) {
         finishEditing(returnToEditor: false)
+        clearSelection()
         selectedRow = row
         selectedColumn = nil
         owner?.isApplyingTableChange = true
@@ -535,7 +576,9 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
         selectedColumn = nil
         dragStart = nil
         draggingRow = nil
+        draggingColumn = nil
         dropBoundary = nil
+        dropColumnBoundary = nil
         updateControls()
         needsDisplay = true
     }
@@ -557,12 +600,23 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
 
     @objc private func selectColumnFromHandle(_ sender: NSButton) { selectColumn(sender.tag) }
 
+    fileprivate func beginColumnDrag(_ column: Int, with event: NSEvent) {
+        guard owner?.isEditable == true, table.alignments.indices.contains(column) else { return }
+        selectColumn(column)
+        dragStart = convert(event.locationInWindow, from: nil)
+    }
+
     override func mouseDragged(with event: NSEvent) {
-        guard let start = dragStart, let row = selectedRow, row > 0 else { return }
+        guard let start = dragStart else { return }
         let point = convert(event.locationInWindow, from: nil)
-        guard draggingRow != nil || hypot(point.x - start.x, point.y - start.y) > 3 else { return }
-        draggingRow = row
-        dropBoundary = rowBoundary(at: point.y)
+        guard draggingRow != nil || draggingColumn != nil || hypot(point.x - start.x, point.y - start.y) > 3 else { return }
+        if let column = selectedColumn {
+            draggingColumn = column
+            dropColumnBoundary = columnBoundary(at: point.x)
+        } else if let row = selectedRow, row > 0 {
+            draggingRow = row
+            dropBoundary = rowBoundary(at: point.y)
+        } else { return }
         _ = autoscroll(with: event)
         NSCursor.closedHand.set()
         needsDisplay = true
@@ -577,15 +631,27 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
         return table.rows.count
     }
 
+    func columnBoundary(at x: CGFloat) -> Int {
+        var edge = gridRect.minX
+        for column in table.alignments.indices {
+            if x < edge + tableLayout.widths[column] / 2 { return column }
+            edge += tableLayout.widths[column]
+        }
+        return table.alignments.count
+    }
+
     override func mouseUp(with event: NSEvent) {
         if let source = draggingRow, let target = dropBoundary {
             moveRow(from: source, to: target)
+        } else if let source = draggingColumn, let target = dropColumnBoundary {
+            moveColumn(from: source, to: target)
         }
         draggingRow = nil
+        draggingColumn = nil
         dragStart = nil
         dropBoundary = nil
-        NSCursor.arrow.set()
-        needsDisplay = true
+        dropColumnBoundary = nil
+        updateHover(at: convert(event.locationInWindow, from: nil))
     }
 
     func moveRow(from source: Int, to target: Int) {
@@ -597,16 +663,19 @@ final class InlineTableEditorView: NSView, NSTextViewDelegate {
         updateControls()
     }
 
+    func moveColumn(from source: Int, to target: Int) {
+        var moved: Int?
+        _ = owner?.changeTable(self, action: NSLocalizedString("Move table column", comment: "Undo action")) {
+            moved = $0.moveColumn(from: source, to: target)
+        }
+        if let moved = moved { selectColumn(moved) }
+    }
+
     @objc func insertRow(_ sender: NSButton) {
         let row = min(max(1, sender.tag), table.rows.count)
         _ = owner?.changeTable(self, action: NSLocalizedString("Add table row", comment: "Undo action")) { $0.insertRow(at: row) }
         hoveredRowBoundary = nil
         beginEditing(row: row, column: 0)
-    }
-
-    @objc func appendRow(_ sender: NSButton) {
-        sender.tag = table.rows.count
-        insertRow(sender)
     }
 
     @objc func insertColumn(_ sender: NSButton) {

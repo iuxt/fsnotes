@@ -75,6 +75,15 @@
         let loadCodeActions = () => {
             document.querySelectorAll('pre > code:not(.language-mermaid)').forEach(code => {
                 const pre = code.parentElement;
+                const language = Array.from(code.classList).find(name => name.startsWith('language-'));
+                const opening = document.createElement('span');
+                opening.className = 'codeFence';
+                opening.textContent = '```' + (language ? language.slice('language-'.length) : '');
+                const closing = document.createElement('span');
+                closing.className = 'codeFence';
+                closing.textContent = '```';
+                pre.insertBefore(opening, code);
+                code.after(closing);
                 const button = document.createElement('button');
                 const copyIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/></svg>';
                 button.type = 'button';

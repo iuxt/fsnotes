@@ -4,8 +4,10 @@ commands, renderer, TextKit layout manager, native cell editor and document edit
 extension. Small stubs supply unrelated app settings and note metadata.
 
 Checks exercise native cell input, Markdown escaping and whitespace preservation,
-row and column insertion buttons, bottom append, Tab/Shift-Tab/Enter navigation,
-hover controls, actual mouse events for row dragging, column deletion, selected
+row and column insertion buttons, bottom-border row insertion, Tab/Shift-Tab/Enter navigation,
+last-row Enter and clicks below tables entering body paragraphs (including EOF and CRLF),
+hover controls and hand cursors, actual mouse events for row dragging and column dragging
+from both handles (including alignment retention and undo/redo), column deletion, selected
 row deletion, undo/redo (including cell keyboard shortcuts), header retention,
 resizing, long-table scroll retention, reusable cell input, header-to-body
 typography, stable column widths during long input and note switching. Parser checks include Unicode, alignment, escaped

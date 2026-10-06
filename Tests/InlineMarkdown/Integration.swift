@@ -63,6 +63,8 @@ func expect(_ value: @autoclosure () -> Bool, _ message: String) {
         expect(element("---").decoration == .rule, "horizontal rule")
         expect(!plan.elements.contains { $0.hidden.contains { NSIntersectionRange($0, range("**literal**")).length > 0 } }, "fenced code isn't Markdown")
         expect(!plan.elements.contains { $0.hidden.contains { NSIntersectionRange($0, range("# also literal")).length > 0 } }, "tilde code isn't a heading")
+        expect(!plan.elements.contains { $0.hidden.contains { NSIntersectionRange($0, range("```swift")).length > 0 } }, "opening fence and language are always visible")
+        expect(!plan.elements.contains { $0.hidden.contains { NSIntersectionRange($0, range("```\n\n~~~")).length > 0 } }, "closing and tilde fences are always visible")
         expect(element("Setext").hidden.map { text.substring(with: $0) } == ["======\n"], "setext underline and line break collapsed")
         expect(element("reference").hidden.map { text.substring(with: $0) } == ["[", "][id]"], "reference link label")
         let escaped = plan.elements.filter { $0.hidden.contains { text.substring(with: $0) == "\\" } }
@@ -113,6 +115,14 @@ func expect(_ value: @autoclosure () -> Bool, _ message: String) {
         window.makeFirstResponder(editor)
         editor.refreshInlineTables()
         manager.ensureLayout(for: container)
+        let openingFence = range("```swift").location
+        let closingFence = range("```\n\n~~~").location
+        func codeLine(at index: Int) -> NSRect {
+            manager.ensureLayout(for: container)
+            return manager.lineFragmentRect(forGlyphAt: manager.glyphIndexForCharacter(at: index), effectiveRange: nil)
+        }
+        let readingCodeLine = codeLine(at: openingFence)
+        expect(!manager.hiddenMarkdownCharacters.contains(openingFence) && !manager.hiddenMarkdownCharacters.contains(closingFence), "reading code retains both fences")
         expect(manager.hiddenMarkdownCharacters.contains(range("**粗体**").location), "inactive bold is hidden")
         let boldRange = range("**粗体**")
         editor.setSelectedRange(NSRange(location: range("粗体").location, length: 0))
@@ -124,13 +134,22 @@ func expect(_ value: @autoclosure () -> Bool, _ message: String) {
         expect(manager.hiddenMarkdownCharacters.contains(boldRange.location), "leaving hides syntax again")
         let literal = range("let value")
         editor.setSelectedRange(NSRange(location: literal.location, length: 0))
-        expect(!manager.hiddenMarkdownCharacters.contains(range("```swift").location), "code caret reveals fence and language")
-        expect(!manager.hiddenMarkdownCharacters.contains(range("```\n\n~~~").location), "code caret reveals closing fence")
+        expect(!manager.hiddenMarkdownCharacters.contains(openingFence), "editing keeps the opening fence and language")
+        expect(!manager.hiddenMarkdownCharacters.contains(closingFence), "editing keeps the closing fence")
+        expect(codeLine(at: openingFence) == readingCodeLine, "entering code does not change its line position")
+        let lastFenceGlyph = manager.glyphIndexForCharacter(at: closingFence + 2)
+        let fenceRect = manager.lineFragmentUsedRect(forGlyphAt: lastFenceGlyph, effectiveRange: nil)
+        let fencePoint = NSPoint(x: editor.textContainerOrigin.x + fenceRect.maxX + 2,
+                                y: editor.textContainerOrigin.y + fenceRect.midY)
+        expect(editor.characterIndexForInsertion(at: fencePoint) == closingFence + 3, "mouse insertion can reach the end of three backticks")
+        editor.setSelectedRange(NSRange(location: range("Last line").location, length: 0))
+        expect(codeLine(at: openingFence) == readingCodeLine, "leaving code does not collapse its fences")
         editor.setSelectedRange(range("**粗体** and *italic*"))
         expect(!manager.hiddenMarkdownCharacters.contains(boldRange.location) && !manager.hiddenMarkdownCharacters.contains(range("*italic*").location), "selection reveals intersected constructs")
         window.makeFirstResponder(nil)
         editor.refreshInlineTables()
         expect(manager.hiddenMarkdownCharacters.contains(boldRange.location), "inactive editor renders selected content")
+        expect(!manager.hiddenMarkdownCharacters.contains(openingFence) && !manager.hiddenMarkdownCharacters.contains(closingFence), "unfocused preview retains code fences")
         expect(storage.isEqual(to: snapshot), "caret movement preserves source, attributes and undo")
         editor.note!.markdown = false
         editor.refreshInlineTables()

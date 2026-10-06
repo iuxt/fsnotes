@@ -186,6 +186,11 @@ pre > code, body pre > code.hljs {
     overflow-wrap: normal;
     white-space: pre;
 }
+pre > .codeFence {
+    display: block;
+    color: var(--muted-color);
+    white-space: pre;
+}
 pre.hasCopyButton { padding-top: 44px; }
 pre > .copyCode {
     position: absolute;

@@ -10,6 +10,10 @@ focus changes, incomplete syntax, note switching, source preservation, image
 sizing and completed-task styling. The existing InlineTables and Editing suites
 cover table editing and attachment-to-source serialization.
 
+Code fences and language labels stay visible while reading, editing and unfocused.
+Checks also verify that entering or leaving a code block preserves its line position
+and that mouse insertion can reach the end of the closing backticks.
+
 Set `FSNOTES_MARKDOWN_PREVIEW` to an absolute PNG path to capture the actual
 TextKit rendering for visual inspection.
 

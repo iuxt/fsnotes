@@ -37,6 +37,15 @@ func flushEvents() { RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         expect(document.moveRow(from: 1, to: 3) == 2 && document.rows[2][0] == "中文", "move row down")
         expect(document.moveRow(from: 2, to: 1) == 1 && document.rows[1][0] == "中文", "move row up")
         expect(document.moveRow(from: 0, to: 3) == nil, "header stays fixed")
+        let columnTable = MarkdownTable.parse("| A | B | C |\n| :--- | :---: | ---: |\n| a | b | c |\n| d |\n")[0]
+        var columns = MarkdownTableDocument(columnTable)
+        expect(columns.moveColumn(from: 0, to: 3) == 2, "first column moves to last boundary")
+        expect(columns.rows == [["B", "C", "A"], ["b", "c", "a"], ["", "", "d"]], "column move preserves header, body and missing cells")
+        expect(columns.alignments == [.center, .right, .left], "alignment follows moved column")
+        expect(columns.moveColumn(from: 2, to: 0) == 0 && columns.rows == MarkdownTableDocument(columnTable).rows, "last column moves back to first")
+        let beforeNoOp = columns.markdown
+        expect(columns.moveColumn(from: 1, to: 2) == 1 && columns.markdown == beforeNoOp, "adjacent boundary does not change column order")
+        expect(columns.moveColumn(from: -1, to: 0) == nil && columns.markdown == beforeNoOp, "invalid column leaves document unchanged")
         let single = MarkdownTable.parse("| A |\n| - |\n")[0]
         var oneColumn = MarkdownTableDocument(single)
         oneColumn.removeColumn(at: 0)
@@ -132,15 +141,19 @@ func flushEvents() { RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         expect(view.editingCell?.row == 0 && view.editingCell?.column == 1, "new column header receives focus")
         view.beginEditing(row: 1, column: 2)
         expect(view.cellEditor!.alignment == .right, "editing preserves column alignment")
-        view.appendRowButton.performClick(nil)
-        expect(view.table.rows.count == 5 && view.editingCell?.row == 4, "bottom + appends row")
+        view.updateHover(at: NSPoint(x: InlineTableLayout.side + 10,
+            y: InlineTableLayout.top + view.tableLayout.size.height))
+        expect(!view.rowInsertButton.isHidden && view.rowInsertButton.tag == view.table.rows.count, "bottom border exposes row +")
+        view.rowInsertButton.performClick(nil)
+        expect(view.table.rows.count == 5 && view.editingCell?.row == 4, "bottom border + appends row")
         let lastField = view.cellEditor!
         expect(view.textView(lastField, doCommandBy: NSSelectorFromString("insertTab:")), "Tab handled")
         expect(view.editingCell?.row == 4 && view.editingCell?.column == 1, "Tab navigates columns")
         expect(view.textView(view.cellEditor!, doCommandBy: NSSelectorFromString("insertBacktab:")), "Shift Tab handled")
         expect(view.editingCell?.column == 0, "Shift Tab navigates back")
         expect(view.textView(view.cellEditor!, doCommandBy: NSSelectorFromString("insertNewline:")), "Enter handled")
-        expect(view.table.rows.count == 6 && view.editingCell?.row == 5, "Enter adds row at table end")
+        expect(view.table.rows.count == 5 && view.cellEditor == nil && window.firstResponder === editor, "Enter at last row enters body without adding a row")
+        expect(editor.selectedRange().location == NSMaxRange(view.table.range) + 1, "Enter places caret after blank separator below table")
         view.beginEditing(row: 1, column: 0)
         view.updateHover(at: NSPoint(x: InlineTableLayout.side + 10,
             y: InlineTableLayout.top + view.tableLayout.heights[0]))
@@ -177,6 +190,9 @@ func flushEvents() { RunLoop.current.run(until: Date().addingTimeInterval(0.02))
                               windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
         }
         view.mouseDown(with: event(.leftMouseDown, at: origin))
+        let rowHandlePoint = NSPoint(x: 10, y: InlineTableLayout.top + view.tableLayout.heights[0] + view.tableLayout.heights[1] / 2)
+        view.updateHover(at: rowHandlePoint)
+        expect(view.cursor(at: rowHandlePoint) == .openHand && NSCursor.current == .openHand, "row handle uses open hand on hover")
         let destination = NSPoint(x: 8, y: InlineTableLayout.top + view.tableLayout.size.height - 2)
         view.mouseDragged(with: event(.leftMouseDragged, at: destination))
         view.mouseUp(with: event(.leftMouseUp, at: destination))
@@ -207,7 +223,7 @@ func flushEvents() { RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         expect(view.table.rows.count == rowCount, "selected row deletion undo")
         view.updateHover(at: NSPoint(x: InlineTableLayout.side + view.tableLayout.widths[0] + view.tableLayout.widths[1] / 2, y: 10))
         let topHandle = view.columnHandleButtons[2]
-        expect(!topHandle.isHidden && topHandle.toolTip == "Select column 2", "top column handle exposed with tooltip")
+        expect(!topHandle.isHidden && topHandle.toolTip == "Select or drag column 2", "top column handle exposes drag tooltip")
         topHandle.performClick(nil)
         flushEvents()
         expect(view.selectedColumn == 1 && view.selectedRow == nil && view.cellEditor == nil, "column handle selects whole column and exits cell editing")
@@ -216,6 +232,52 @@ func flushEvents() { RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         let bottomHandle = view.columnHandleButtons[1]
         bottomHandle.performClick(nil)
         expect(view.selectedColumn == 0, "bottom handle selects column too")
+        flushEvents()
+        let beforeColumnMove = editor.string
+        let originalColumns = MarkdownTableDocument(view.table)
+        let firstTopHandle = view.columnHandleButtons[0]
+        let firstHandlePoint = NSPoint(x: firstTopHandle.frame.midX, y: firstTopHandle.frame.midY)
+        view.updateHover(at: firstHandlePoint)
+        expect(view.cursor(at: firstHandlePoint) == .openHand && NSCursor.current == .openHand, "top column handle uses open hand on hover")
+        expect(view.hitTest(view.convert(firstHandlePoint, to: view.superview)) === firstTopHandle, "mouse hit testing reaches column handle")
+        firstTopHandle.mouseDown(with: event(.leftMouseDown, at: firstHandlePoint))
+        let lastColumnPoint = NSPoint(x: InlineTableLayout.side + view.tableLayout.size.width + 10, y: firstHandlePoint.y)
+        firstTopHandle.mouseDragged(with: event(.leftMouseDragged, at: lastColumnPoint))
+        expect(view.cursor(at: lastColumnPoint) == .closedHand && NSCursor.current == .closedHand, "column drag uses closed hand")
+        firstTopHandle.mouseUp(with: event(.leftMouseUp, at: lastColumnPoint))
+        let movedColumns = MarkdownTableDocument(view.table)
+        expect(movedColumns.rows == originalColumns.rows.map { Array($0.dropFirst()) + [$0[0]] }, "top handle moves every row including header")
+        expect(movedColumns.alignments == Array(originalColumns.alignments.dropFirst()) + [originalColumns.alignments[0]], "column drag carries alignment")
+        expect(view.selectedColumn == view.table.alignments.count - 1 && editor.hasTableSelection, "moved column remains selected")
+        expect(editor.selectedRange().location == view.table.rows[0].cells.last!.range.location, "caret follows moved column")
+        expect(editor.string.hasPrefix("Before 😀\n\n") && editor.string.hasSuffix("\nAfter\n"), "column dragging preserves surrounding text")
+        flushEvents()
+        let afterColumnMove = editor.string
+        editor.tableUndoManager!.undo()
+        editor.updateTableEditors()
+        expect(editor.string == beforeColumnMove, "column drag undo restores source")
+        editor.tableUndoManager!.redo()
+        editor.updateTableEditors()
+        expect(editor.string == afterColumnMove, "column drag redo restores moved source")
+        flushEvents()
+        let lastBottomHandle = view.columnHandleButtons.last!
+        let bottomHandlePoint = NSPoint(x: lastBottomHandle.frame.midX, y: lastBottomHandle.frame.midY)
+        view.updateHover(at: bottomHandlePoint)
+        expect(view.cursor(at: bottomHandlePoint) == .openHand, "bottom column handle uses open hand")
+        lastBottomHandle.mouseDown(with: event(.leftMouseDown, at: bottomHandlePoint))
+        let firstColumnPoint = NSPoint(x: InlineTableLayout.side - 10, y: bottomHandlePoint.y)
+        lastBottomHandle.mouseDragged(with: event(.leftMouseDragged, at: firstColumnPoint))
+        lastBottomHandle.mouseUp(with: event(.leftMouseUp, at: firstColumnPoint))
+        expect(editor.string == beforeColumnMove && view.selectedColumn == 0, "bottom handle moves column back to first without leaving table")
+        let clickHandle = view.columnHandleButtons[2]
+        let clickPoint = NSPoint(x: clickHandle.frame.midX, y: clickHandle.frame.midY)
+        clickHandle.mouseDown(with: event(.leftMouseDown, at: clickPoint))
+        let tinyMove = NSPoint(x: clickPoint.x + 1, y: clickPoint.y)
+        clickHandle.mouseDragged(with: event(.leftMouseDragged, at: tinyMove))
+        clickHandle.mouseUp(with: event(.leftMouseUp, at: tinyMove))
+        expect(editor.string == beforeColumnMove && view.selectedColumn == 1, "click with tiny motion selects column without reordering")
+        flushEvents()
+        view.selectColumn(0)
         func key(_ code: UInt16) -> NSEvent {
             NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
                 windowNumber: window.windowNumber, context: nil, characters: "", charactersIgnoringModifiers: "",
@@ -259,10 +321,13 @@ func flushEvents() { RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         editor.updateTableEditors()
         expect(editor.string == beforeBottomInsert, "bottom + insertion undo")
         let bottomGridY = InlineTableLayout.top + view.tableLayout.size.height
-        expect(view.appendRowButton.frame.minY >= bottomGridY + 23 && view.appendRowButton.frame.maxY <= view.bounds.maxY, "append row control stays separate from column controls")
+        view.updateHover(at: NSPoint(x: InlineTableLayout.side + view.tableLayout.size.width, y: bottomGridY + 12))
+        expect(view.bottomColumnInsertButton.frame.minY >= bottomGridY && view.bottomColumnInsertButton.frame.maxY <= view.bounds.maxY, "bottom column control fits in compact gutter")
         if let output = ProcessInfo.processInfo.environment["FSNOTES_TABLE_PREVIEW"] {
             view.beginEditing(row: 1, column: 0)
-            view.updateHover(at: NSPoint(x: InlineTableLayout.side + view.tableLayout.widths[0], y: InlineTableLayout.top + 7))
+            view.updateHover(at: NSPoint(x: InlineTableLayout.side + view.tableLayout.widths[0] / 2,
+                y: InlineTableLayout.top + view.tableLayout.heights[0] + view.tableLayout.heights[1] / 2))
+            RunLoop.current.run(until: Date().addingTimeInterval(MarkdownEditorStyle.transitionDuration + 0.02))
             editor.frame.size.height = manager.usedRect(for: container).height + 30
             if let bitmap = editor.bitmapImageRepForCachingDisplay(in: editor.bounds) {
                 editor.cacheDisplay(in: editor.bounds, to: bitmap)
@@ -296,6 +361,66 @@ func flushEvents() { RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         expect(manager.inlineTableRect(view.table, in: container).width <= 220, "resize fits table")
         editor.removeTableEditors()
         expect(view.superview == nil && window.firstResponder !== field, "closing editors removes cell focus")
+        for ending in ["", "\n", "\r\n"] {
+            let tableSource = "| A | B |\n| --- | --- |\n| C | D |" + ending
+            storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: tableSource)
+            editor.refreshInlineTables()
+            editor.updateTableEditors()
+            let endView = editor.tableEditorViews[0]!
+            endView.beginEditing(row: 1, column: 0)
+            expect(endView.textView(endView.cellEditor!, doCommandBy: NSSelectorFromString("insertNewline:")), "last-row Enter handled at EOF")
+            flushEvents()
+            expect(window.firstResponder === editor && endView.cellEditor == nil, "EOF paragraph keeps document focus after pending updates")
+            expect(editor.string == tableSource + (ending.isEmpty ? "\n\n" : "\n"), "EOF exit creates an empty paragraph")
+            expect(editor.selectedRange().location == (editor.string as NSString).length, "EOF exit places caret after blank separator")
+            editor.insertText("正文 | text", replacementRange: editor.selectedRange())
+            editor.insertNewline(nil)
+            editor.insertText("第二行", replacementRange: editor.selectedRange())
+            flushEvents()
+            expect(manager.inlineTables.count == 1 && manager.inlineTables[0].rows.count == 2, "body containing pipes remains outside table")
+            expect(editor.string.replacingOccurrences(of: "\r\n", with: "\n").hasSuffix("\n\n正文 | text\n第二行"), "body below table accepts typing and newlines")
+        }
+        let tableAtEnd = "| A |\n| --- |\n| B |"
+        func resetEndTable() -> InlineTableEditorView {
+            editor.removeTableEditors()
+            storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: tableAtEnd)
+            editor.refreshInlineTables()
+            editor.updateTableEditors()
+            return editor.tableEditorViews[0]!
+        }
+        func click(_ target: NSView, _ point: NSPoint) {
+            let event = NSEvent.mouseEvent(with: .leftMouseDown, location: target.convert(point, to: nil),
+                modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil,
+                eventNumber: 0, clickCount: 1, pressure: 1)!
+            target.mouseDown(with: event)
+        }
+        let gutterView = resetEndTable()
+        gutterView.beginEditing(row: 1, column: 0)
+        click(gutterView, NSPoint(x: InlineTableLayout.side + 15,
+            y: InlineTableLayout.top + gutterView.tableLayout.size.height + 12))
+        flushEvents()
+        expect(editor.string == tableAtEnd + "\n\n" && window.firstResponder === editor, "clicking bottom gutter creates body paragraph")
+        editor.leaveTable(gutterView)
+        expect(editor.string == tableAtEnd + "\n\n", "repeated table exit reuses empty paragraph")
+        let belowView = resetEndTable()
+        belowView.beginEditing(row: 1, column: 0)
+        click(editor, NSPoint(x: 30, y: belowView.frame.maxY + 20))
+        flushEvents()
+        expect(editor.string == tableAtEnd + "\n\n" && window.firstResponder === editor, "clicking below final table creates body paragraph")
+        let caretView = resetEndTable()
+        window.makeFirstResponder(editor)
+        editor.setSelectedRange(NSRange(location: (editor.string as NSString).length, length: 0))
+        flushEvents()
+        expect(caretView.cellEditor == nil, "EOF caret does not reenter table")
+        expect(editor.handleTableKeyDown(key(36)), "Return at EOF leaves table")
+        expect(editor.string == tableAtEnd + "\n\n" && editor.selectedRange().location == (editor.string as NSString).length, "EOF Return creates body paragraph")
+        flushEvents()
+        editor.tableUndoManager!.undo()
+        editor.updateTableEditors()
+        expect(editor.string == tableAtEnd, "undo restores table without added paragraph")
+        editor.tableUndoManager!.redo()
+        editor.updateTableEditors()
+        expect(editor.string == tableAtEnd + "\n\n", "redo restores body paragraph")
         storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: "Other note")
         editor.updateTableEditors()
         expect(manager.inlineTables.isEmpty && editor.tableEditorViews.isEmpty, "switching notes clears table views")
@@ -304,6 +429,22 @@ func flushEvents() { RunLoop.current.run(until: Date().addingTimeInterval(0.02))
         editor.refreshInlineTables()
         editor.updateTableEditors()
         expect(manager.inlineTables.isEmpty && editor.tableEditorViews.isEmpty, "plain text stays unrendered")
+        editor.note!.markdown = true
+        storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: "")
+        editor.setSelectedRange(NSRange(location: 0, length: 0))
+        editor.insertTable(rows: 3, columns: 6, replacementRange: editor.selectedRange())
+        flushEvents()
+        editor.updateTableEditors()
+        let newTableView = editor.tableEditorViews[0]!
+        expect(newTableView.table.rows.count == 3 && newTableView.table.alignments.count == 6,
+               "size picker insertion renders the requested rows and columns")
+        expect(newTableView.editingCell?.row == 0 && newTableView.editingCell?.column == 0 &&
+               window.firstResponder === newTableView.cellEditor, "size picker insertion focuses the first native cell editor")
+        newTableView.cellEditor!.string = "新表格"
+        newTableView.cellEditor!.didChangeText()
+        newTableView.finishEditing(returnToEditor: false)
+        expect(MarkdownTable.parse(editor.string)[0].rows[0].cells[0].text == "新表格",
+               "typing immediately after size picker insertion updates the Markdown header")
         print("Inline table integration: \(checks) checks passed")
     }
 }

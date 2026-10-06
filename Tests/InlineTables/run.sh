@@ -12,6 +12,7 @@ swiftc "$repo_root/FSNotes/MarkdownEditorStyle.swift" \
     "$repo_root/FSNotes/LayoutManager.swift" \
     "$repo_root/FSNotes/View/InlineTableEditorView.swift" \
     "$repo_root/FSNotes/View/EditTextView+Tables.swift" \
+    "$repo_root/FSNotes/View/EditTextView+MarkdownMenu.swift" \
     "$repo_root/Tests/InlineTables/Support.swift" \
     "$repo_root/Tests/InlineTables/Integration.swift" "$derived_data/Build/Products/Debug/libcmark_gfm.o" \
     -Xcc "-fmodule-map-file=$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/libcmark_gfm.modulemap" \

@@ -357,6 +357,7 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
         }
 
         dragDetected = false
+        if handleClickBelowTable(event) { return }
         super.mouseDown(with: event)
         saveSelectedRange()
 

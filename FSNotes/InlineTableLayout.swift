@@ -11,7 +11,7 @@ struct InlineTableLayout {
     static let padding = MarkdownEditorStyle.tablePadding
     static let side: CGFloat = 22
     static let top: CGFloat = 24
-    static let bottom: CGFloat = 48
+    static let bottom: CGFloat = 24
 
     var size: NSSize { NSSize(width: widths.reduce(0, +), height: heights.reduce(0, +)) }
     var blockSize: NSSize { NSSize(width: size.width + Self.side * 2, height: size.height + Self.top + Self.bottom) }

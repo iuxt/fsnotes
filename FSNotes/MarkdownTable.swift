@@ -188,6 +188,20 @@ struct MarkdownTableDocument {
         return target
     }
 
+    /// Destination is a boundary in the table before removing the source column.
+    @discardableResult mutating func moveColumn(from source: Int, to destination: Int) -> Int? {
+        guard alignments.indices.contains(source) else { return nil }
+        let boundary = min(max(0, destination), alignments.count)
+        let target = boundary > source ? boundary - 1 : boundary
+        let alignment = alignments.remove(at: source)
+        alignments.insert(alignment, at: target)
+        for row in rows.indices {
+            let cell = rows[row].remove(at: source)
+            rows[row].insert(cell, at: target)
+        }
+        return target
+    }
+
     static func editingText(_ source: String) -> String {
         source.replacingOccurrences(of: "&#32;", with: " ").replacingOccurrences(of: "\\|", with: "|")
             .replacingOccurrences(of: "<br>", with: "\n")

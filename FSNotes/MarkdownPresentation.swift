@@ -156,16 +156,9 @@ struct MarkdownPresentation {
                 literalBlocks.append(range)
                 let first = Int(cmark_node_get_start_line(node)), last = Int(cmark_node_get_end_line(node))
                 let opening = lines.content(at: first)
-                if let fence = match(#"^ {0,3}(`{3,}|~{3,})"#, in: opening) {
-                    var hidden = [lines.full(at: first)]
-                    if last > first {
-                        let character = text.substring(with: fence.range(at: 1)).first!
-                        let closing = lines.content(at: last)
-                        let pattern = "^ {0,3}" + NSRegularExpression.escapedPattern(for: String(character)) + "{\(fence.range(at: 1).length),}[ \\t]*$"
-                        if match(pattern, in: closing) != nil { hidden.append(lines.full(at: last)) }
-                    }
-                    add(range, hidden)
-                } else {
+                // Fences and language labels remain visible in both reading and
+                // editing, so entering the block never moves its text or caret.
+                if match(#"^ {0,3}(`{3,}|~{3,})"#, in: opening) == nil {
                     var hidden: [NSRange] = []
                     for number in first...last {
                         if let indent = match(#"^(?: {4}|\t)"#, in: lines.content(at: number)) { hidden.append(indent.range) }

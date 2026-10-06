@@ -65,9 +65,7 @@ extension EditTextView {
         guard !isApplyingTableChange, selectedRange().length == 0,
               window?.firstResponder === self, let manager = layoutManager as? LayoutManager else { return }
         let index = selectedRange().location
-        guard let table = manager.inlineTables.first(where: {
-            NSLocationInRange(index, $0.range) || (!$0.endsWithNewline && index == NSMaxRange($0.range))
-        }) else { return }
+        guard let table = manager.inlineTables.first(where: { NSLocationInRange(index, $0.range) }) else { return }
         scheduleTableEditorsUpdate()
         DispatchQueue.main.async { [weak self] in
             guard let self = self, self.window?.firstResponder === self,
@@ -114,14 +112,52 @@ extension EditTextView {
     }
 
     func leaveTable(_ view: InlineTableEditorView) {
+        guard isEditable, view.note === note else { return }
+        let end = min(NSMaxRange(view.table.range), (string as NSString).length)
+        let source = string as NSString
+        // An empty paragraph separates body input (including pipes) from table rows.
+        let isNewline: (Int) -> Bool = { $0 < source.length && [10, 13].contains(source.character(at: $0)) }
+        let paragraphStart: Int
+        let insertion: Int
+        let separator: String
+        if isNewline(end) {
+            let newlineLength = source.character(at: end) == 13 && end + 1 < source.length && source.character(at: end + 1) == 10 ? 2 : 1
+            paragraphStart = end + newlineLength
+            insertion = paragraphStart
+            separator = paragraphStart < source.length && !isNewline(paragraphStart) ? "\n" : ""
+        } else {
+            let boundary = (view.table.endsWithNewline ? "" : "\n") + "\n"
+            paragraphStart = end + boundary.utf16.count
+            insertion = end
+            separator = boundary + (end < source.length ? "\n" : "")
+        }
         isApplyingTableChange = true
+        defer { isApplyingTableChange = false }
         view.finishEditing(returnToEditor: false)
+        isApplyingTableChange = true
         view.clearSelection()
         window?.makeFirstResponder(self)
-        setSelectedRange(NSRange(location: min(NSMaxRange(view.table.range), (string as NSString).length), length: 0))
-        saveSelectedRange()
-        isApplyingTableChange = false
         breakUndoCoalescing()
+        if !separator.isEmpty {
+            suppressCompletion = true
+            insertText(separator, replacementRange: NSRange(location: insertion, length: 0))
+            refreshInlineTables()
+            updateTableEditors()
+        }
+        setSelectedRange(NSRange(location: paragraphStart, length: 0))
+        saveSelectedRange()
+        breakUndoCoalescing()
+        scrollRangeToVisible(selectedRange())
+    }
+
+    func handleClickBelowTable(_ event: NSEvent) -> Bool {
+        guard isEditable else { return false }
+        let point = convert(event.locationInWindow, from: nil)
+        guard let view = tableEditorViews.values.first(where: {
+            !$0.isHidden && NSMaxRange($0.table.range) == (string as NSString).length && point.y >= $0.frame.maxY
+        }) else { return false }
+        leaveTable(view)
+        return true
     }
 }
 
@@ -136,6 +172,11 @@ extension EditTextView {
         }) else { return false }
         updateTableEditors()
         guard let view = tableEditorViews[table.range.location] else { return false }
+        if index == NSMaxRange(table.range) {
+            guard ![51, 117, 123, 124, 126, 48].contains(event.keyCode) else { return false }
+            leaveTable(view)
+            return [36, 76, 125, 53].contains(event.keyCode)
+        }
         if let row = view.selectedRow {
             switch event.keyCode {
             case 51, 117:

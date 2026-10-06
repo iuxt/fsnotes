@@ -243,10 +243,12 @@ class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
 
         finalLineHeight = max(finalLineHeight, decorationHeight)
         var rect = lineFragmentRect.pointee
-        rect.size.height = ceil(finalLineHeight)
-
         var usedRect = lineFragmentUsedRect.pointee
-        usedRect.size.height = max(rect.size.height, ceil(usedRect.size.height))
+        // Keep paragraph spacing inside the line's drawing and hit-testing bounds.
+        let paragraphSpacing = max(0, rect.height - usedRect.height)
+        let contentHeight = max(ceil(finalLineHeight), ceil(usedRect.height))
+        rect.size.height = contentHeight + paragraphSpacing
+        usedRect.size.height = contentHeight
 
         lineFragmentRect.pointee = rect
         lineFragmentUsedRect.pointee = usedRect

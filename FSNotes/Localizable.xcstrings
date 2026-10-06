@@ -16097,23 +16097,6 @@
         }
       }
     },
-    "Add row" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新增行"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新增列"
-          }
-        }
-      }
-    },
     "Add table column" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -16216,19 +16199,19 @@
         }
       }
     },
-    "Click a cell to edit. Drag the handle on the left to move a row." : {
+    "Click a cell to edit. Drag a handle to move a row or column." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "点击单元格编辑，拖动左侧手柄调整行顺序。"
+            "value" : "点击单元格编辑，拖动手柄调整行或列的顺序。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "點擊儲存格編輯，拖動左側把手調整列順序。"
+            "value" : "點擊儲存格編輯，拖動把手調整列或欄的順序。"
           }
         }
       }
@@ -16403,6 +16386,23 @@
         }
       }
     },
+    "Move table column" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移动表格列"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移動表格欄"
+          }
+        }
+      }
+    },
     "Move table row" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -16420,19 +16420,53 @@
         }
       }
     },
-    "Select column %d" : {
+    "Select or drag column %d" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "选择第 %d 列"
+            "value" : "选择或拖动第 %d 列"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "選取第 %d 欄"
+            "value" : "選取或拖動第 %d 欄"
+          }
+        }
+      }
+    },
+    "%d rows × %d columns" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d行 × %d列 表格"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d列 × %d欄 表格"
+          }
+        }
+      }
+    },
+    "Insert Table" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "插入表格"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "插入表格"
           }
         }
       }
