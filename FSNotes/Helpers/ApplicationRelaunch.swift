@@ -1,5 +1,15 @@
 import Foundation
 
+enum ApplicationTermination {
+    /// Keep the main run loop available while Git and autosave finish their work.
+    static func drain(_ queues: [OperationQueue], completion: @escaping () -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            for queue in queues { queue.waitUntilAllOperationsAreFinished() }
+            DispatchQueue.main.async(execute: completion)
+        }
+    }
+}
+
 enum ApplicationRelaunch {
     // Launch Services must see the old process exit before opening the app again.
     // Pass paths as arguments so spaces and shell metacharacters remain literal.

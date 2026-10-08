@@ -12,6 +12,7 @@ import Foundation
     }
 
     static func main() throws {
+        try testTerminationDrain()
         // Reset settings can leave no workspace until the user chooses one.
         // Creating an empty FSEvent stream previously trapped on a nil reference.
         let emptyWatcher = FileWatcher([])
@@ -79,6 +80,28 @@ import Foundation
         try expect(!manager.fileExists(atPath: root.appendingPathComponent("INJECTED").path),
                    "shell metacharacters in the app path are not executed")
         print("Restart integration: \(checks) checks passed")
+    }
+
+    static func testTerminationDrain() throws {
+        let git = OperationQueue(), writer = OperationQueue()
+        git.maxConcurrentOperationCount = 1; writer.maxConcurrentOperationCount = 1
+        let mainAlive = DispatchSemaphore(value: 0)
+        var persisted = false, completed = false, repliedOnMain = false
+        git.addOperation {
+            DispatchQueue.main.async { mainAlive.signal() }
+            mainAlive.wait()
+            // Git can enqueue work before the writer is drained.
+            writer.addOperation { persisted = true }
+        }
+        ApplicationTermination.drain([git, writer]) {
+            repliedOnMain = Thread.isMainThread
+            completed = true
+        }
+        try expect(!completed, "termination defers its reply until queues finish")
+        let deadline = Date().addingTimeInterval(5)
+        while !completed && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.01)) }
+        try expect(completed && persisted, "termination waits for writes produced by in-flight Git work")
+        try expect(repliedOnMain, "termination reply runs on the responsive main thread")
     }
 
     static func shellQuote(_ text: String) -> String {

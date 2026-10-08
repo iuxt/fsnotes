@@ -182,6 +182,32 @@ final class MetadataStore {
         }
     }
 
+    /// Publish a conflict as a separate note only after its body is safely copied.
+    /// Both bodies stay in notes/, so shared relative resource links remain valid.
+    @discardableResult func preserveConflict(at source: URL, for originalID: String, name: String) throws -> Entry {
+        lock.lock(); defer { lock.unlock() }
+        let id = UUID().uuidString.lowercased()
+        var preserved: Entry?
+        var destination: URL?
+        do {
+            try mutate { next in
+                guard let original = next.notes.first(where: { $0.id == originalID }) else { throw Failure.invalid("missing conflict note") }
+                var entry = Entry(id: id, name: name, folderID: original.folderID, fileExtension: original.fileExtension)
+                entry.name = try Self.availableName(name, folderID: entry.folderID, excluding: nil, in: next)
+                let body = fileURL(entry)
+                destination = body
+                try FileManager.default.copyItem(at: source, to: body)
+                next.notes.append(entry)
+                preserved = entry
+            }
+        } catch {
+            // A failed manifest publication leaves the unresolved source intact.
+            if entry(id: id) == nil, let destination = destination { try? FileManager.default.removeItem(at: destination) }
+            throw error
+        }
+        return preserved!
+    }
+
     func moveNote(id: String, folderID: String?) throws {
         try mutate { next in
             guard let index = next.notes.firstIndex(where: { $0.id == id }) else { throw Failure.invalid("note no longer exists") }
@@ -278,8 +304,8 @@ final class MetadataStore {
             let data: Data
             do { data = try Data(contentsOf: body) }
             catch let error as NSError where error.domain == NSCocoaErrorDomain && [NSFileNoSuchFileError, NSFileReadNoSuchFileError].contains(error.code) { return [] }
-            return Set(Self.localLinkTargets(in: String(decoding: data, as: UTF8.self)).compactMap { target in
-                let path = String(target.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)[0])
+            return Set(Self.localResourceTargets(in: String(decoding: data, as: UTF8.self)).compactMap { target in
+                let path = String(target.prefix { $0 != "#" && $0 != "?" })
                 let resource = body.deletingLastPathComponent().appendingPathComponent(path.removingPercentEncoding ?? path)
                     .standardizedFileURL.resolvingSymlinksInPath()
                 return resource == images || resource.path.hasPrefix(images.path + "/") ? resource : nil
@@ -573,6 +599,45 @@ final class MetadataStore {
             }
         }
         return targets
+    }
+
+    /// Resource collection is conservative: HTML examples can retain an asset,
+    /// but an unrecognized HTML reference must never cause another note's data loss.
+    static func localResourceTargets(in text: String) -> [String] {
+        var targets = localLinkTargets(in: text)
+        let tags = try! NSRegularExpression(pattern: #"(?s)<[A-Za-z](?:[^\"'<>]|\"[^\"]*\"|'[^']*')*>"#)
+        let attributes = try! NSRegularExpression(pattern: #"(?i)\b(src|href|poster|data|background|srcset)\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s\"'=<>`]+))"#)
+        let nsText = text as NSString
+        for tag in tags.matches(in: text, range: NSRange(location: 0, length: nsText.length)) {
+            let html = nsText.substring(with: tag.range)
+            let nsHTML = html as NSString
+            for attribute in attributes.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)) {
+                guard let range = (2...4).map({ attribute.range(at: $0) }).first(where: { $0.location != NSNotFound }) else { continue }
+                let value = decodeHTMLAttribute(nsHTML.substring(with: range))
+                let paths = nsHTML.substring(with: attribute.range(at: 1)).lowercased() == "srcset"
+                    ? value.split(separator: ",").compactMap { $0.split(whereSeparator: { $0.isWhitespace }).first.map(String.init) }
+                    : [value]
+                targets += paths.filter { !$0.isEmpty && !$0.hasPrefix("#") && !$0.hasPrefix("/") && URLComponents(string: $0)?.scheme == nil }
+            }
+        }
+        return targets
+    }
+
+    private static func decodeHTMLAttribute(_ value: String) -> String {
+        let entities = try! NSRegularExpression(pattern: #"&(?:#([0-9]+)|#[xX]([0-9a-fA-F]+)|(amp|quot|apos|lt|gt));"#)
+        let result = NSMutableString(string: value)
+        let named = ["amp": "&", "quot": "\"", "apos": "'", "lt": "<", "gt": ">"]
+        for match in entities.matches(in: value, range: NSRange(location: 0, length: result.length)).reversed() {
+            var replacement: String?
+            if match.range(at: 3).location != NSNotFound { replacement = named[result.substring(with: match.range(at: 3))] }
+            else {
+                let decimal = match.range(at: 1).location != NSNotFound
+                let digits = result.substring(with: match.range(at: decimal ? 1 : 2))
+                if let number = UInt32(digits, radix: decimal ? 10 : 16), let scalar = UnicodeScalar(number) { replacement = String(scalar) }
+            }
+            if let replacement = replacement { result.replaceCharacters(in: match.range, with: replacement) }
+        }
+        return result as String
     }
 
     /// Preserve local inline/reference Markdown links when moving a document into notes/.

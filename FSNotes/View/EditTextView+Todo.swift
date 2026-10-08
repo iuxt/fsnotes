@@ -12,19 +12,15 @@ extension EditTextView {
     func clearCompletedTodos() {
         guard let textStorage = textStorage else { return }
         
-        let fullRange = NSRange(location: 0, length: textStorage.length)
         let text = textStorage.string as NSString
         
         undoManager?.beginUndoGrouping()
         
         var linesToRemove: [NSRange] = []
-        textStorage.enumerateAttribute(.todo, in: fullRange, options: []) { value, range, stop in
-            if let value = value as? Int, value == 1 {
-                let lineRange = text.lineRange(for: range)
-                
-                if !linesToRemove.contains(where: { $0.intersection(lineRange) != nil }) {
-                    linesToRemove.append(lineRange)
-                }
+        for element in MarkdownPresentation.parse(textStorage.string).elements {
+            if element.decoration == .text("☑") {
+                let lineRange = text.lineRange(for: element.range)
+                if !linesToRemove.contains(lineRange) { linesToRemove.append(lineRange) }
             }
         }
         

@@ -273,6 +273,12 @@ import Foundation
         var rejectedCrossLibrary = false
         do { try storage.moveMetadataFolder(moving, to: otherRoot) } catch { rejectedCrossLibrary = true }
         try expect(rejectedCrossLibrary && moving.parent === moveDestination, "folder cannot move across libraries")
+        let version = temporary.appendingPathComponent("cloud-version")
+        try Data("cloud conflict body".utf8).write(to: version)
+        let preserved = try store.preserveConflict(at: version, for: movingNote.metadataEntry!.id, name: "Conflict copy")
+        let visible = nested.metadataNotes().first { $0.url == store.fileURL(preserved) }
+        try expect(visible?.project === nested && visible?.fileName == "Conflict copy", "registered cloud conflict appears in the correct UI folder")
+        try expect(nested.metadataNotes().contains { $0.url == store.fileURL(preserved) }, "library scanning discovers the conflict copy")
         print("Metadata adapter integration: \(checks) checks passed")
     }
 }

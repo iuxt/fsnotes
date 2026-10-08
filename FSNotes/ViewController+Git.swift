@@ -29,14 +29,93 @@ extension ViewController {
     }
 
     @IBAction func synchronizeGit(_ sender: NSButton) {
-        guard syncButton.isEnabled, let window = view.window else { return }
+        guard syncButton.isEnabled else { return }
         guard let project = getGitProject(), project.hasRepository(), project.getGitOrigin() != nil else {
+            guard let window = view.window else { return }
             let alert = NSAlert()
             alert.messageText = NSLocalizedString("Git sync is not configured", comment: "Git")
             alert.informativeText = NSLocalizedString("Set up the repository and remote in Preferences → Git before syncing.", comment: "Git")
             alert.beginSheetModal(for: window)
             return
         }
+        synchronizeGit(project: project)
+    }
+
+    @IBAction func showGitChanges(_ sender: Any) {
+        if let controller = gitChangesController as? GitChangesViewController {
+            controller.start()
+            controller.focusFilter()
+            return
+        }
+
+        // Finish the editor's current snapshot before querying the worktree.
+        view.window?.makeFirstResponder(nil)
+        if editor.isEditable { editor.save() }
+        let project = editor.note?.getGitProject() ?? storage.getDefault()?.getGitProject() ?? getGitProject()
+        guard let project = project, project.hasRepository() else {
+            let controller = NSViewController()
+            let title = NSTextField(labelWithString: NSLocalizedString("Repository not found", comment: "Git"))
+            title.font = .systemFont(ofSize: 18, weight: .medium)
+            let detail = NSTextField(wrappingLabelWithString: NSLocalizedString("Initialize a Git repository in Preferences → Git to review changes.", comment: "Git changes"))
+            detail.textColor = .secondaryLabelColor
+            let stack = NSStackView(views: [title, detail])
+            stack.orientation = .vertical
+            stack.spacing = 16
+            controller.view = NSView()
+            controller.view.addSubview(stack)
+            stack.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                stack.centerXAnchor.constraint(equalTo: controller.view.centerXAnchor),
+                stack.centerYAnchor.constraint(equalTo: controller.view.centerYAnchor),
+                stack.widthAnchor.constraint(lessThanOrEqualToConstant: 400)
+            ])
+            presentGitChanges(controller)
+            return
+        }
+        var repositories = [project]
+        var roots = Set([project.getRepositoryUrl().standardizedFileURL])
+        for candidate in storage.projects.compactMap({ $0.getGitProject() }) {
+            if roots.insert(candidate.getRepositoryUrl().standardizedFileURL).inserted { repositories.append(candidate) }
+        }
+        let path = editor.note.flatMap { relativePath(from: $0.url, to: project.url) }
+        let controller = GitChangesViewController(project: project, projects: repositories, preferredPath: path,
+            synchronize: { [weak self] project in self?.synchronizeGit(project: project) },
+            close: { [weak self] in
+                self?.hideGitChanges()
+                if let self = self { self.view.window?.makeFirstResponder(self.notesTableView) }
+            })
+        presentGitChanges(controller)
+        controller.start()
+        controller.focusFilter()
+    }
+
+    private func presentGitChanges(_ controller: NSViewController) {
+        hideGitChanges()
+        gitChangesController = controller
+        addChild(controller)
+        let panel = controller.view
+        panel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(panel)
+        NSLayoutConstraint.activate([
+            panel.leadingAnchor.constraint(equalTo: splitView.leadingAnchor),
+            panel.trailingAnchor.constraint(equalTo: splitView.trailingAnchor),
+            panel.topAnchor.constraint(equalTo: splitView.topAnchor),
+            panel.bottomAnchor.constraint(equalTo: splitView.bottomAnchor)
+        ])
+        splitView.alphaValue = 0
+    }
+
+    func hideGitChanges() {
+        guard let controller = gitChangesController else { return }
+        (controller as? GitChangesViewController)?.stop()
+        controller.view.removeFromSuperview()
+        controller.removeFromParent()
+        gitChangesController = nil
+        splitView.alphaValue = 1
+    }
+
+    private func synchronizeGit(project: Project) {
+        guard syncButton.isEnabled, let window = view.window else { return }
         if GitConflictWindowController.reveal(project: project) { return }
         guard !project.isActiveGit else { return }
         project.isActiveGit = true

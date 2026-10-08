@@ -811,6 +811,9 @@ public class Note: NSObject  {
 
             try fileWrapper.write(to: dst, options: .atomic, originalContentsURL: originalContentsURL)
             try FileManager.default.setAttributes(attributes, ofItemAtPath: dst.path)
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .workspaceFileDidChange, object: dst)
+            }
 
         } catch {
             NSLog("Write error: %@", error.localizedDescription)

@@ -45,6 +45,7 @@ class ViewController: EditorViewController,
 
     /* Git */
     private var updateViews = [Note]()
+    var gitChangesController: NSViewController?
 
     var tagsScannerQueue = [Note]()
 
@@ -166,9 +167,6 @@ class ViewController: EditorViewController,
         NotificationCenter.default.addObserver(self, selector: #selector(metadataLibraryDidRefresh(_:)),
                                                name: .metadataLibraryDidRefresh, object: storage)
 
-        // Must before event manager starts
-        self.storage.checkWelcome()
-
         fsManager = FileSystemEventManager(storage: storage, delegate: self)
         fsManager?.start()
 
@@ -264,13 +262,11 @@ class ViewController: EditorViewController,
         self.storage.loadNotesContent()
 
         DispatchQueue.main.async {
-            if self.storage.isCrashedLastTime && !UserDefaultsManagement.showWelcome {
+            if self.storage.isCrashedLastTime {
 
                 // Unsafe – resets selected note
                 self.restoreSidebar()
             }
-
-            UserDefaultsManagement.showWelcome = false
 
             // Safe – only tags loading
             self.sidebarOutlineView.loadAllTags()
@@ -379,13 +375,8 @@ class ViewController: EditorViewController,
         if isVisibleSidebar() {
             self.restoreSidebar()
 
-            if UserDefaultsManagement.lastSidebarItem != nil || UserDefaultsManagement.lastProjectURL != nil || Storage.shared().welcomeProject != nil {
-                if let welcome = Storage.shared().welcomeProject  {
-                    let item = self.sidebarOutlineView.row(forItem: welcome)
-                    if item > -1 {
-                        self.sidebarOutlineView.selectRowIndexes([item], byExtendingSelection: false)
-                    }
-                } else if let lastSidebarItem = UserDefaultsManagement.lastSidebarItem {
+            if UserDefaultsManagement.lastSidebarItem != nil || UserDefaultsManagement.lastProjectURL != nil {
+                if let lastSidebarItem = UserDefaultsManagement.lastSidebarItem {
                     let sidebarItem = self.sidebarOutlineView.sidebarItems?.first(where: { ($0 as? SidebarItem)?.type.rawValue == lastSidebarItem })
                     let item = self.sidebarOutlineView.row(forItem: sidebarItem)
                     if item > -1 {
@@ -404,14 +395,6 @@ class ViewController: EditorViewController,
     private func configureNoteList() {
         updateTable() {
             DispatchQueue.main.async {
-
-                // Init first selected note for welcome
-                if let note = Storage.shared().welcomeNote {
-                    note.previewState = true
-                    self.notesTableView.select(note: note)
-
-                    Storage.shared().welcomeNote = nil
-                }
 
                 self.restoreOpenedWindows()
                 self.importAndCreate()
@@ -615,6 +598,19 @@ class ViewController: EditorViewController,
                 self.alert = nil
             }
 
+            return true
+        }
+
+        if gitChangesController != nil, NSApp.keyWindow == view.window {
+            if event.keyCode == kVK_Escape {
+                hideGitChanges()
+                view.window?.makeFirstResponder(notesTableView)
+                return false
+            }
+            if event.keyCode == kVK_ANSI_F, event.modifierFlags.contains(.command) {
+                (gitChangesController as? GitChangesViewController)?.focusFilter()
+                return false
+            }
             return true
         }
 
@@ -1286,11 +1282,6 @@ class ViewController: EditorViewController,
 
         if let sidebarProjects = sidebarOutlineView.getSidebarProjects() {
             projects = sidebarProjects
-        }
-
-        // Iniot welcome project
-        if let project = Storage.shared().welcomeProject {
-            projects = [project]
         }
 
         if let sidebarTags = sidebarOutlineView.getSidebarTags() {

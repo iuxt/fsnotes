@@ -13,6 +13,7 @@ import AppKit
         let root = manager.temporaryDirectory.appendingPathComponent("fsnotes-editing-" + UUID().uuidString)
         try manager.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? manager.removeItem(at: root) }
+        try testRemoteShell(in: root)
         let queue = OperationQueue()
         queue.maxConcurrentOperationCount = 1
         queue.isSuspended = true
@@ -123,5 +124,26 @@ import AppKit
         try expect(HistoryDiff.lines(from: markdown, to: current).allSatisfy { $0.kind == .unchanged },
                    "an unchanged rendered note has no false history differences")
         print("Editing integration: \(checks) checks passed")
+    }
+    static func testRemoteShell(in root: URL) throws {
+        let manager = FileManager.default
+        let marker = root.appendingPathComponent("INJECTED")
+        let literal = "-option ' 中文 $(touch \(marker.path)); `touch \(marker.path)`\nnext"
+        func run(_ command: String) throws {
+            let task = Process(); task.executableURL = URL(fileURLWithPath: "/bin/sh")
+            task.arguments = ["-c", command]; task.currentDirectoryURL = root
+            try task.run(); task.waitUntilExit()
+            try expect(task.terminationStatus == 0, "remote filesystem command succeeds with a literal path")
+        }
+        try run(RemoteShell.makeDirectory(literal))
+        let directory = root.appendingPathComponent(literal)
+        try expect(manager.fileExists(atPath: directory.path), "spaces, quotes, newlines and shell syntax remain literal")
+        try expect(!manager.fileExists(atPath: marker.path), "path command substitutions are never executed")
+        let file = directory.appendingPathComponent("index.html")
+        try Data("page".utf8).write(to: file)
+        try run(RemoteShell.remove(file.path, recursively: false))
+        try expect(!manager.fileExists(atPath: file.path) && manager.fileExists(atPath: directory.path), "file removal affects only its literal argument")
+        try run(RemoteShell.remove(literal, recursively: true))
+        try expect(!manager.fileExists(atPath: directory.path) && !manager.fileExists(atPath: marker.path), "recursive removal cannot interpret options or commands in a path")
     }
 }

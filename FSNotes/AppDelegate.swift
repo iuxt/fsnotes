@@ -16,6 +16,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var statusItem: NSStatusItem?
     private var isSwitchingWorkspace = false
     private var isRestarting = false
+    private var isTerminating = false
     private var restartCleanup: (() -> Void)?
 
     public var urls: [URL]? = nil
@@ -108,6 +109,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         return true
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !isTerminating else { return .terminateLater }
+        isTerminating = true
+        let controller = ViewController.shared()
+        controller?.stopPull()
+        controller?.snapshotsTimer.invalidate()
+        for editor in AppDelegate.getEditTextViews() { editor.isEditable = false }
+        ApplicationTermination.drain([ViewController.gitQueue, Storage.shared().plainWriter]) {
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 
     func applicationWillTerminate(_ notification: Notification) {

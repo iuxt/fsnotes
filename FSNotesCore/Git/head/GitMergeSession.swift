@@ -55,9 +55,25 @@ final class GitMergeSession {
 
     static func prepare(project: Project) throws -> GitMergeSession? {
         let repository = try project.getRepository()
+        let branch = try repository.currentBranch()
+        let remote = try repository.branches.get(name: "origin/" + branch.shortName, type: .remote)
+        let session = try prepare(repository: repository, remoteBranch: remote, signature: project.getSign())
+        return session.files.isEmpty ? nil : session
+    }
+
+    /// Automatic merges use the same validation, checkout and rollback as resolved conflicts.
+    static func merge(repository: Repository, remoteBranch: Branch, signature: Signature) throws {
+        let session = try prepare(repository: repository, remoteBranch: remoteBranch, signature: signature)
+        guard session.files.isEmpty else {
+            throw GitError.unableToMerge(msg: "Conflicting files: " + session.files.map { $0.paths.sorted().joined(separator: ", ") }.joined(separator: ", ")
+                + ". Resolve the merge with an external Git client before syncing again.")
+        }
+        try session.finish(resolutions: [], signature: signature)
+    }
+
+    private static func prepare(repository: Repository, remoteBranch: Branch, signature: Signature) throws -> GitMergeSession {
         try repository.requireCompletedOperation()
         let branch = try repository.currentBranch()
-        let remoteBranch = try repository.branches.get(name: "origin/" + branch.shortName, type: .remote)
         let original = try branch.targetCommit(), remote = try remoteBranch.targetCommit()
         guard let directory = git_repository_path(repository.pointer.pointee) else {
             throw GitError.notFound(ref: "Git directory")
@@ -69,9 +85,8 @@ final class GitMergeSession {
         let originalTree = try original.tree()
         let local = treeSHA(workingTree) == treeSHA(originalTree) ? original
             : try detachedCommit(repository: repository, tree: workingTree, parents: [original],
-                                 signature: project.getSign(), message: "Local edits before resolving sync conflicts")
+                                 signature: signature, message: "Local edits before merging")
         let index = try mergedIndex(repository: repository, local: local, remote: remote)
-        guard index.conflicts else { return nil }
         let files = try conflicts(repository: repository, index: index)
         return GitMergeSession(repository: repository, original: original, local: local, remote: remote,
                                workingTree: workingTree, mergeIndex: index, files: files,
@@ -137,7 +152,7 @@ final class GitMergeSession {
             throw GitError.invalidSpec(spec: "The library metadata cannot be deleted")
         }
         let commit = try Self.detachedCommit(repository: repository, tree: tree, parents: [local, remote],
-                                             signature: signature, message: "Resolve sync conflicts with " + remoteBranch)
+                                             signature: signature, message: files.isEmpty ? "Merge branch '" + remoteBranch + "'" : "Resolve sync conflicts with " + remoteBranch)
         let backups = try changedFiles(target: tree)
         var options = git_checkout_options()
         try Self.check(git_checkout_options_init(&options, UInt32(GIT_CHECKOUT_OPTIONS_VERSION)), "Unable to prepare checkout")

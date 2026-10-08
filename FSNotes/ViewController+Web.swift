@@ -22,7 +22,7 @@ extension EditorViewController {
             do {
                 guard let ssh = self.getSSHResource() else { return }
                 
-                try ssh.execute("rm -r \(remotePath)")
+                try ssh.execute(RemoteShell.remove(remotePath, recursively: true))
                 
                 note.uploadPath = nil
                 
@@ -60,7 +60,7 @@ extension EditorViewController {
             do {
                 guard let ssh = self.getSSHResource() else { return }
                 
-                try ssh.execute("mkdir -p \(remoteDir)")
+                try ssh.execute(RemoteShell.makeDirectory(remoteDir))
                 
                 let zipURL = localURL
                     .deletingLastPathComponent()
@@ -72,7 +72,7 @@ extension EditorViewController {
                 // Upload index.html
                 let remoteIndex = remoteDir + "index.html"
                 
-                _ = try ssh.execute("rm -r \(remoteIndex)")
+                _ = try ssh.execute(RemoteShell.remove(remoteIndex, recursively: false))
                 try sftp.upload(localURL: localURL, remotePath: remoteIndex)
                 
                 // Upload archive
@@ -86,7 +86,7 @@ extension EditorViewController {
                     }
                     
                     if !imageDirCreationDone {
-                        try ssh.execute("mkdir -p \(remoteDir)/i")
+                        try ssh.execute(RemoteShell.makeDirectory(remoteDir + "i/"))
                         imageDirCreationDone = true
                     }
                     

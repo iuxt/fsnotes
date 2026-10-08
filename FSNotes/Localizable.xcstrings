@@ -1,6 +1,611 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+  "Repository": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "仓库"
+        }
+      }
+    }
+  },
+  "Back to notes": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "返回笔记"
+        }
+      }
+    }
+  },
+  "Latest commit": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "最近提交"
+        }
+      }
+    }
+  },
+  "No uncommitted changes": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "没有未提交的变更"
+        }
+      }
+    }
+  },
+  "All saved files match the current commit.": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "所有已保存的文件与当前提交一致。"
+        }
+      }
+    }
+  },
+  "Initialize a Git repository in Preferences → Git to review changes.": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "请先在「偏好设置 → Git」中初始化仓库，再查看变更。"
+        }
+      }
+    }
+  },
+  "Git Changes": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Git 变更"
+        }
+      }
+    }
+  },
+  "Review Git changes": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "查看 Git 变更"
+        }
+      }
+    }
+  },
+  "Side by side": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "并排对比"
+        }
+      }
+    }
+  },
+  "Unified": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "统一对比"
+        }
+      }
+    }
+  },
+  "Filter changed files": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "筛选变更文件"
+        }
+      }
+    }
+  },
+  "Changed files": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "变更文件"
+        }
+      }
+    }
+  },
+  "Changes": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "未暂存变更"
+        }
+      }
+    }
+  },
+  "Staged changes": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "已暂存变更"
+        }
+      }
+    }
+  },
+  "Commit message": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "提交说明"
+        }
+      }
+    }
+  },
+  "Commit staged changes": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "提交已暂存变更"
+        }
+      }
+    }
+  },
+  "Only staged changes will be committed.": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "仅提交已暂存的变更。"
+        }
+      }
+    }
+  },
+  "File differences": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "文件差异"
+        }
+      }
+    }
+  },
+  "Stage": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "暂存"
+        }
+      }
+    }
+  },
+  "Unstage": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "取消暂存"
+        }
+      }
+    }
+  },
+  "Stage all": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "全部暂存"
+        }
+      }
+    }
+  },
+  "Unstage all": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "全部取消暂存"
+        }
+      }
+    }
+  },
+  "Refresh": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "刷新"
+        }
+      }
+    }
+  },
+  "Push": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "推送"
+        }
+      }
+    }
+  },
+  "Index": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "暂存区"
+        }
+      }
+    }
+  },
+  "Working tree": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "工作目录"
+        }
+      }
+    }
+  },
+  "Repository root": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "仓库根目录"
+        }
+      }
+    }
+  },
+  "Added": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "新增"
+        }
+      }
+    }
+  },
+  "Modified": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "修改"
+        }
+      }
+    }
+  },
+  "Deleted": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "删除"
+        }
+      }
+    }
+  },
+  "Renamed": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "重命名"
+        }
+      }
+    }
+  },
+  "Type changed": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "类型改变"
+        }
+      }
+    }
+  },
+  "Conflicted": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "冲突"
+        }
+      }
+    }
+  },
+  "Unreadable": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "无法读取"
+        }
+      }
+    }
+  },
+  "Loading changes…": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "正在读取变更…"
+        }
+      }
+    }
+  },
+  "Loading differences…": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "正在读取差异…"
+        }
+      }
+    }
+  },
+  "Git operation in progress…": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Git 操作进行中…"
+        }
+      }
+    }
+  },
+  "Resolve the pending Git operation before staging or committing.": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "请先完成待处理的 Git 操作，再暂存或提交。"
+        }
+      }
+    }
+  },
+  "Resolve conflicts before staging or committing.": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "请先解决冲突，再暂存或提交。"
+        }
+      }
+    }
+  },
+  "%d unstaged · %d staged": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "%d 个未暂存 · %d 个已暂存"
+        }
+      }
+    }
+  },
+  "Unable to load changes": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "无法读取变更"
+        }
+      }
+    }
+  },
+  "Unable to compare file": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "无法对比文件"
+        }
+      }
+    }
+  },
+  "Working tree clean": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "工作目录已是最新"
+        }
+      }
+    }
+  },
+  "All changes have been committed.": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "所有变更均已提交。"
+        }
+      }
+    }
+  },
+  "No matching files": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "没有匹配的文件"
+        }
+      }
+    }
+  },
+  "Select a changed file to review its differences.": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "选择一个变更文件，查看内容差异。"
+        }
+      }
+    }
+  },
+  "Pushing…": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "正在推送…"
+        }
+      }
+    }
+  },
+  "Staging…": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "正在暂存…"
+        }
+      }
+    }
+  },
+  "Unstaging…": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "正在取消暂存…"
+        }
+      }
+    }
+  },
+  "Committing…": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "正在提交…"
+        }
+      }
+    }
+  },
+  "Binary file changed": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "二进制文件已变更"
+        }
+      }
+    }
+  },
+  "Text comparison is unavailable for this file. You can still stage and commit it.": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "此文件不支持文本对比，仍可暂存和提交。"
+        }
+      }
+    }
+  },
+  "No text differences": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "没有文本差异"
+        }
+      }
+    }
+  },
+  "No text differences. The file status or permissions may have changed.": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "没有文本差异，文件状态或权限可能已改变。"
+        }
+      }
+    }
+  },
+  "Preview limited to 8,000 lines. Open the file to review the remaining changes.": {
+    "extractionState": "manual",
+    "localizations": {
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "预览最多显示 8,000 行。请打开文件查看其余变更。"
+        }
+      }
+    }
+  },
   "Copy code": {
     "extractionState": "manual",
     "localizations": {

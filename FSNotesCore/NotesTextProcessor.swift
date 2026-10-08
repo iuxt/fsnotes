@@ -1144,10 +1144,6 @@ public class NotesTextProcessor {
     
     public static let todoInlineRegex = MarklightRegex(pattern: todoInlinePattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
 
-    fileprivate static let allTodoInlinePattern = "((-\\ \\[(?:\\ |x)\\])\\ )"
-
-    public static let allTodoInlineRegex = MarklightRegex(pattern: allTodoInlinePattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
-    
     fileprivate static let codeSpanPattern = [
         "(?<![\\\\`])   # Character before opening ` can't be a backslash or backtick",
         "(`+)           # $1 = Opening run of `",

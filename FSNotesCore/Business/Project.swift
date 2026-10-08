@@ -188,12 +188,6 @@ public class Project: NSObject {
         if let name = localizedName as? String, name.count > 0 {
             self.label = name
         }
-
-        if settings.sortBy == .none, self.label == "Welcome" {
-            settings.sortBy = .title
-            settings.sortDirection = .asc
-            settings.showInCommon = false
-        }
     }
 
     public func getCacheURL() -> URL? {

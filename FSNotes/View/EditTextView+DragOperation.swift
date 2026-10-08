@@ -54,8 +54,12 @@ extension EditTextView
         else { return false }
         
         let title = "[[\(draggableNote.title)]]"
+        let originalText = textStorage.string
         
         DispatchQueue.main.async {
+            guard self.isEditable, self.note === note, self.textStorage === textStorage, textStorage.string == originalText,
+                  replacementRange.location <= textStorage.length,
+                  replacementRange.length <= textStorage.length - replacementRange.location else { return }
             self.window?.makeFirstResponder(self)
             
             guard let undoManager = self.undoManager else { return }
@@ -65,7 +69,7 @@ extension EditTextView
                 textStorage.replaceCharacters(in: replacementRange, with: title)
                 self.didChangeText()
                 
-                self.setSelectedRange(NSRange(location: replacementRange.location + title.count, length: 0))
+                self.setSelectedRange(NSRange(location: replacementRange.location + (title as NSString).length, length: 0))
             }
             
             undoManager.endUndoGrouping()
@@ -80,16 +84,20 @@ extension EditTextView
               !urls.isEmpty else { return false }
 
         note.save(attributed: attributedString())
+        let originalText = string
 
         let group = DispatchGroup()
         let total = urls.count
         var results = Array<NSAttributedString?>(repeating: nil, count: total)
+        let resultsLock = NSLock()
 
         for (index, url) in urls.enumerated() {
             group.enter()
             fetchDataFromURL(url: url) { data, error in
                 defer { group.leave() }
                 guard let data = data, error == nil else { return }
+                resultsLock.lock()
+                defer { resultsLock.unlock() }
                 
                 if url.isWebURL {
                     let title = self.getHTMLTitle(from: data) ?? url.lastPathComponent
@@ -110,6 +118,9 @@ extension EditTextView
         }
         
         group.notify(queue: .main) {
+            guard self.isEditable, self.note === note, self.string == originalText,
+                  replacementRange.location <= self.string.utf16.count,
+                  replacementRange.length <= self.string.utf16.count - replacementRange.location else { return }
             let final = NSMutableAttributedString()
             for i in 0..<total {
                 guard let part = results[i] else { continue }

@@ -67,9 +67,6 @@ class Storage {
     public var allNotesProject: Project?
     public var untaggedProject: Project?
 
-    public var welcomeProject: Project?
-    public var welcomeNote: Note?
-
     init() {
 
 #if CLOUD_RELATED_BLOCK
@@ -137,8 +134,6 @@ class Storage {
         plainWriter.qualityOfService = .userInteractive
 
     #if os(iOS)
-        checkWelcome()
-
         let revHistory = getRevisionsHistory()
         let revHistoryDS = getRevisionsHistoryDocumentsSupport()
 
@@ -976,112 +971,6 @@ class Storage {
         }
 
         saveCachedTree()
-    }
-
-    public func checkWelcome() {
-        if let root = getDefault(), root.metadataStore != nil {
-            guard UserDefaultsManagement.showWelcome else { return }
-            do {
-                #if os(OSX)
-                guard let bundle = Bundle.main.resourceURL?.appendingPathComponent("Welcome.bundle") else { return }
-                let project = try root.child.first(where: { $0.label == "Welcome" }) ?? createMetadataFolder(in: root, name: "Welcome")
-                guard let destination = project else { return }
-                let existing = try root.metadataStore!.allEntries().filter { $0.folderID == destination.metadataFolderID }
-                if existing.isEmpty {
-                    for file in try FileManager.default.contentsOfDirectory(at: bundle, includingPropertiesForKeys: nil) where allowedExtensions.contains(file.pathExtension) {
-                        _ = try importMetadataFile(file, to: destination)
-                    }
-                }
-                welcomeProject = destination
-                welcomeNote = destination.getNotes().first { $0.fileName == "1. Introduction" }
-                #else
-                guard noteList.isEmpty, let source = Bundle.main.resourceURL?.appendingPathComponent("Meet FSNotes 7.md") else { return }
-                _ = try importMetadataFile(source, to: root)
-                #endif
-                UserDefaultsManagement.showWelcome = false
-            } catch { NSLog("%@", error.localizedDescription) }
-            return
-        }
-        if getDefault()?.metadataUnavailable == true { return }
-        #if os(OSX)
-            guard let storageUrl = getDefault()?.url else { return }
-            guard UserDefaultsManagement.showWelcome else { return }
-            guard let bundlePath = Bundle.main.path(forResource: "Welcome", ofType: ".bundle") else { return }
-
-            let bundle = URL(fileURLWithPath: bundlePath)
-            let url = storageUrl.appendingPathComponent("Welcome", isDirectory: true)
-
-            if FileManager.default.fileExists(atPath: url.path) {
-                return
-            }
-
-            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
-
-            do {
-                var files = try FileManager.default.contentsOfDirectory(atPath: bundle.path)
-                files = files.sorted(by: { $0.localizedStandardCompare($1) == .orderedDescending })
-
-                var i = 0
-                for file in files {
-                    i += 1
-
-                    let dstPath = "\(url.path)/\(file)"
-                    try? FileManager.default.copyItem(atPath: "\(bundle.path)/\(file)", toPath: dstPath)
-
-                    // Adds sorting for global sort by .creationDate
-                    let mdPath = "\(url.path)/\(file)"
-                    if let attributes = try? FileManager.default.attributesOfItem(atPath: mdPath),
-                       let creationDate = attributes[.creationDate] as? Date
-                    {
-                        let newDate = creationDate.addingTimeInterval(TimeInterval(i))
-                        try? FileManager.default.setAttributes([.creationDate: newDate], ofItemAtPath: mdPath)
-                    }
-                }
-            } catch {
-                print("Initial copy error: \(error)")
-            }
-
-            let project = Project(storage: self, url: url, label: "Welcome")
-            insertProject(project: project)
-
-            let notes = project.loadNotes()
-            _ = notes.compactMap({ $0.load() })
-
-            welcomeProject = project
-            welcomeNote = notes.first(where: { $0.fileName == "1. Introduction"})
-
-        #else
-            guard UserDefaultsManagement.showWelcome else { return }
-            guard noteList.isEmpty else { return }
-
-            let welcomeFileName = "Meet FSNotes 7.md"
-
-            guard let src = Bundle.main.resourceURL?.appendingPathComponent(welcomeFileName) else { return }
-            guard let dst = getDefault()?.url.appendingPathComponent(welcomeFileName) else { return }
-
-            do {
-                if !FileManager.default.fileExists(atPath: dst.path) {
-                    try FileManager.default.copyItem(atPath: src.path, toPath: dst.path)
-                    let imageName = "meet-fsnotes-7-logo.png"
-                    let sourceImage = src.deletingLastPathComponent().appendingPathComponent("assets/" + imageName)
-                    let assets = dst.deletingLastPathComponent().appendingPathComponent("assets", isDirectory: true)
-                    try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
-                    let image = assets.appendingPathComponent(imageName)
-                    if !FileManager.default.fileExists(atPath: image.path) {
-                        try FileManager.default.copyItem(at: sourceImage, to: image)
-                    }
-
-                    if let project = getDefault() {
-                        let note = Note(url: dst, with: project)
-                        add(note)
-                    }
-                }
-            } catch {
-                print("Initial copy error: \(error)")
-            }
-
-            UserDefaultsManagement.showWelcome = false
-        #endif
     }
 
     public func getNewsDate() -> Date? {

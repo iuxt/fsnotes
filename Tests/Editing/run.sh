@@ -4,6 +4,7 @@ repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 test_build="$(mktemp -d "${TMPDIR:-/tmp}/fsnotes-editing-tests.XXXXXX")"
 trap 'rm -rf "$test_build"' EXIT
 swiftc "$repo_root/FSNotesCore/Business/NoteAutosave.swift" \
+    "$repo_root/FSNotesCore/Business/RemoteShell.swift" \
     "$repo_root/FSNotesCore/Business/PreviewImages.swift" \
     "$repo_root/FSNotesCore/Extensions/NSAttributedStringKey+.swift" \
     "$repo_root/FSNotesCore/Extensions/NSMutableAttributedString+.swift" \

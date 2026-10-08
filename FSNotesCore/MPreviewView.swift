@@ -686,29 +686,11 @@ class HandlerCheckbox: NSObject, WKScriptMessageHandler {
         guard let note = self.note else { return }
 
         let content = note.content.unloadAttachments()
-        let string = content.string
-        let range = NSRange(0..<string.count)
+        guard let index = Int(position), MarkdownCheckbox.toggle(in: content, at: index) else { return }
 
-        var i = 0
-        NotesTextProcessor.allTodoInlineRegex.matches(string, range: range) { (result) -> Void in
-            guard let range = result?.range else { return }
-
-            if i == Int(position) {
-                let substring = content.mutableString.substring(with: range)
-
-                if substring.contains("- [x] ") {
-                    content.replaceCharacters(in: range, with: "- [ ] ")
-                } else {
-                    content.replaceCharacters(in: range, with: "- [x] ")
-                }
-
-                #if os(iOS)
-                AudioServicesPlaySystemSound(1519)
-                #endif
-            }
-
-            i = i + 1
-        }
+        #if os(iOS)
+        AudioServicesPlaySystemSound(1519)
+        #endif
 
         note.save(content: content.loadAttachments(note))
     }

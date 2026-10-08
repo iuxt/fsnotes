@@ -56,6 +56,8 @@ class Sidebar {
             Storage.shared().untaggedProject = fakeUntaggedProject
         }
 
+        system.append(SidebarItem(name: NSLocalizedString("Git Changes", comment: "Git changes"), type: .Git))
+
         if UserDefaultsManagement.sidebarVisibilityTrash {
             let trashProject = Storage.shared().getDefaultTrash()
             let trash = SidebarItem(name: NSLocalizedString("Trash", comment: ""), project: trashProject, type: .Trash)

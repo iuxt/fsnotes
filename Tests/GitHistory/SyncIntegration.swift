@@ -84,8 +84,63 @@ import Foundation
         try expect(try String(contentsOf: local.appendingPathComponent("local.md"), encoding: .utf8) == "unsaved local conflict", "failed pull retains local edits")
         try expect(try git(["--git-dir", remote.path, "rev-parse", branch], in: temp) == remoteConflict, "failed pull does not push")
         try testMetadataConflicts(in: temp)
+        try testCleanDivergentMerge(in: temp)
+        try testMergedFolderCycle(in: temp)
         try testCloneProtection(in: temp)
         print("Git sync integration: \(checks) checks passed")
+    }
+    static func testCleanDivergentMerge(in temp: URL) throws {
+        let local = temp.appendingPathComponent("clean-merge-local")
+        let peer = temp.appendingPathComponent("clean-merge-peer")
+        try FileManager.default.createDirectory(at: local, withIntermediateDirectories: true)
+        try git(["init", "-q"], in: local)
+        try write("base A", "a.md", in: local); try write("base B", "b.md", in: local)
+        try git(["add", "."], in: local); try git(["commit", "-qm", "base"], in: local)
+        try git(["clone", "-q", local.path, peer.path], in: temp)
+        try write("local content", "a.md", in: local)
+        try git(["add", "."], in: local); try git(["commit", "-qm", "local"], in: local)
+        let localSHA = try git(["rev-parse", "HEAD"], in: local)
+        try write("remote content", "b.md", in: peer)
+        try git(["add", "."], in: peer); try git(["commit", "-qm", "remote"], in: peer)
+        let remoteSHA = try git(["rev-parse", "HEAD"], in: peer)
+        let project = Project(url: local); project.settings.gitOrigin = peer.path
+        defer { project.removeCommitsCache() }
+        try project.pull()
+        try expect(try String(contentsOf: local.appendingPathComponent("b.md"), encoding: .utf8) == "remote content", "divergent merge installs the remote body")
+        try expect(try git(["status", "--porcelain"], in: local).isEmpty, "merge leaves HEAD, index and worktree consistent")
+        try expect(try git(["rev-parse", "HEAD^1"], in: local) == localSHA && git(["rev-parse", "HEAD^2"], in: local) == remoteSHA, "merge retains both parents")
+        try write("next local edit", "a.md", in: local)
+        try project.commit()
+        try expect(try git(["show", "HEAD:b.md"], in: local) == "remote content", "later autosave commit cannot revert remote content")
+    }
+
+    static func testMergedFolderCycle(in temp: URL) throws {
+        let local = temp.appendingPathComponent("cycle-local"), peer = temp.appendingPathComponent("cycle-peer")
+        try FileManager.default.createDirectory(at: local, withIntermediateDirectories: true)
+        let store = try MetadataStore(root: local)
+        // Keep the two changes far apart so Git merges them without textual conflicts.
+        let folders = (1...8).map { MetadataStore.Folder(id: String(format: "00000000-0000-4000-8000-%012d", $0), name: "F\($0)") }
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        try encoder.encode(MetadataStore.Snapshot(folders: folders)).write(to: store.manifestURL)
+        try store.refresh()
+        try git(["init", "-q"], in: local)
+        try git(["add", "."], in: local); try git(["commit", "-qm", "base folders"], in: local)
+        try git(["clone", "-q", local.path, peer.path], in: temp)
+        try store.moveFolder(id: folders[0].id, parentID: folders[7].id)
+        try git(["add", "."], in: local); try git(["commit", "-qm", "local reparent"], in: local)
+        let peerStore = try MetadataStore(root: peer)
+        try peerStore.moveFolder(id: folders[7].id, parentID: folders[0].id)
+        try git(["add", "."], in: peer); try git(["commit", "-qm", "remote reparent"], in: peer)
+        let project = Project(url: local); project.metadataStore = store; project.settings.gitOrigin = peer.path
+        let head = try git(["rev-parse", "HEAD"], in: local)
+        let index = try Data(contentsOf: local.appendingPathComponent(".git/index"))
+        let manifest = try Data(contentsOf: store.manifestURL)
+        do { try project.pull(); try expect(false, "clean text merge must reject a cyclic folder graph") }
+        catch MetadataStore.Failure.invalid(let reason) { try expect(reason == "folder cycle", "full merged manifest is validated") }
+        try expect(try git(["rev-parse", "HEAD"], in: local) == head, "invalid metadata never advances HEAD")
+        try expect(try Data(contentsOf: local.appendingPathComponent(".git/index")) == index, "invalid merge preserves index bytes")
+        try expect(try Data(contentsOf: store.manifestURL) == manifest, "invalid merge preserves working metadata")
+        try expect(try git(["status", "--porcelain"], in: local).isEmpty, "invalid merge leaves no staged reversal")
     }
     static func testMetadataConflicts(in temp: URL) throws {
         let manager = FileManager.default

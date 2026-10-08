@@ -31,6 +31,10 @@ class FileSystemEventManager {
                 return
             }
 
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .workspaceFileDidChange, object: url)
+            }
+
             if url.lastPathComponent == "metadata.json", self.storage.projects.contains(where: { $0.metadataFolderID == nil && ($0.metadataStore != nil || $0.metadataUnavailable) && $0.url.appendingPathComponent("metadata.json").standardizedFileURL == url.standardizedFileURL }) {
                 OperationQueue.main.addOperation {
                     for root in self.storage.projects where root.metadataUnavailable { self.storage.openMetadataLibrary(for: root) }
@@ -327,51 +331,23 @@ class FileSystemEventManager {
                     continue
                 }
 
-                guard let localizedName = conflict.localizedName else {
+                guard let store = storage.metadataStore(for: url), let original = store.entry(at: url) else {
                     continue
                 }
-
-                let localizedUrl = URL(fileURLWithPath: localizedName)
-                let ext = url.pathExtension
-                let name = localizedUrl.deletingPathExtension().lastPathComponent
-
                 let dateFormatter = ISO8601DateFormatter()
-                dateFormatter.formatOptions = [
-                    .withYear,
-                    .withMonth,
-                    .withDay,
-                    .withTime
-                ]
-                let dateString: String = dateFormatter.string(from: modificationDate)
-                let conflictName = "\(name) (CONFLICT \(dateString)).\(ext)"
-
-                let to = url.deletingLastPathComponent().appendingPathComponent(conflictName)
-
-                if FileManager.default.fileExists(atPath: to.path) {
+                let name = "\(original.name) (CONFLICT \(dateFormatter.string(from: modificationDate)))"
+                do {
+                    try store.preserveConflict(at: conflict.url, for: original.id, name: name)
                     conflict.isResolved = true
-                    continue
-                }
-
-                let editors = AppDelegate.getEditTextViews()
-                for editor in editors {
-                    if let currentNote = editor.note, currentNote.url == url {
-
-                        DispatchQueue.main.async {
+                    DispatchQueue.main.async {
+                        self.storage.refreshMetadataLibraries()
+                        for editor in AppDelegate.getEditTextViews() where editor.note?.url == url {
                             editor.editorViewController?.refillEditArea(force: true)
                         }
                     }
-                }
-
-                do {
-                    try FileManager.default.copyItem(at: conflict.url, to: to)
-                    var attributes = [FileAttributeKey : Any]()
-                    attributes[.posixPermissions] = 0o777
-                    try FileManager.default.setAttributes(attributes, ofItemAtPath: to.path)
-                } catch let error {
+                } catch {
                     print("Conflict resolving error: ", error)
                 }
-
-                conflict.isResolved = true
             }
         }
     }

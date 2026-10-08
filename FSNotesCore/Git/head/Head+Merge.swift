@@ -152,68 +152,7 @@ extension Head {
     ///
     /// - returns: True if branch is merged or false if conflicted files
     public func normalMerge(branch: Branch, signature: Signature, progress: Progress? = nil) throws -> Bool {
-        
-        // Merge index
-        let mergeIndexPtr = UnsafeMutablePointer<OpaquePointer?>.allocate(capacity: 1)
-
-        // Merge
-        let tCommit = try targetCommit()
-        let bCommit = try branch.targetCommit()
-        let error = git_merge_commits(mergeIndexPtr, repository.pointer.pointee, tCommit.pointer.pointee, bCommit.pointer.pointee, nil)
-        
-        if (error != 0) {
-            
-            // Dealloc
-            mergeIndexPtr.deinitialize(count: 1)
-            mergeIndexPtr.deallocate()
-            
-            throw gitUnknownError("Failed to merge \(branch.name) to HEAD", code: error)
-        }
-        
-        // Create index
-        let mergeIndex = Index(repository: repository, idx: mergeIndexPtr)
-        
-        // Detect conflicts in memory. In particular, never publish conflict markers
-        // into metadata.json or clear unresolved entries by staging them as content.
-        if mergeIndex.conflicts {
-            let paths = try conflictPaths(index: mergeIndex.idx.pointee!)
-            throw GitError.unableToMerge(msg: "Conflicting files: " + paths.joined(separator: ", ")
-                + ". Resolve the merge with an external Git client before syncing again.")
-        } else {
-            
-            // Write tree to repository
-            let tree = try repository.write(index: mergeIndex)
-
-            // Commit
-            _ = try repository.createCommit(tree: tree,
-                                            parents: [try targetCommit(), try branch.targetCommit()],
-                                            msg: "Merge branch '\(branch.name)'",
-                                            signature: signature)
-            
-            // Checkout new commit
-            try checkout(tree: try repository.head().revTree(), type: .safe, progress: progress)
-            
-            return true
-        }
-    }
-    
-    private func conflictPaths(index: OpaquePointer) throws -> [String] {
-        var iterator: OpaquePointer?
-        let result = git_index_conflict_iterator_new(&iterator, index)
-        guard result == GIT_OK.rawValue else { throw gitUnknownError("Unable to inspect merge conflicts", code: result) }
-        defer { git_index_conflict_iterator_free(iterator) }
-        var paths = Set<String>()
-        while true {
-            var ancestor: UnsafePointer<git_index_entry>?
-            var ours: UnsafePointer<git_index_entry>?
-            var theirs: UnsafePointer<git_index_entry>?
-            let result = git_index_conflict_next(&ancestor, &ours, &theirs, iterator!)
-            if result == GIT_ITEROVER.rawValue { break }
-            guard result == GIT_OK.rawValue else { throw gitUnknownError("Unable to inspect merge conflicts", code: result) }
-            for entry in [ancestor, ours, theirs].compactMap({ $0 }) {
-                paths.insert(String(cString: entry.pointee.path))
-            }
-        }
-        return paths.sorted()
+        try GitMergeSession.merge(repository: repository, remoteBranch: branch, signature: signature)
+        return true
     }
 }

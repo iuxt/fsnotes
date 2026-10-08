@@ -70,13 +70,13 @@ struct SFTPUploader {
                     throw SFTPUploaderError.missingCredentials
                 }
 
-                try ssh.execute("mkdir -p \(remoteDir)")
+                try ssh.execute(RemoteShell.makeDirectory(remoteDir))
 
                 let sftp = try ssh.openSftp()
 
                 // Upload index.html
                 let remoteIndex = remoteDir + "index.html"
-                _ = try? ssh.execute("rm -f \(remoteIndex)")
+                _ = try? ssh.execute(RemoteShell.remove(remoteIndex, recursively: false))
                 try sftp.upload(localURL: localURL, remotePath: remoteIndex)
 
                 // Upload zip archive if present
@@ -95,7 +95,7 @@ struct SFTPUploader {
                         continue
                     }
                     if !imageDirCreated {
-                        try ssh.execute("mkdir -p \(remoteDir)i/")
+                        try ssh.execute(RemoteShell.makeDirectory(remoteDir + "i/"))
                         imageDirCreated = true
                     }
                     try? sftp.upload(localURL: image.url, remotePath: remoteDir + "i/" + image.url.lastPathComponent)
@@ -128,7 +128,7 @@ struct SFTPUploader {
                     throw SFTPUploaderError.missingCredentials
                 }
 
-                try ssh.execute("rm -rf \(remotePath)")
+                try ssh.execute(RemoteShell.remove(remotePath, recursively: true))
 
                 note.uploadPath = nil
                 Storage.shared().saveUploadPaths()

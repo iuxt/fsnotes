@@ -38,7 +38,7 @@ class SidebarOutlineView: NSOutlineView,
         }
 
         if let item = item(atRow: rowIndex) as? SidebarItem {
-            if item.type == .Separator {
+            if item.type == .Separator || item.type == .Git {
                 return
             }
         }
@@ -126,6 +126,7 @@ class SidebarOutlineView: NSOutlineView,
     }
 
     override func selectRowIndexes(_ indexes: IndexSet, byExtendingSelection extend: Bool) {
+        let indexes = IndexSet(indexes.filter { (item(atRow: $0) as? SidebarItem)?.type != .Git })
         guard let index = indexes.first else { return }
 
         var extend = extend
@@ -510,6 +511,21 @@ class SidebarOutlineView: NSOutlineView,
 
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
 
+        if let item = item as? SidebarItem, item.type == .Git {
+            let button = NSButton(title: item.name, target: viewDelegate, action: #selector(ViewController.showGitChanges(_:)))
+            button.identifier = NSUserInterfaceItemIdentifier("GitChangesSidebarButton")
+            button.image = NSImage(systemSymbolName: "point.3.connected.trianglepath.dotted", accessibilityDescription: item.name)?
+                .withSymbolConfiguration(.init(paletteColors: [.controlAccentColor]))
+            button.imagePosition = .imageLeading
+            button.imageScaling = .scaleProportionallyDown
+            button.isBordered = false
+            button.alignment = .left
+            button.font = .systemFont(ofSize: 13)
+            button.toolTip = NSLocalizedString("Review Git changes", comment: "Git changes")
+            button.setAccessibilityLabel(item.name)
+            return button
+        }
+
         let cell = outlineView.makeView(withIdentifier: NSUserInterfaceItemIdentifier(rawValue: "DataCell"), owner: self) as! SidebarCellView
 
         cell.icon.contentTintColor = NSColor.controlAccentColor
@@ -571,6 +587,9 @@ class SidebarOutlineView: NSOutlineView,
     }
 
     func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool {
+        if (item as? SidebarItem)?.type != .Git {
+            viewDelegate?.hideGitChanges()
+        }
         if nil != item as? FSTag {
             return true
         }
@@ -593,11 +612,6 @@ class SidebarOutlineView: NSOutlineView,
     func outlineViewSelectionDidChange(_ notification: Notification) {
         defer {
             isFirstLaunch = false
-        }
-
-        if Storage.shared().welcomeProject != nil {
-            Storage.shared().welcomeProject = nil
-            return
         }
 
         guard let vd = viewDelegate else { return }

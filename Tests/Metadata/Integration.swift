@@ -179,11 +179,74 @@ import Foundation
     }
     enum FailureForTest: Error { case unexpectedSuccess }
 
+    static func checkSharedHTMLResources(in temporary: URL) throws {
+        let root = temporary.appendingPathComponent("html-resources")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let store = try MetadataStore(root: root)
+        let owner = try store.register(name: "Owner", folderID: nil, ext: "md")
+        let reader = try store.register(name: "Reader", folderID: nil, ext: "md")
+        let directory = store.imagesURL.appendingPathComponent(owner.id)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let names = ["a&b.png", "中文 图.png", "video.mp4", "linked.pdf", "unquoted.png", "set.png"]
+        for name in names { try Data([1, 2, 3]).write(to: directory.appendingPathComponent(name)) }
+        let prefix = "../images/\(owner.id)/"
+        let html = "<IMG\n SRC='\(prefix)a&amp;b.png'>"
+            + "<img src=\"\(prefix)中文%20图.png\"><video poster='\(prefix)video.mp4?size=1#preview'></video>"
+            + "<a href='\(prefix)linked.pdf'>file</a><img src=\(prefix)unquoted.png>"
+            + "<source srcset='\(prefix)set.png 1x, https://example.com/remote.png 2x'>"
+        try html.write(to: store.fileURL(reader), atomically: true, encoding: .utf8)
+        try "![image](\(prefix)a%26b.png)".write(to: store.fileURL(owner), atomically: true, encoding: .utf8)
+        try store.trashNote(id: owner.id)
+        try store.deletePermanently(id: owner.id)
+        for name in names { try expect(FileManager.default.fileExists(atPath: directory.appendingPathComponent(name).path), "HTML resource survives deletion: " + name) }
+        try expect(try String(contentsOf: store.fileURL(reader), encoding: .utf8) == html, "deletion preserves the referencing document")
+        try store.trashNote(id: reader.id)
+        try store.deletePermanently(id: reader.id)
+        for name in names { try expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent(name).path), "unshared HTML resource can be reclaimed: " + name) }
+    }
+
+    static func checkConflictCopies(in temporary: URL) throws {
+        let root = temporary.appendingPathComponent("conflict-copies")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let store = try MetadataStore(root: root)
+        let folder = try store.createFolder(name: "Folder", parentID: nil)
+        let original = try store.register(name: "Original", folderID: folder.id, ext: "md")
+        try "current body".write(to: store.fileURL(original), atomically: true, encoding: .utf8)
+        let source = temporary.appendingPathComponent("conflict-version")
+        let body = Data("alternate 😀\n<img src='../images/shared.png'>".utf8)
+        try body.write(to: source)
+        let copy = try store.preserveConflict(at: source, for: original.id, name: "Original (CONFLICT time)")
+        try expect(copy.id != original.id && copy.folderID == folder.id, "conflict gets a separate identity in the same folder")
+        try expect(try Data(contentsOf: store.fileURL(copy)) == body, "conflict bytes and relative resource links are preserved")
+        let reopened = try MetadataStore(root: root)
+        try expect(reopened.entry(at: store.fileURL(copy)) == copy, "conflict is discoverable after reopening")
+        let second = try store.preserveConflict(at: source, for: original.id, name: copy.name)
+        try expect(second.id != copy.id && second.name != copy.name, "same timestamp never drops another conflict")
+        let manifest = try Data(contentsOf: store.manifestURL)
+        let files = try FileManager.default.contentsOfDirectory(atPath: store.notesURL.path).sorted()
+        do { try store.preserveConflict(at: source.appendingPathExtension("missing"), for: original.id, name: "failed"); throw FailureForTest.unexpectedSuccess }
+        catch is CocoaError { checks += 1 }
+        try expect(try Data(contentsOf: store.manifestURL) == manifest, "failed copy publishes no metadata")
+        try expect(try FileManager.default.contentsOfDirectory(atPath: store.notesURL.path).sorted() == files, "failed copy leaves no orphan body")
+        try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: store.manifestURL.path)
+        var publicationRejected = false
+        do { try store.preserveConflict(at: source, for: original.id, name: "failed publication") }
+        catch { publicationRejected = true }
+        try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: store.manifestURL.path)
+        try expect(publicationRejected, "conflict stays unresolved when metadata cannot be published")
+        try expect(try Data(contentsOf: store.manifestURL) == manifest, "failed publication preserves the original manifest")
+        try expect(try FileManager.default.contentsOfDirectory(atPath: store.notesURL.path).sorted() == files, "failed publication removes its unpublished copy")
+        try expect(try Data(contentsOf: source) == body, "source version stays available")
+        try expect(try String(contentsOf: store.fileURL(original), encoding: .utf8) == "current body", "conflict preservation never overwrites current text")
+    }
+
     static func main() throws {
         let manager = FileManager.default
         let temporary = manager.temporaryDirectory.appendingPathComponent("fsnotes-metadata-tests-" + UUID().uuidString)
         defer { try? manager.removeItem(at: temporary) }
         try checkExplicitNames(in: temporary)
+        try checkSharedHTMLResources(in: temporary)
+        try checkConflictCopies(in: temporary)
         let root = temporary.appendingPathComponent("library")
         try manager.createDirectory(at: root.appendingPathComponent("技术/Git/assets"), withIntermediateDirectories: true)
         try manager.createDirectory(at: root.appendingPathComponent("Empty"), withIntermediateDirectories: true)

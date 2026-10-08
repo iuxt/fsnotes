@@ -133,7 +133,6 @@ public class UserDefaultsManagement {
         static let TableOrientation = "isUseHorizontalMode"
         static let TextMatchAutoSelection = "textMatchAutoSelection"
         static let AutocloseBrackets = "autocloseBrackets"
-        static let Welcome = "welcome2026"
     }
 
     static var codeFontName: String {
@@ -1052,18 +1051,6 @@ public class UserDefaultsManagement {
         }
         set {
             shared?.set(newValue, forKey: Constants.InlineTags)
-        }
-    }
-
-    static var showWelcome: Bool {
-        get {
-            if let result = shared?.object(forKey: Constants.Welcome) as? Bool {
-                return result
-            }
-            return true
-        }
-        set {
-            shared?.set(newValue, forKey: Constants.Welcome)
         }
     }
 

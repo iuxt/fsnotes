@@ -47,6 +47,9 @@ class SidebarItem {
     }
 
     public func isSelectable() -> Bool {
+#if os(macOS)
+        if type == .Git { return false }
+#endif
         if type == .Header && project == nil {
             return false
         }

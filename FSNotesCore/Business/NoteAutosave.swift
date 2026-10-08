@@ -1,5 +1,9 @@
 import Foundation
 
+extension Notification.Name {
+    static let workspaceFileDidChange = Notification.Name("FSNotes.workspaceFileDidChange")
+}
+
 /// One pending snapshot per note, sharing the note's lock with synchronous writes.
 final class NoteAutosave {
     private let lock: NSRecursiveLock
