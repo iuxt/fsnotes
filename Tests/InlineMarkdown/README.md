@@ -33,3 +33,7 @@ Images remain rendered while selected. Single and double clicks select the image
 and the image context menu opens it or edits its description/path in a native
 popover or deletes the whole image. Arrow keys skip hidden image source; Backspace
 and Forward Delete at image boundaries remove the complete construct.
+
+Performance regressions verify that caret and attribute changes reuse the cached
+parse, each source edit parses once across consumers, and local Unicode insertion
+and deletion in a long note preserve distant glyphs and hidden syntax positions.

@@ -7,7 +7,6 @@ extension EditTextView {
             removeCodeCopyButtons()
             return
         }
-        manager.ensureLayout(for: container)
         let blocks = manager.markdownPresentation.codeBlocks
         let starts = Set(blocks.map { $0.range.location })
         for (start, button) in codeCopyButtons where !starts.contains(start) {
@@ -27,6 +26,7 @@ extension EditTextView {
                 codeCopyButtons[start] = button
                 addSubview(button)
             }
+            manager.ensureLayout(forCharacterRange: NSRange(location: start, length: 1))
             let glyph = manager.glyphIndexForCharacter(at: start)
             let line = manager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
             let size = MarkdownEditorStyle.codeCopyButtonSize

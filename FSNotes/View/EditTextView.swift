@@ -105,9 +105,12 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
                   let layoutManager = self.layoutManager
             else { return }
 
-            let fullRange = NSRange(location: 0, length: textStorage.length)
+            let textRect = dirtyRect.offsetBy(dx: -textContainerOrigin.x, dy: -textContainerOrigin.y)
+            guard let container = textContainer else { return }
+            let glyphs = layoutManager.glyphRange(forBoundingRect: textRect, in: container)
+            let visibleRange = layoutManager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
 
-            attributedString().enumerateAttributes(in: fullRange, options: .reverse) { attributes, range, _ in
+            textStorage.enumerateAttributes(in: visibleRange, options: .reverse) { attributes, range, _ in
                 guard range.location >= 0,
                       range.location + range.length <= textStorage.length else { return }
 
@@ -118,8 +121,8 @@ class EditTextView: NSTextView, NSTextFinderClient, NSSharingServicePickerDelega
                 if let manager = layoutManager as? LayoutManager,
                    manager.inlineTables.contains(where: { NSIntersectionRange($0.range, range).length > 0 }) { return }
 
-                let tag = attributedString().attributedSubstring(from: range).string
-                let tagAttributes = attributedString().attributes(at: range.location, effectiveRange: nil)
+                let tag = textStorage.attributedSubstring(from: range).string
+                let tagAttributes = textStorage.attributes(at: range.location, effectiveRange: nil)
 
                 let glyphRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
 

@@ -1,6 +1,7 @@
 // Appended only to a temporary Release build by run.py.
 // Exercises the production editor, MPreviewView, HTML template and renderer.
 import Darwin
+import WebKit
 
 final class PreviewPerformance {
     static let shared = PreviewPerformance()
@@ -12,6 +13,7 @@ final class PreviewPerformance {
     var notes = [String: Note]()
     var controller: ViewController!
     var stage = "startup"
+    var featureImageWidth = 0
     var latencies = [Double]()
     var syncLatencies = [Double]()
     var generation = 0
@@ -134,6 +136,18 @@ final class PreviewPerformance {
             note.isLoaded = true
             notes[name] = note
         }
+        let image = NSImage(size: NSSize(width: 4, height: 4))
+        image.lockFocus(); NSColor.red.setFill(); NSRect(x: 0, y: 0, width: 4, height: 4).fill(); image.unlockFocus()
+        let bitmap = NSBitmapImageRep(data: image.tiffRepresentation!)!
+        featureImageWidth = bitmap.pixelsWide
+        try! bitmap.representation(using: .png, properties: [:])!.write(to: project.url.appendingPathComponent("preview-image.png"))
+        let features = Note(url: project.url.appendingPathComponent("small-features.md"), with: project)
+        let attachmentURL = project.url.appendingPathComponent("preview-file.txt")
+        try! "Attachment contents".write(to: attachmentURL, atomically: true, encoding: .utf8)
+        features.attachments = [attachmentURL]
+        features.content = NSMutableAttributedString(string: "# Small note\n\n{{TOC}}\n\n## Formatted **heading**\n\n- [ ] task\n\n![local](preview-image.png)\n\n![file](preview-file.txt)\n\n$E=mc^2$\n\n" + code)
+        features.isLoaded = true
+        notes["small-features"] = features
         for index in 0..<10 {
             let note = Note(url: project.url.appendingPathComponent("small-\(index).md"), with: project)
             note.content = NSMutableAttributedString(string: workloads["small"]! + "\nVariant \(index)\n")
@@ -161,7 +175,10 @@ final class PreviewPerformance {
         latencies = []
         syncLatencies = []
         maxMainThreadDelay = 0
-        emit("begin")
+        controller.view.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        emit("begin", ["app_active": NSApp.isActive,
+                       "window_visible": controller.view.window?.occlusionState.contains(.visible) == true])
     }
 
     func finish() {
@@ -181,6 +198,10 @@ final class PreviewPerformance {
         note.content.append(NSAttributedString(string: "\n\n<span id=\"preview-benchmark-ready-\(token)\"></span>\n"))
         activeEditor.changePreviewState(true)
         activeEditor.fill(note: note, force: true)
+        if stage == "cancel_cold_preview" {
+            activeEditor.markdownView?.webView.clean()
+            activeEditor.markdownView?.webView.load(note: note, force: true)
+        }
         note.content = originalContent
         syncLatencies.append((ProcessInfo.processInfo.systemUptime - start) * 1000)
         guard let web = activeEditor.markdownView?.webView else {
@@ -203,6 +224,11 @@ final class PreviewPerformance {
             guard token == self.generation else { return }
             web.evaluateJavaScript(ready) { value, error in
                 if let ready = value as? Bool, ready {
+                    // Cancel/reopen is a loading contract, not a frame-timing workload.
+                    if self.stage == "cancel_cold_preview" {
+                        self.latencies.append((ProcessInfo.processInfo.systemUptime - start) * 1000)
+                        done(); return
+                    }
                     // Wait two animation frames so layout has reached a paint opportunity.
                     web.callAsyncJavaScript("""
                         const outcome = await Promise.race([
@@ -217,6 +243,14 @@ final class PreviewPerformance {
                             return
                         case .success(let value):
                             if value as? String != "frames" {
+                                let visible = web.window?.occlusionState.contains(.visible) == true
+                                self.emit("frame_timeout", ["app_active": NSApp.isActive, "window_visible": visible,
+                                                            "web_width": web.frame.width, "web_height": web.frame.height])
+                                if !NSApp.isActive || !visible {
+                                    // Background frame throttling invalidates timing, not the DOM contract.
+                                    self.emit("timing_skipped", ["reason": "background_or_occluded"])
+                                    done(); return
+                                }
                                 self.failures.append(self.stage + ": animation frames timed out")
                             }
                         }
@@ -238,7 +272,13 @@ final class PreviewPerformance {
 
     func coldPreview() {
         begin("small_first_open")
-        preview("small") { self.after(3) { self.finish(); self.switchNotes(0) } }
+        preview("small") {
+            let web = self.controller.editor.markdownView!.webView!
+            web.evaluateJavaScript("typeof window.mermaid === 'undefined'") { result, _ in
+                if result as? Bool != true { self.failures.append("Ordinary preview loaded Mermaid") }
+                self.after(3) { self.finish(); self.switchNotes(0) }
+            }
+        }
     }
 
     func switchNotes(_ index: Int) {
@@ -288,13 +328,87 @@ final class PreviewPerformance {
                 self.after(3) {
                     self.finish()
                     if let next = next { self.workload(next, next: next == "code" ? "diagrams" : nil) }
-                    else { self.closeWindows(0) }
+                    else { self.previewRegressions() }
                 }
                 return
             }
             self.preview(name) { self.after(0.1) { repeatLoad(index + 1) } }
         }
         repeatLoad(0)
+    }
+
+    func verifyJavaScript(_ web: WKWebView, script: String, done: @escaping () -> Void) {
+        let start = ProcessInfo.processInfo.systemUptime
+        func poll() {
+            web.evaluateJavaScript(script) { value, error in
+                if value as? Bool == true { done(); return }
+                if ProcessInfo.processInfo.systemUptime - start > 15 {
+                    self.failures.append(self.stage + ": JavaScript contract failed " + (error?.localizedDescription ?? script))
+                    done(); return
+                }
+                self.after(0.02, poll)
+            }
+        }
+        poll()
+    }
+
+    func previewRegressions() {
+        begin("rapid_switch_and_preview_features")
+        let web = controller.editor.markdownView!.webView!
+        for index in 0..<40 { web.load(note: notes[index % 2 == 0 ? "long" : "code"]!, force: true) }
+        UserDefaultsManagement.mathJaxPreview = true
+        preview("small-features") {
+            let script = """
+                (() => {
+                    const image = document.querySelector('img:not(.attachment)');
+                    return image && image.complete && image.naturalWidth === \(self.featureImageWidth) &&
+                        image.src.startsWith('data:image/png;base64,') &&
+                        document.querySelectorAll('img.attachment').length === 1 &&
+                        document.querySelector('#toc a').textContent === 'Small note' &&
+                        document.querySelector('h2').textContent === 'Formatted heading' &&
+                        document.querySelectorAll('mjx-container').length === 1 &&
+                        document.querySelectorAll('button.copyCode').length === 1;
+                })()
+                """
+            self.verifyJavaScript(web, script: script) {
+                web.evaluateJavaScript("window.__benchmarkDocument = 42") { _, _ in
+                    self.preview("small-features") {
+                        self.verifyJavaScript(web, script: "window.__benchmarkDocument === 42 && document.querySelectorAll('mjx-container').length === 1") {
+                            self.verifyNoteHandlers(web)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func verifyNoteHandlers(_ web: WKWebView) {
+        let featureNote = notes["small-features"]!
+        let previousNote = notes["diagrams"]!
+        let previousOffset = previousNote.contentOffsetWeb
+        let previousContent = previousNote.content.string
+        web.evaluateJavaScript("document.querySelector('input[type=checkbox]').click(); window.webkit.messageHandlers.scrollPosition.postMessage({x:123,y:456});") { _, _ in
+            self.after(0.1) {
+                if !featureNote.content.unloadAttachments().string.contains("- [x] task") {
+                    self.failures.append(self.stage + ": checkbox targeted the wrong note")
+                }
+                if featureNote.contentOffsetWeb != CGPoint(x: 123, y: 456) || previousNote.contentOffsetWeb != previousOffset || previousNote.content.string != previousContent {
+                    self.failures.append(self.stage + ": events modified the previous note")
+                }
+                self.finish()
+                self.cancelColdPreview()
+            }
+        }
+    }
+
+    func cancelColdPreview() {
+        controller.disablePreview()
+        UserDefaultsManagement.mathJaxPreview = false
+        begin("cancel_cold_preview")
+        preview("small") {
+            self.finish()
+            self.closeWindows(0)
+        }
     }
 
     func closeWindows(_ index: Int) {

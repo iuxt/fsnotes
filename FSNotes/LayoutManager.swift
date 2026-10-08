@@ -24,6 +24,11 @@ class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
     weak var processor: TextStorageProcessor?
     var markdownSource: String?
     var markdownPresentation = MarkdownPresentation(elements: [])
+    // One parse is shared by highlighting, paragraph styles, images and layout.
+    var markdownParseCount = 0
+    var inlineMarkdownSource: String?
+    var inlineMarkdownEnabled = false
+    var inlineMarkdownSelections: [NSRange] = []
     var hiddenMarkdownCharacters = IndexSet()
     var markdownDecorations: [Int: MarkdownPresentation.Decoration] = [:]
     var markdownImages: [String: NSImage] = [:]
@@ -35,12 +40,22 @@ class LayoutManager: NSLayoutManager, NSLayoutManagerDelegate {
     var inlineTables: [MarkdownTable] = []
     var inlineTableLayouts: [Int: InlineTableLayout] = [:]
 
+    func presentation(for source: String) -> MarkdownPresentation {
+        if markdownSource != source {
+            markdownSource = source
+            markdownPresentation = MarkdownPresentation.parse(source)
+            markdownParseCount += 1
+        }
+        return markdownPresentation
+    }
+
     override func processEditing(for textStorage: NSTextStorage, edited editMask: NSTextStorageEditActions,
                                  range newCharRange: NSRange, changeInLength delta: Int,
                                  invalidatedRange invalidatedCharRange: NSRange) {
         super.processEditing(for: textStorage, edited: editMask, range: newCharRange,
                              changeInLength: delta, invalidatedRange: invalidatedCharRange)
         if editMask.contains(.editedCharacters) {
+            refreshInlineMarkdown(editedRange: newCharRange, changeInLength: delta)
             (firstTextView as? EditTextView)?.refreshInlineTables()
         }
     }

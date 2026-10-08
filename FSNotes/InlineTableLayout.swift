@@ -207,6 +207,7 @@ extension LayoutManager {
     }
 
     func inlineTableRect(_ table: MarkdownTable, in container: NSTextContainer) -> NSRect {
+        ensureLayout(forCharacterRange: NSRange(location: table.range.location, length: 1))
         let glyph = glyphIndexForCharacter(at: table.range.location)
         let fragment = lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
         return NSRect(x: fragment.minX + container.lineFragmentPadding + InlineTableLayout.side,
@@ -229,7 +230,8 @@ extension LayoutManager {
         }
         let tables = processor?.editor?.note?.isMarkdown() == true ? markdownTables : []
         guard sourceChanged || noteChanged || tables != inlineTables else { return }
-        let affected = inlineTables + tables
+        let oldTables = inlineTables
+        let affected = oldTables.filter { !tables.contains($0) } + tables.filter { !oldTables.contains($0) }
         inlineTables = tables
         let starts = Set(tables.map { $0.range.location })
         inlineTableLayouts = inlineTableLayouts.filter { starts.contains($0.key) }

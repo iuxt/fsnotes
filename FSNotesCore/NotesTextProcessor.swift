@@ -876,7 +876,7 @@ public class NotesTextProcessor {
             }
         }
         #if os(macOS)
-        MarkdownPresentation.parse(string).applyStyles(to: attributedString, in: paragraphRange,
+        MarkdownPresentation.presentation(for: attributedString).applyStyles(to: attributedString, in: paragraphRange,
             font: font, codeFont: codeFont, textColor: fontColor)
         #endif
     }

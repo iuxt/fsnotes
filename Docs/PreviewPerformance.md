@@ -1,5 +1,7 @@
 # Markdown 预览内存修复与性能实测
 
+后续记录：[2026-10-08 渲染性能优化](RenderingOptimization.md)，包含共享解析、局部布局与异步预览管线；本文保留 2026-10-06 的修复实测。
+
 测试日期：2026-10-06（Asia/Shanghai）。环境：Apple M1 Pro，10 核，16 GB，macOS 27.0.1，arm64 Release。
 Git 基线：`c29cc389`；测试包含当前工作区的未提交更改。
 测试应用使用独立 bundle identifier `es.fsnotes.previewbenchmark`、沙盒和临时笔记库。

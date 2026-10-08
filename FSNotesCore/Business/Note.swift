@@ -621,7 +621,7 @@ public class Note: NSObject  {
         }
     }
 
-    func cleanMetaData(content: String) -> String {
+    static func cleanMetaData(content: String) -> String {
         var extractedTitle = String()
         var author = String()
         var date = String()
@@ -691,15 +691,17 @@ public class Note: NSObject  {
     }
 
     func getPrettifiedContent() -> String {
-        #if IOS_APP || os(OSX)
-            let mutable = NotesTextProcessor.convertAppTags(in: self.content.unloadAttachments(), codeBlockRanges: codeBlockRangesCache)
-        let content = NotesTextProcessor.convertAppLinks(in: mutable, codeBlockRanges: codeBlockRangesCache)
-            let result = cleanMetaData(content: content.string)
-            let prettifiedContent = replaceHorizontalRulesOutsideCodeBlocks(in: result)
+        Self.prettifiedContent(content: content, codeBlockRanges: codeBlockRangesCache)
+    }
 
-            return prettifiedContent
+    /// Operates on a captured content snapshot so preview preparation can run off the UI thread.
+    static func prettifiedContent(content: NSMutableAttributedString, codeBlockRanges: [NSRange]?) -> String {
+        #if IOS_APP || os(OSX)
+        let mutable = NotesTextProcessor.convertAppTags(in: content.unloadAttachments(), codeBlockRanges: codeBlockRanges)
+        let converted = NotesTextProcessor.convertAppLinks(in: mutable, codeBlockRanges: codeBlockRanges)
+        return replaceHorizontalRulesOutsideCodeBlocks(in: cleanMetaData(content: converted.string))
         #else
-            return cleanMetaData(content: self.content.string)
+        return cleanMetaData(content: content.string)
         #endif
     }
 

@@ -4,7 +4,7 @@ extension EditTextView {
     /// Keep the document caret outside hidden image source and expand partial selections.
     func imageSelectionRanges(_ ranges: [NSValue]) -> [NSValue] {
         guard note?.isMarkdown() == true, !isPreviewEnabled(), let manager = layoutManager as? LayoutManager else { return ranges }
-        let plan = manager.markdownSource == string ? manager.markdownPresentation : MarkdownPresentation.parse(string)
+        let plan = manager.presentation(for: string)
         let images = plan.elements.filter { if case .image = $0.decoration { return true }; return false }
         let previous = selectedRange().location
         return ranges.map { value in

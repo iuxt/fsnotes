@@ -1,5 +1,9 @@
 import Cocoa
 
+final class LayoutManager: NSLayoutManager {
+    func presentation(for source: String) -> MarkdownPresentation { MarkdownPresentation.parse(source) }
+}
+
 final class Note {
     var title = "Reference 😀"
     func save(attributed: NSAttributedString) {}

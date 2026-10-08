@@ -38,8 +38,10 @@ extension MarkdownPresentation {
         let source = content.string as NSString
         let fullRange = NSRange(location: 0, length: content.length)
         func update(_ range: NSRange, _ configure: (NSMutableParagraphStyle) -> Void) {
-            let safe = NSIntersectionRange(source.paragraphRange(for: range), fullRange)
-            guard safe.length > 0, NSIntersectionRange(safe, affected).length > 0 else { return }
+            let intersection = NSIntersectionRange(range, affected)
+            guard intersection.length > 0 else { return }
+            let safe = NSIntersectionRange(source.paragraphRange(for: intersection), fullRange)
+            guard safe.length > 0 else { return }
             content.enumerateAttribute(.paragraphStyle, in: safe) { value, span, _ in
                 let style = (value as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
                 configure(style)

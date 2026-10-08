@@ -8,6 +8,13 @@
 
 import libcmark_gfm
 
+// libcmark's extension registry uses an unsynchronized C static. Swift's
+// once-only initialization protects the first registration across worker threads.
+enum MarkdownParser {
+    private static let registered: Void = cmark_gfm_core_extensions_ensure_registered()
+    static func registerExtensions() { _ = registered }
+}
+
 /// Replaces Markdown horizontal-rule lines without touching fenced code blocks.
 func replaceHorizontalRulesOutsideCodeBlocks(in markdown: String) -> String {
     let lines = markdown.components(separatedBy: "\n")
@@ -46,7 +53,7 @@ func replaceHorizontalRulesOutsideCodeBlocks(in markdown: String) -> String {
 func renderMarkdownHTML(markdown: String) -> String? {
     let markdown = markdown.replacingOccurrences(of: "{{TOC}}", with: "<div id=\"toc\"></div>")
         
-    cmark_gfm_core_extensions_ensure_registered()
+    MarkdownParser.registerExtensions()
     
     guard let parser = cmark_parser_new(CMARK_OPT_FOOTNOTES) else { return nil }
     defer { cmark_parser_free(parser) }

@@ -1,36 +1,72 @@
 import Cocoa
 
 extension LayoutManager {
-    func refreshInlineMarkdown() {
+    func refreshInlineMarkdown(editedRange: NSRange? = nil, changeInLength delta: Int = 0) {
         guard let storage = textStorage else { return }
-        let sourceChanged = markdownSource != storage.string
-        if sourceChanged {
-            markdownSource = storage.string
-            markdownPresentation = MarkdownPresentation.parse(storage.string)
-        }
+        let source = storage.string
+        let sourceChanged = inlineMarkdownSource != source
+        let previousSource = inlineMarkdownSource
+        let plan = presentation(for: source)
+        inlineMarkdownSource = source
         let editor = firstTextView as? EditTextView
         let enabled = editor?.note?.isMarkdown() == true
         let selections = editor?.window?.firstResponder === editor ? (editor?.selectedRanges.map { $0.rangeValue } ?? []) : []
+        guard sourceChanged || enabled != inlineMarkdownEnabled || selections != inlineMarkdownSelections else { return }
+        inlineMarkdownEnabled = enabled
+        inlineMarkdownSelections = selections
         var hidden = IndexSet()
         var decorations: [Int: MarkdownPresentation.Decoration] = [:]
         if enabled {
-            for element in markdownPresentation.elements where !element.isEditing(selections) {
+            for element in plan.elements where !element.isEditing(selections) {
                 for range in element.hidden { hidden.insert(integersIn: range.location..<NSMaxRange(range)) }
                 if let decoration = element.decoration { decorations[element.anchor] = decoration }
             }
         }
         guard sourceChanged || hidden != hiddenMarkdownCharacters || decorations != markdownDecorations else { return }
-        let affected = hidden.symmetricDifference(hiddenMarkdownCharacters)
+        let fullRange = NSRange(location: 0, length: storage.length)
+        var previousHidden = hiddenMarkdownCharacters
+        var previousDecorations = markdownDecorations
+        var affected = IndexSet()
+        if sourceChanged, let previousSource = previousSource {
+            // TextKit shifts unchanged glyphs after an edit. Compare decorations
+            // in those same coordinates instead of invalidating the whole note.
+            let old = previousSource as NSString, new = source as NSString
+            let start: Int, oldEnd: Int, newEnd: Int
+            if let edit = editedRange, old.length + delta == new.length,
+               NSMaxRange(edit) <= new.length, NSMaxRange(edit) - delta >= edit.location {
+                start = edit.location
+                newEnd = NSMaxRange(edit)
+                oldEnd = newEnd - delta
+            } else {
+                var prefix = 0
+                while prefix < min(old.length, new.length), old.character(at: prefix) == new.character(at: prefix) { prefix += 1 }
+                var previousEnd = old.length, currentEnd = new.length
+                while previousEnd > prefix, currentEnd > prefix, old.character(at: previousEnd - 1) == new.character(at: currentEnd - 1) {
+                    previousEnd -= 1; currentEnd -= 1
+                }
+                start = prefix; oldEnd = previousEnd; newEnd = currentEnd
+            }
+            previousHidden.remove(integersIn: start..<oldEnd)
+            previousHidden.shift(startingAt: oldEnd, by: newEnd - oldEnd)
+            previousDecorations = Dictionary(uniqueKeysWithValues: previousDecorations.compactMap { index, value in
+                if index < start { return (index, value) }
+                if index >= oldEnd { return (index + newEnd - oldEnd, value) }
+                return nil
+            })
+            let paragraph = new.paragraphRange(for: NSRange(location: start, length: newEnd - start))
+            affected.insert(integersIn: paragraph.location..<NSMaxRange(paragraph))
+        } else if sourceChanged {
+            affected.insert(integersIn: 0..<storage.length)
+        }
+        affected.formUnion(hidden.symmetricDifference(previousHidden))
+        for index in Set(previousDecorations.keys).union(decorations.keys) where previousDecorations[index] != decorations[index] {
+            if index < storage.length { affected.insert(index) }
+        }
         hiddenMarkdownCharacters = hidden
         markdownDecorations = decorations
-        let fullRange = NSRange(location: 0, length: storage.length)
-        if sourceChanged {
-            invalidateGlyphs(forCharacterRange: fullRange, changeInLength: 0, actualCharacterRange: nil)
-        } else {
-            for range in affected.rangeView {
-                let safe = NSRange(location: range.lowerBound, length: range.count).clamped(to: fullRange)
-                if safe.length > 0 { invalidateGlyphs(forCharacterRange: safe, changeInLength: 0, actualCharacterRange: nil) }
-            }
+        for range in affected.rangeView {
+            let safe = NSRange(location: range.lowerBound, length: range.count).clamped(to: fullRange)
+            if safe.length > 0 { invalidateGlyphs(forCharacterRange: safe, changeInLength: 0, actualCharacterRange: nil) }
         }
         firstTextView?.needsDisplay = true
     }
@@ -148,7 +184,7 @@ extension LayoutManager {
 
     func inlineImageRect(_ element: MarkdownPresentation.Element, in container: NSTextContainer) -> NSRect {
         guard case .image = element.decoration, let decoration = markdownDecorations[element.anchor] else { return .zero }
-        ensureLayout(for: container)
+        ensureLayout(forCharacterRange: NSRange(location: element.anchor, length: 1))
         let glyph = glyphIndexForCharacter(at: element.anchor)
         let line = lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
         let position = location(forGlyphAt: glyph)

@@ -17,7 +17,7 @@ extension EditTextView {
         undoManager?.beginUndoGrouping()
         
         var linesToRemove: [NSRange] = []
-        for element in MarkdownPresentation.parse(textStorage.string).elements {
+        for element in MarkdownPresentation.presentation(for: textStorage).elements {
             if element.decoration == .text("☑") {
                 let lineRange = text.lineRange(for: element.range)
                 if !linesToRemove.contains(lineRange) { linesToRemove.append(lineRange) }

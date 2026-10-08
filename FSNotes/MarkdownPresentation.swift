@@ -60,7 +60,7 @@ struct MarkdownPresentation {
     static func parse(_ source: String) -> Self {
         let text = source as NSString
         let lines = SourceLines(source)
-        cmark_gfm_core_extensions_ensure_registered()
+        MarkdownParser.registerExtensions()
         guard let parser = cmark_parser_new(CMARK_OPT_FOOTNOTES) else { return Self(elements: []) }
         defer { cmark_parser_free(parser) }
         for name in ["table", "strikethrough", "autolink", "tasklist"] {
@@ -328,6 +328,14 @@ private struct SourceLines {
 import Cocoa
 
 extension MarkdownPresentation {
+    static func presentation(for content: NSMutableAttributedString) -> Self {
+        if let storage = content as? NSTextStorage,
+           let manager = storage.layoutManagers.first as? LayoutManager {
+            return manager.presentation(for: storage.string)
+        }
+        return parse(content.string)
+    }
+
     func applyStyles(to content: NSMutableAttributedString, in affected: NSRange,
                      font: NSFont, codeFont: NSFont, textColor: NSColor) {
         for styled in styles {

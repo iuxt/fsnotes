@@ -27,6 +27,14 @@ func memory() -> [String: Double] {
             + String(repeating: "Plain text for layout and rendering. ", count: 12) + "\n\n"
         let workloads = [("small", String(repeating: paragraph, count: 8)),
                          ("long", String(repeating: paragraph, count: 1000))]
+        let concurrentSource = "# Concurrent\n\n| A | B |\n| --- | --- |\n| one | two |\n\n- [x] done\n"
+        DispatchQueue.concurrentPerform(iterations: 32) { _ in
+            autoreleasepool {
+                let html = renderMarkdownHTML(markdown: concurrentSource)!
+                precondition(html.contains("<table>") && html.contains("checked"))
+            }
+        }
+        emit(["event": "concurrent_registration", "parses": 32])
         emit(["event": "baseline", "memory": memory(), "pid": getpid()])
         for (name, content) in workloads {
             var latencies = [Double]()

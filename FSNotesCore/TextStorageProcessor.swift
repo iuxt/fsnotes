@@ -64,7 +64,7 @@ class TextStorageProcessor: NSObject, NSTextStorageDelegate {
         ) { return }
         
         #if os(macOS)
-        let currentCodeBlocks = MarkdownPresentation.parse(textStorage.string).styles.compactMap { styled -> NSRange? in
+        let currentCodeBlocks = MarkdownPresentation.presentation(for: textStorage).styles.compactMap { styled -> NSRange? in
             if case .codeBlock = styled.style { return styled.range }
             return nil
         }

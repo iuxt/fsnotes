@@ -24,10 +24,17 @@ The test covers:
   to their controllers, text views, text processors and web views. Any retained
   controller, text view or processor fails the benchmark after the cleanup delay;
   WebKit views must all release after the final ten-second cooldown.
+- Canceling 40 queued long/code previews before rendering the final note, reusing
+  the same HTML document, and switching message handlers to the displayed note.
+- Rendering formatted headings/TOC, a local image alongside a file attachment,
+  and MathJax twice without duplicate output; checkbox and scroll messages must
+  affect only the displayed note.
+- Canceling the initial page load and immediately reopening the same preview.
 - Opening two windows for the same note, closing one without unregistering the
   other, then exercising the real edit handler and checking that close invalidates
   the undo and tag timers. Both windows must release their objects.
 - A ten-second cooldown after returning to the editor.
+- 32 concurrent parses in a fresh process to exercise extension registration.
 - 100 native Markdown parses each of small and long content using the production
   renderer. Generated HTML must match the recorded fixture hashes. Physical
   footprint growth between iterations 10 and 100 must stay below 8 MiB;
@@ -42,7 +49,9 @@ The preview timing includes editor fill, navigation, syntax highlighting, Mermai
 completion and two animation frames. The readiness polling interval is 20 ms,
 so these measurements are coarse end-to-end latencies, not exact display timestamps.
 Each load includes a unique DOM marker, preventing a previous document from being
-mistaken for the new render. A frame timeout is recorded as a benchmark failure.
+mistaken for the new render. A frame timeout in an active, visible window is recorded as a benchmark failure.
+Background/occluded timeouts emit `timing_skipped` and are excluded from rendering
+latency samples; the DOM, feature and lifetime contracts still run.
 Window lifetime checks use a separate delay, not the frame timing measurement.
 Timer-driven actions and diagnostic events use explicit autorelease pools: an idle
 AppKit event loop can otherwise keep the most recent view autoreleased until the
@@ -62,5 +71,6 @@ private getters are used only in the test copy and are never added to the shippi
 The raw samples also retain new-process candidates to expose any attribution gap.
 
 This is a synthetic benchmark on the current machine, not an Electron comparison.
-MathJax is disabled; large-image workloads and prolonged typing/scrolling are not covered.
+MathJax is disabled during timing workloads and enabled for the rendering contract checks.
+Large-image workloads and prolonged typing/scrolling are not covered.
 The edit regression starts the real undo/tag timers, but does not measure typing latency.

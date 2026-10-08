@@ -74,7 +74,7 @@ extension NSTextStorage {
         #if os(macOS)
         if let manager = layoutManagers.first as? LayoutManager,
            (manager.firstTextView as? EditTextView)?.note?.isMarkdown() == true {
-            let plan = manager.markdownSource == string ? manager.markdownPresentation : MarkdownPresentation.parse(string)
+            let plan = manager.presentation(for: string)
             plan.applyParagraphStyles(to: self, in: parRange, font: font)
         }
         #endif

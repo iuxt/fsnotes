@@ -6,6 +6,15 @@ func expect(_ value: @autoclosure () -> Bool, _ message: String) {
     if !value() { fatalError(message) }
 }
 
+private final class RecordingLayoutManager: LayoutManager {
+    var invalidatedRanges: [NSRange] = []
+    override func invalidateGlyphs(forCharacterRange range: NSRange, changeInLength delta: Int,
+                                   actualCharacterRange actual: NSRangePointer?) {
+        invalidatedRanges.append(range)
+        super.invalidateGlyphs(forCharacterRange: range, changeInLength: delta, actualCharacterRange: actual)
+    }
+}
+
 @main struct Integration {
     static func main() throws {
         _ = NSApplication.shared
@@ -115,7 +124,7 @@ func expect(_ value: @autoclosure () -> Bool, _ message: String) {
         expect(NSFontManager.shared.traits(of: boldFont).contains(.boldFontMask), "bold presentation style")
         expect((storage.attribute(.font, at: range("标题").location, effectiveRange: nil) as! NSFont).pointSize == UserDefaultsManagement.noteFont.pointSize * MarkdownEditorStyle.headingScales[0], "heading size")
         expect(storage.attribute(.link, at: range("reference").location, effectiveRange: nil) as? String == "https://example.com", "reference links stay clickable")
-        let manager = LayoutManager()
+        let manager = RecordingLayoutManager()
         manager.delegate = manager
         let container = NSTextContainer(containerSize: NSSize(width: 460, height: CGFloat.greatestFiniteMagnitude))
         storage.addLayoutManager(manager)
@@ -370,6 +379,31 @@ func expect(_ value: @autoclosure () -> Bool, _ message: String) {
             textColor: .labelColor)
         expect(manager.markdownDecorations[0] == .text("☑"), "checked task preview")
         expect(storage.attribute(.strikethroughStyle, at: 6, effectiveRange: nil) as? Int == 1, "checked tasks retain completed styling")
+
+        // A long note must keep its parse and distant glyphs across caret/attribute changes.
+        let longSource = "First **bold** 中文😀\n\n" + String(repeating: "Unchanged paragraph.\n\n", count: 3000) + "**tail**\n"
+        storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: longSource)
+        editor.refreshInlineTables()
+        let parseCount = manager.markdownParseCount
+        _ = MarkdownPresentation.presentation(for: storage)
+        _ = manager.presentation(for: storage.string)
+        storage.addAttribute(.foregroundColor, value: NSColor.labelColor, range: NSRange(location: 0, length: 5))
+        editor.setSelectedRange(NSRange(location: 2, length: 0))
+        expect(manager.markdownParseCount == parseCount, "caret and attribute updates reuse the document parse")
+        manager.invalidatedRanges.removeAll()
+        storage.replaceCharacters(in: NSRange(location: 0, length: 0), with: "😀")
+        expect(manager.markdownParseCount == parseCount + 1, "one source edit parses exactly once across all consumers")
+        expect(!manager.invalidatedRanges.isEmpty && manager.invalidatedRanges.allSatisfy { NSMaxRange($0) < 100 },
+               "local insertion never invalidates distant glyphs")
+        let expectedHidden = manager.markdownPresentation.elements.reduce(into: IndexSet()) { indexes, element in
+            for range in element.hidden { indexes.insert(integersIn: range.location..<NSMaxRange(range)) }
+        }
+        expect(manager.hiddenMarkdownCharacters == expectedHidden, "Unicode insertion shifts hidden syntax in unchanged suffix")
+        manager.invalidatedRanges.removeAll()
+        storage.replaceCharacters(in: NSRange(location: 0, length: 2), with: "")
+        expect(manager.hiddenMarkdownCharacters.contains((longSource as NSString).range(of: "**tail**").location),
+               "Unicode deletion restores suffix syntax positions")
+        expect(manager.invalidatedRanges.allSatisfy { NSMaxRange($0) < 100 }, "local deletion keeps distant layout valid")
 
         if let output = ProcessInfo.processInfo.environment["FSNOTES_MARKDOWN_PREVIEW"] {
             storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: source)

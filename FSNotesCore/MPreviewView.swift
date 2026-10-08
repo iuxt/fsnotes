@@ -24,25 +24,39 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
     private weak var note: Note?
     private var closure: MPreviewViewClosure?
     public static var template: String?
+    private let renderQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 1
+        queue.qualityOfService = .userInitiated
+        return queue
+    }()
+    private var generation = 0
+    private var shellHTML: String?
+    private var shellReady = false
+    private var shellNavigation: WKNavigation?
+    private var pendingBody: (html: String, generation: Int)?
+    private let checkboxHandler: HandlerCheckbox
+    private let openHandler: HandlerOpen
+    private let scrollHandler: PreviewScrollHandler
 
     init(frame: CGRect, note: Note, closure: MPreviewViewClosure?, force: Bool = false) {
         self.closure = closure
         let userContentController = WKUserContentController()
         userContentController.add(HandlerSelection(), name: "newSelectionDetected")
 
-        let handlerCheckbox = HandlerCheckbox(note: note)
-        userContentController.add(handlerCheckbox, name: "checkbox")
+        checkboxHandler = HandlerCheckbox(note: note)
+        userContentController.add(checkboxHandler, name: "checkbox")
 
         userContentController.add(HandlerMouse(), name: "mouse")
         userContentController.add(HandlerClipboard(), name: "clipboard")
 
-        let handlerOpener = HandlerOpen(note: note)
-        userContentController.add(handlerOpener, name: "open")
+        openHandler = HandlerOpen(note: note)
+        userContentController.add(openHandler, name: "open")
 
         userContentController.add(HandlerQuickLook(), name: "quicklook")
 
-        let handlerScroll = PreviewScrollHandler(note: note)
-        userContentController.add(handlerScroll, name: "scrollPosition")
+        scrollHandler = PreviewScrollHandler(note: note)
+        userContentController.add(scrollHandler, name: "scrollPosition")
 
         let configuration = WKWebViewConfiguration()
         configuration.userContentController = userContentController
@@ -129,7 +143,9 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
 #endif
 
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        closure?()
+        guard navigation === shellNavigation else { return }
+        shellReady = true
+        displayPendingBody()
     }
 
     public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -175,7 +191,8 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
             for image in images {
                 let localPath = image.replacingOccurrences(of: "<img src=\"", with: "").dropLast()
 
-                guard !localPath.starts(with: "http://") && !localPath.starts(with: "https://") else { continue }
+                guard !localPath.starts(with: "http://"), !localPath.starts(with: "https://"),
+                      !localPath.starts(with: "data:") else { continue }
 
                 let localPathClean = localPath.removingPercentEncoding ?? String(localPath)
                 let fullImageURL = imagesStorage
@@ -212,49 +229,90 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
     }
 
     public func load(note: Note, force: Bool = false) {
-        /// Do not re-load already loaded view
         guard self.note != note || force else { return }
         self.note = note
+        generation += 1
+        let token = generation
+        renderQueue.cancelAllOperations()
+        pendingBody = nil
+        // Ignore events from the previous note while its replacement is prepared.
+        checkboxHandler.note = nil
+        openHandler.note = nil
+        scrollHandler.note = nil
 
-        let markdownString = note.getPrettifiedContent()
+        guard let baseURL = Bundle.main.url(forResource: "MPreview", withExtension: "bundle"),
+              let shell = try? Self.htmlFromTemplate("") else { return }
+        if shellHTML != shell {
+            shellHTML = shell
+            shellReady = false
+            shellNavigation = loadHTMLString(shell, baseURL: baseURL)
+        }
 
-        if let urls = note.imageUrl, urls.count > 0 {
-            cleanCache()
-
-            let dst = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("wkPreview")
-
-            if let i = MPreviewView.buildPage(for: note, at: dst) {
-                if getppid() != 1 {
-                    print("Web view loaded from: \(i)")
-                }
-
-                let accessURL = i.deletingLastPathComponent()
-                loadFileURL(i, allowingReadAccessTo: accessURL)
+        // Copy only mutable model data here. Parsing, transformations and local
+        // image I/O run on the serial worker, never against the live note.
+        let content = note.content.mutableCopy() as! NSMutableAttributedString
+        let codeRanges = note.codeBlockRangesCache
+        let directory = note.getURL().deletingLastPathComponent()
+        let operation = BlockOperation()
+        operation.addExecutionBlock { [weak self, weak operation] in
+            guard operation?.isCancelled == false else { return }
+            let body: String? = autoreleasepool {
+                let markdown = Note.prettifiedContent(content: content, codeBlockRanges: codeRanges)
+                guard operation?.isCancelled == false,
+                      let html = renderMarkdownHTML(markdown: markdown) else { return nil }
+                return PreviewImages.render(html, relativeTo: directory, exportDirectory: directory, forWeb: false)
             }
+            guard operation?.isCancelled == false, let body = body else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self, token == self.generation, let note = self.note else { return }
+                // Attachment labels use platform drawing APIs, so prepare those on the UI thread.
+                self.pendingBody = (Self.loadAttachments(html: body, note: note), token)
+                self.displayPendingBody()
+            }
+        }
+        renderQueue.addOperation(operation)
+    }
+
+    private func displayPendingBody() {
+        guard shellReady, let pending = pendingBody, pending.generation == generation else { return }
+        pendingBody = nil
+        let token = pending.generation
+        let point = note?.contentOffsetWeb ?? .zero
+        // Enable note actions and position recording after the replacement is laid out.
+        callAsyncJavaScript("return await window.renderPreview(body, generation, x, y);",
+                            arguments: ["body": pending.html, "generation": token, "x": point.x, "y": point.y],
+                            in: nil, in: .page) { [weak self] result in
+            guard let self = self, token == self.generation else { return }
+            switch result {
+            case .success(let rendered) where rendered as? Bool == true:
+                self.checkboxHandler.note = self.note
+                self.openHandler.note = self.note
+                self.scrollHandler.note = self.note
+                self.closure?()
+            case .failure(let error):
+                NSLog("Preview rendering: %@", error.localizedDescription)
+            default: break
+            }
+        }
+    }
+
+    override func stopLoading() {
+        generation += 1
+        renderQueue.cancelAllOperations()
+        pendingBody = nil
+        checkboxHandler.note = nil
+        openHandler.note = nil
+        scrollHandler.note = nil
+        if shellReady {
+            evaluateJavaScript("window.cancelPreview(\(generation))", completionHandler: nil)
         } else {
-            var htmlString = renderMarkdownHTML(markdown: markdownString)!
-            htmlString = MPreviewView.loadAttachments(html: htmlString, note: note)
-
-            if let pageHTMLString = try? MPreviewView.htmlFromTemplate(htmlString),
-               let baseURL = Bundle.main.url(forResource: "MPreview", withExtension: "bundle") {
-                loadHTMLString(pageHTMLString, baseURL: baseURL)
-            }
+            shellHTML = nil
+            shellNavigation = nil
         }
+        super.stopLoading()
     }
 
-    public func cleanCache() {
-        URLCache.shared.removeAllCachedResponses()
-
-        DispatchQueue.global(qos: .background).async {
-            HTTPCookieStorage.shared.removeCookies(since: Date.distantPast)
-        }
-
-        WKWebsiteDataStore.default().fetchDataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes()) { records in
-            records.forEach { record in
-                WKWebsiteDataStore.default().removeData(ofTypes: record.dataTypes, for: [record], completionHandler: {})
-            }
-        }
-    }
+    deinit { renderQueue.cancelAllOperations() }
 
     public static func getMathJaxJS() -> String {
         if !UserDefaultsManagement.mathJaxPreview {
@@ -405,7 +463,8 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
         let bundle = Bundle(url: url)
         let baseURL = bundle!.url(forResource: "index", withExtension: "html")!
 
-        var template = try String(contentsOf: baseURL, encoding: .utf8)
+        if Self.template == nil { Self.template = try String(contentsOf: baseURL, encoding: .utf8) }
+        var template = Self.template!
         var platform = String()
         var appearance = String()
 
@@ -648,7 +707,12 @@ class MPreviewView: WKWebView, WKUIDelegate, WKNavigationDelegate {
     }
 
     public func clean() {
-        loadHTMLString("", baseURL: nil)
+        stopLoading()
+        note = nil
+        checkboxHandler.note = nil
+        openHandler.note = nil
+        scrollHandler.note = nil
+        if shellReady { evaluateJavaScript("document.body.replaceChildren()", completionHandler: nil) }
     }
 
     private static func computeDefaultLineHeight(for font: Font, lineHeightMultiple: CGFloat = 1.0) -> CGFloat {
@@ -673,7 +737,7 @@ class HandlerSelection: NSObject, WKScriptMessageHandler {
 }
 
 class HandlerCheckbox: NSObject, WKScriptMessageHandler {
-    private var note: Note?
+    weak var note: Note?
 
     init(note: Note) {
         self.note = note
@@ -735,7 +799,7 @@ class HandlerClipboard: NSObject, WKScriptMessageHandler {
 }
 
 class HandlerOpen: NSObject, WKScriptMessageHandler {
-    private var note: Note?
+    weak var note: Note?
 
     init(note: Note) {
         self.note = note
@@ -788,7 +852,7 @@ class HandlerQuickLook: NSObject, WKScriptMessageHandler {
 }
 
 final class PreviewScrollHandler: NSObject, WKScriptMessageHandler {
-    private var note: Note?
+    weak var note: Note?
 
     init(note: Note) {
         self.note = note

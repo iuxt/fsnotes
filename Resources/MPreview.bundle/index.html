@@ -19,8 +19,6 @@
     {MATH_JAX_JS}
     
     <script charset="utf-8" src="{WEB_PATH}js/highlight.min.js" type="text/javascript"></script>
-    <script>hljs.initHighlightingOnLoad();</script>
-    <script async src="{WEB_PATH}js/mermaid.min.js"></script>
     
     <script>
         (function () {
@@ -37,7 +35,9 @@
                     const x = window.scrollX || document.documentElement.scrollLeft;
                     const y = window.scrollY || document.documentElement.scrollTop;
 
-                    window.webkit.messageHandlers.scrollPosition.postMessage({ x, y });
+                    if ({FSNOTES_PREVIEW} && window.webkit && window.webkit.messageHandlers) {
+                        window.webkit.messageHandlers.scrollPosition.postMessage({ x, y });
+                    }
                     ticking = false;
                 });
             }
@@ -255,61 +255,46 @@
         }
         
         let loadTOC = () => {
-            var toc = "";
-            var level = 0;
+            const headings = document.querySelectorAll('#preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6');
+            const toc = document.getElementById('toc');
+            const parts = [];
+            let level = 0;
+            headings.forEach(heading => {
+                const nextLevel = Number(heading.tagName.slice(1));
+                const anchor = encodeURIComponent(heading.textContent.replace(/ /g, '_'));
+                if (!heading.id) heading.id = anchor;
+                if (!toc) return;
+                if (nextLevel > level) parts.push('<ul>'.repeat(nextLevel - level));
+                if (nextLevel < level) parts.push('</ul>'.repeat(level - nextLevel));
+                level = nextLevel;
+                const link = document.createElement('a');
+                link.href = '#' + heading.id;
+                link.textContent = heading.textContent;
+                parts.push('<li>' + link.outerHTML + '</li>');
+            });
+            if (toc) toc.innerHTML = parts.join('') + '</ul>'.repeat(level);
+        };
 
-            document.getElementById("preview").innerHTML =
-                document.getElementById("preview").innerHTML.replace(
-                    /<h([\d])>([^<]+)<\/h([\d])>/gi,
-                    function (str, openLevel, titleText, closeLevel) {
-                        if (openLevel != closeLevel) {
-                            return str;
-                        }
-
-                        if (openLevel > level) {
-                            toc += (new Array(openLevel - level + 1)).join("<ul>");
-                        } else if (openLevel < level) {
-                            toc += (new Array(level - openLevel + 1)).join("</ul>");
-                        }
-
-                        level = parseInt(openLevel);
-
-                        var anchor = encodeURIComponent(titleText.replace(/ /g, "_"));
-                        toc += "<li><a href=\"#" + anchor + "\">" + titleText
-                            + "</a></li>";
-
-                        return "<h" + openLevel + " id=\"" + anchor + "\">"
-                            + titleText + "</h" + closeLevel + ">";
-                    }
-                );
-
-            if (level) {
-                toc += (new Array(level + 1)).join("</ul>");
+        let mermaidLoader;
+        let loadMemaid = async () => {
+            const diagrams = document.querySelectorAll('.language-mermaid');
+            if (!diagrams.length) return;
+            if (!mermaidLoader) {
+                mermaidLoader = new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = '{WEB_PATH}js/mermaid.min.js';
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
             }
-
-            var tocEl = document.getElementById("toc")
-            if (tocEl != null) {
-                document.getElementById("toc").innerHTML += toc;
-            }
-        }
-        
-        let loadMemaid = () => {
-            let mermaidTheme = 'default';
-            if ('{FSNOTES_APPEARANCE}' == 'darkmode') {
-                mermaidTheme = 'dark';
-            }
-
-            var config = {
-                startOnLoad: true,
-                theme: mermaidTheme,
-                flowchart: {
-                    useMaxWidth: true,
-                    htmlLabels: true
-                }
-            };
-
-            mermaid.initialize(config);
-            window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'));
+            await mermaidLoader;
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: document.documentElement.classList.contains('darkmode') ? 'dark' : 'default',
+                flowchart: { useMaxWidth: true, htmlLabels: true }
+            });
+            await mermaid.init(undefined, diagrams);
         };
 
         let loadAttachments = () => {
@@ -325,16 +310,62 @@
             }
         };
 
-        window.onload = function () {
-            loadTOC()
-            loadCheckboxStyle()
-            loadCheckboxActions()
-            loadListStyle()
-            loadAHover()
-            loadCodeActions()
-            loadMemaid()
-            loadAttachments()
-            addLocalAHrefEvent()
+        let previewGeneration = 0;
+        let rendering = Promise.resolve();
+        const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
+
+        async function initializePreview(generation) {
+            loadTOC();
+            loadCheckboxStyle();
+            loadCheckboxActions();
+            loadListStyle();
+            loadAHover();
+            loadCodeActions();
+            loadAttachments();
+            addLocalAHrefEvent();
+            let started = performance.now();
+            for (const code of document.querySelectorAll('pre > code:not(.language-mermaid)')) {
+                if (generation !== previewGeneration) return false;
+                hljs.highlightBlock(code);
+                if (performance.now() - started > 8) {
+                    await yieldToBrowser();
+                    started = performance.now();
+                }
+            }
+            try { await loadMemaid(); } catch (error) { console.error('Diagram rendering:', error); }
+            if (generation !== previewGeneration) return false;
+            if (window.MathJax && MathJax.startup) {
+                await MathJax.startup.promise;
+                if (generation !== previewGeneration) return false;
+                await MathJax.typesetPromise([document.body]);
+            }
+            return generation === previewGeneration;
+        }
+
+        window.cancelPreview = generation => { previewGeneration = generation; };
+
+        // Keep the document and loaded libraries alive when switching notes.
+        window.renderPreview = (body, generation, x, y) => {
+            previewGeneration = generation;
+            rendering = rendering.catch(console.error).then(async () => {
+                if (generation !== previewGeneration) return false;
+                if (window.MathJax && MathJax.typesetClear) MathJax.typesetClear([document.body]);
+                document.body.innerHTML = body;
+                if (!await initializePreview(generation)) return false;
+                // Complete even when WebKit suspends animation frames in a hidden window.
+                await yieldToBrowser();
+                if (generation !== previewGeneration) return false;
+                window.scrollTo(x, y);
+                return true;
+            });
+            return rendering;
+        };
+
+        window.onload = () => {
+            // Exported pages already contain their body. Native previews receive it from Swift.
+            if (document.body.children.length) {
+                rendering = initializePreview(previewGeneration).catch(console.error);
+            }
         };
     </script>
 </head>

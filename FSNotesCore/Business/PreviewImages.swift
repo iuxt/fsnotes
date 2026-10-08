@@ -2,13 +2,15 @@ import Foundation
 import UniformTypeIdentifiers
 
 enum PreviewImages {
+    private static let sourceRegex = try! NSRegularExpression(pattern: #"<img\b[^>]*?\ssrc\s*=\s*(["'])(.*?)\1"#,
+                                                             options: [.caseInsensitive, .dotMatchesLineSeparators])
+
     /// Embed local images in previews; exported pages use files inside their own i/.
     static func render(_ html: String, relativeTo directory: URL,
                        exportDirectory: URL, forWeb: Bool) -> String {
-        let regex = try! NSRegularExpression(pattern: #"<img\b[^>]*?\ssrc\s*=\s*(["'])(.*?)\1"#,
-                                             options: [.caseInsensitive, .dotMatchesLineSeparators])
+        var renderedImages: [URL: String] = [:]
         let result = NSMutableString(string: html)
-        for match in regex.matches(in: html, range: NSRange(html.startIndex..., in: html)).reversed() {
+        for match in sourceRegex.matches(in: html, range: NSRange(html.startIndex..., in: html)).reversed() {
             let range = match.range(at: 2)
             let source = (html as NSString).substring(with: range)
                 .replacingOccurrences(of: "&quot;", with: "\"")
@@ -20,6 +22,10 @@ enum PreviewImages {
                   let path = components.percentEncodedPath.removingPercentEncoding, !path.isEmpty else { continue }
             let image = directory.appendingPathComponent(path).standardizedFileURL
             guard let type = UTType(filenameExtension: image.pathExtension), type.conforms(to: .image) else { continue }
+            if let cached = renderedImages[image] {
+                result.replaceCharacters(in: range, with: cached)
+                continue
+            }
             var replacement = ""
             if let data = try? Data(contentsOf: image) {
                 if forWeb {
@@ -35,6 +41,7 @@ enum PreviewImages {
                     replacement = "data:\(mime);base64," + data.base64EncodedString()
                 }
             }
+            renderedImages[image] = replacement
             result.replaceCharacters(in: range, with: replacement)
         }
         return result as String

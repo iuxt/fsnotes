@@ -14,7 +14,6 @@ extension EditTextView {
     func updateTableEditors() {
         updateCodeCopyButtons()
         guard let manager = layoutManager as? LayoutManager, let container = textContainer else { return }
-        manager.ensureLayout(for: container)
         let starts = Set(manager.inlineTables.map { $0.range.location })
         for (start, view) in tableEditorViews where !starts.contains(start) || view.note !== note {
             view.finishEditing(returnToEditor: false)
